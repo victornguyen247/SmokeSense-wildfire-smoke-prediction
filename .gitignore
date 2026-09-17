@@ -1,0 +1,32 @@
+# --- Env / secrets ---
+.env
+*.env
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-error.log*
+
+# --- Data & model artifacts (keep samples/ committed) ---
+backend/data/raw/
+backend/data/processed/
+backend/ml/artifacts/
+!backend/data/samples/
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
