@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        # Local Docker Postgres has no TLS; add ?sslmode=require only for hosted DBs.
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -52,6 +53,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Cached accessor so the env file is parsed once per process."""
     return Settings()
+
 
 
 settings = get_settings()

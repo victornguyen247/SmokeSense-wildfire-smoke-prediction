@@ -1,12 +1,15 @@
 services:
   db:
     image: postgis/postgis:16-3.4
+    # Apple Silicon runs this amd64 image via emulation.
+    platform: linux/amd64
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-smokesense}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smokesense}
       POSTGRES_DB: ${POSTGRES_DB:-smokesense}
+    # Host 5433 avoids clashing with a local Postgres already on 5432.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,8 +20,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Host 6380 avoids clashing with a local Redis already on 6379.
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -29,6 +33,7 @@ services:
     build:
       context: ./backend
       dockerfile: ../infra/docker/backend.Dockerfile
+    # 0.0.0.0 is required so published ports are reachable from the host.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
       - ./backend/.env
@@ -61,7 +66,7 @@ services:
     build:
       context: ./frontend
       dockerfile: ../infra/docker/frontend.Dockerfile
-    command: npm run dev -- --host 0.0.0.0
+    command: npm run dev -- --host 0.0.0.0 --port 5173
     env_file:
       - ./frontend/.env
     volumes:
