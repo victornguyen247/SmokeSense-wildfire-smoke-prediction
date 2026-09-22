@@ -1,6 +1,10 @@
 # --- Env / secrets ---
+# `.env` and `*.env` miss suffixed variants (.env.local, .env.production) and
+# backups (.env.bak), which are the ones that actually leak. `.env.*` covers them;
+# the negation keeps the committed templates visible.
 .env
 *.env
+.env.*
 !.env.example
 
 # --- Python ---
