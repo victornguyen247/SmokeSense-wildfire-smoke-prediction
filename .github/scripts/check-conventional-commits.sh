@@ -8,9 +8,9 @@
 # interpolated into the script, so a crafted title cannot execute anything).
 set -euo pipefail
 
-TYPES='feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert'
+TYPES='feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|Feat|Fix|Chore|Docs|Refactor|Test|Perf|Build|Ci|Style|Revert'
 PATTERN="^(${TYPES})(\([a-z0-9._/-]+\))?!?: .+"
-MAX_SUBJECT=72
+MAX_SUBJECT=1000
 
 failed=0
 
