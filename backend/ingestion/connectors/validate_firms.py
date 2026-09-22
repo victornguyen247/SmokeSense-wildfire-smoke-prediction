@@ -52,6 +52,12 @@ CONUS_BBOX = "-125,24,-66.5,49.5"
 
 SOURCE = "VIIRS_SNPP_NRT"
 
+# First columns of a successful area-endpoint CSV. A valid response always starts
+# with this header, so asserting it positively is the only reliable success test —
+# FIRMS reports every failure as plain prose under HTTP 200.
+# Note the country endpoint leads with `country_id` instead; this is the area one.
+CSV_HEADER_PREFIX = "latitude,longitude"
+
 # day_range counts back from the current UTC day, and range 1 means "today (UTC)
 # so far" — routinely empty in the early UTC hours, which reads like a broken key.
 # 2 covers today plus yesterday and reliably returns detections.
@@ -75,14 +81,15 @@ def check() -> None:
 
     # FIRMS answers an unusable MAP_KEY with HTTP 200 and a plain-text message,
     # so a 2xx alone does not prove the key works — inspect the body.
-    if not body.lower().startswith("country_id,latitude") and "," not in body.split("\n")[0]:
-        raise ValidationError(
-            f"FIRMS returned a message instead of CSV: {body[:300]}\n"
-            "  An invalid or over-quota MAP_KEY shows up here rather than as an HTTP error."
-        )
+    # Specific diagnosis first, then the catch-all header assertion.
     if "invalid" in body[:200].lower() and "map_key" in body[:200].lower():
         raise ValidationError(
             f"FIRMS rejected the MAP_KEY: {body[:300]}\n  Request a key at {HOW_TO_GET}"
+        )
+    if not body.lower().startswith(CSV_HEADER_PREFIX):
+        raise ValidationError(
+            f"FIRMS returned a message instead of CSV: {body[:300]}\n"
+            "  An invalid or over-quota MAP_KEY shows up here rather than as an HTTP error."
         )
 
     rows = list(csv.DictReader(io.StringIO(body)))

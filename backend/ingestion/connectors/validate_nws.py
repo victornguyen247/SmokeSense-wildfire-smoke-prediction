@@ -23,6 +23,7 @@ try:
     from ._common import (
         TIMEOUT,
         ValidationError,
+        mask,
         preview_rows,
         report_response,
         require_env,
@@ -34,6 +35,7 @@ except ImportError:  # also runnable as a plain file path
     from _common import (  # type: ignore[no-redef]
         TIMEOUT,
         ValidationError,
+        mask,
         preview_rows,
         report_response,
         require_env,
@@ -47,9 +49,11 @@ BASE_URL = "https://api.weather.gov"
 SAMPLE_LAT = 38.5816
 SAMPLE_LON = -121.4944
 
+# The example deliberately avoids example.com: _common._PLACEHOLDER_MARKERS
+# rejects that domain, so suggesting it here would loop the user on the error.
 HOW_TO_GET = (
-    "no registration; set any descriptive identifier with a contact, "
-    "e.g. 'SmokeSense (you@example.com)'"
+    "no registration; set any descriptive identifier with a real contact, "
+    "e.g. 'SmokeSense (dev@smokesense.local)' — example.com is rejected as a placeholder"
 )
 
 
@@ -61,11 +65,12 @@ def check() -> None:
             f"NWS_USER_AGENT ({user_agent!r}) has no contact address.\n"
             "  NWS asks for an app identifier plus a way to reach you, so they can "
             "warn you before blocking traffic.\n"
-            "  Example: SmokeSense (you@example.com)"
+            "  Example: SmokeSense (dev@smokesense.local)"
         )
 
     headers = {"User-Agent": user_agent, "Accept": "application/geo+json"}
-    print(f"User-Agent  : {user_agent}")
+    # Masked like every other credential: this value carries a personal email.
+    print(f"User-Agent  : {mask(user_agent)}")
     print(f"Request     : {BASE_URL}/points/{SAMPLE_LAT},{SAMPLE_LON}\n")
 
     with httpx.Client(headers=headers, timeout=TIMEOUT, follow_redirects=True) as client:

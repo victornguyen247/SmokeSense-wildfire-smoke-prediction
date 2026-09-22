@@ -87,10 +87,12 @@ FIRMS data is open and free. NASA asks for acknowledgement in publications and p
 **User-Agent format.** NWS asks for an application identifier *and* a contact address, so they can warn you before blocking traffic:
 
 ```
-SmokeSense (you@example.com)
+SmokeSense (dev@smokesense.local)
 ```
 
-A bare email works, but the app-name form is what the docs ask for. Our validation script rejects a value with no `@` in it.
+Use an address someone actually reads — NWS uses it to warn you before blocking traffic.
+
+A bare email works, but the app-name form is what the docs ask for. Our validation script rejects a value with no `@` in it. It also rejects anything containing **`example.com`**, which is the natural first guess: that domain is one of the placeholder markers in `_common.py`, there to catch an `.env` copied from `.env.example` and never filled in.
 
 **Point forecasts take two calls.** `/points/{lat},{lon}` resolves a coordinate to a forecast grid and returns URLs in `properties`:
 
