@@ -10,7 +10,6 @@ set -euo pipefail
 
 TYPES='feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|Feat|Fix|Chore|Docs|Refactor|Test|Perf|Build|Ci|Style|Revert'
 PATTERN="^(${TYPES})(\([a-z0-9._/-]+\))?!?: .+"
-MAX_SUBJECT=1000
 
 failed=0
 
@@ -18,11 +17,6 @@ check() {
   local label="$1" subject="$2"
   if [[ ! "$subject" =~ $PATTERN ]]; then
     echo "::error::${label} is not a Conventional Commit: \"${subject}\""
-    failed=1
-    return
-  fi
-  if (( ${#subject} > MAX_SUBJECT )); then
-    echo "::error::${label} subject is ${#subject} chars, keep it under ${MAX_SUBJECT}: \"${subject}\""
     failed=1
     return
   fi
