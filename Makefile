@@ -1,11 +1,17 @@
-.PHONY: up down build logs migrate revision seed test lint fmt
+.PHONY: up up-d down build logs migrate revision seed test lint fmt db-check env protect
+
+# Create local env files from the templates (safe to re-run; never overwrites).
+env:
+	@for f in .env backend/.env frontend/.env; do \
+		if [ -f "$$f" ]; then echo "keep  $$f"; else cp "$$f.example" "$$f"; echo "write $$f"; fi; \
+	done
 
 # Start the full local stack (db, redis, backend, worker, frontend).
-up:
+up: env
 	docker compose up
 
 # Start in the background.
-up-d:
+up-d: env
 	docker compose up -d
 
 down:
@@ -37,3 +43,11 @@ lint:
 
 fmt:
 	docker compose exec backend ruff format .
+
+# Verify the dev database really has PostGIS enabled.
+db-check:
+	docker compose exec -T db psql -U $${POSTGRES_USER:-smokesense} -d $${POSTGRES_DB:-smokesense} -c "SELECT postgis_full_version();"
+
+# --- Repo administration (needs an authenticated gh CLI with admin rights) ---
+protect:
+	./scripts/setup-branch-protection.sh

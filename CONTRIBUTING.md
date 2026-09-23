@@ -82,6 +82,10 @@ docs: document the ML data-split rule
 
 Keep the subject line under ~72 characters. Add a body below a blank line when the change needs explanation (what and why, not how).
 
+Allowed types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `style`, `revert`. An optional scope is allowed: `fix(ingest): ...`.
+
+**This is enforced by CI.** The `Conventional Commits` job checks every commit in the PR *and* the PR title (the title becomes the commit subject when a PR is squash-merged). If it fails, reword with `git rebase -i <base>` and force-push your branch.
+
 ---
 
 ## 3. Pull requests
@@ -99,7 +103,11 @@ Keep the subject line under ~72 characters. Add a body below a blank line when t
 A PR can merge into `dev` when **both** are true:
 
 1. **At least one approval** from another teammate.
-2. **CI is green** — lint and tests pass. (See [Continuous integration](#5-continuous-integration) — this is being set up; until it runs, reviewers verify manually.)
+2. **CI is green** — all required checks pass. (See [Continuous integration](#5-continuous-integration).)
+
+Both are enforced by branch protection on `dev` and `prod`: direct pushes are rejected, a new commit dismisses stale approvals, the branch must be up to date with its base, and conversations must be resolved. The rules apply to admins too.
+
+Opening a PR fills in the [PR template](.github/pull_request_template.md) — keep the checklists and tick them as you go.
 
 ### PR size
 
@@ -144,14 +152,31 @@ Reviews are about the code, not the person. Ask questions, suggest, and approve 
 
 ## 5. Continuous integration
 
-> **Status: not yet set up.** A ready-to-use workflow is included at `.github/workflows/ci.yml`. One person should wire it up early (it's a good `chore/` first PR). Until it runs, "green CI" is verified manually by the reviewer.
+CI lives in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and runs on every PR into `dev` or `prod`, and on pushes to those branches. All four jobs are required to merge:
 
-Once enabled, CI runs on every PR to `dev` and `prod` and must pass before merge. It checks:
+| Check | What it does |
+|---|---|
+| `Conventional Commits` | Every commit subject and the PR title match the commit convention |
+| `Backend (lint + test)` | `ruff check .` and `pytest` in `backend/` |
+| `Frontend (lint + build)` | `npm run lint` and `npm run build` in `frontend/` |
+| `Docker Compose (db + redis)` | Brings up Postgres+PostGIS and Redis and verifies PostGIS is enabled |
 
-- **Backend:** `ruff` (lint) and `pytest`.
-- **Frontend:** `npm run lint` and `npm run build`.
+Dependencies are cached (pip and npm) so feedback stays fast, and a new push cancels the previous run on the same PR.
+
+**Secrets** live in GitHub Actions secrets (repo → Settings → Secrets and variables → Actions), never in the workflow file or the repo. CI needs no API keys today; if a job ever does, reference it as `${{ secrets.NAME }}` and add a placeholder to `.env.example`.
 
 Keeping CI green is a shared responsibility. If your change breaks it, fixing it is part of the change.
+
+### Branch protection
+
+The rules on `dev` and `prod` are scripted, not clicked, so they can be reviewed and re-applied:
+
+```bash
+gh auth login                        # needs admin rights on the repo
+make protect                         # ./scripts/setup-branch-protection.sh
+```
+
+Re-run it whenever a required check is added or renamed — the check names in the script must match the job `name:` values in the workflow exactly, or the rule silently never matches.
 
 ---
 

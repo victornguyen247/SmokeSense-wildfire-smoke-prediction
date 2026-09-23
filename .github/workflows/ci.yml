@@ -7,7 +7,32 @@ on:
   push:
     branches: [dev, prod]
 
+# A new push to the same PR cancels the previous run — faster feedback, fewer wasted minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
+  commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the PR's commit range can be walked.
+          fetch-depth: 0
+
+      - name: Check commit subjects and PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/check-conventional-commits.sh
+
   backend:
     name: Backend (lint + test)
     runs-on: ubuntu-latest
@@ -21,6 +46,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -49,8 +75,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (eslint)
+      - name: Lint (oxlint)
         run: npm run lint
 
       - name: Build
         run: npm run build
+
+  compose:
+    name: Docker Compose (db + redis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create env files from templates
+        run: |
+          cp .env.example .env
+          cp backend/.env.example backend/.env
+          cp frontend/.env.example frontend/.env
+
+      - name: Start Postgres + Redis
+        run: docker compose up -d --wait db redis
+
+      - name: Verify PostGIS extension is enabled
+        run: docker compose exec -T db psql -U smokesense -d smokesense -c "SELECT postgis_full_version();"
+
+      - name: Verify Redis responds
+        run: docker compose exec -T redis redis-cli ping
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
