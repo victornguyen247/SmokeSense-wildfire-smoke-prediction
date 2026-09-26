@@ -19,7 +19,7 @@ These apply to every table and column. Violations require reviewer sign-off.
 | **Source IDs** | Every externally ingested row stores the provider's own identifier in `external_id` for idempotent deduplication. |
 | **Experimental label** | Every `forecasts` row carries `is_experimental = TRUE`, enforced as a CHECK constraint. Never present model output as an official warning. |
 | **No raw archives in Postgres** | Raw API snapshots go to `data/raw/` on disk (S3 in production). Postgres holds only normalized, validated rows. |
-| **Primary keys** | **UUIDv7** (time-ordered, non-guessable) for all tables. Better B-tree performance on high-insert time-series tables than random v4. Generate in application layer until PostgreSQL 18 is available. |
+| **Primary keys** | **UUIDv7** (time-ordered, non-guessable) for every table with a surrogate `id`. Better B-tree performance on high-insert tables than random v4. Generate in application layer until PostgreSQL 18 is available. Exceptions use a natural key: `observations`, `weather_observations`, `weather_forecasts`, `monitor_daily_pm25` (composite keys), `point_weather_map` (`forecast_point_id`), `model_versions` (`model_key`), `zip_codes` (`zcta`). |
 | **Value lists** | `TEXT + CHECK` constraints instead of Postgres ENUMs. ENUMs are difficult to evolve in Alembic (can't remove values; adding has transaction caveats). Sensor/satellite lists grow as new platforms launch. |
 | **Stored AQI categories** | Never stored on rows — computed at read time using `shared/aqi.py`. EPA revised PM2.5 AQI breakpoints in 2024 (Good/Moderate cutoff moved from 12.0 to 9.0 µg/m³); stored categories go stale. |
 | **Soft-delete** | Reference rows are never hard-deleted. Set `active = FALSE` instead. |
@@ -42,7 +42,7 @@ The daily job order is strict: **(1) build `monitor_daily_pm25`, (2) run `foreca
 | `forecast_points` (ad-hoc) | Deactivated after 90 days without requests | Celery UPDATE |
 | Everything else | Forever | — |
 
-Partitioned tables use `pg_partman` for daily range partitioning on `valid_at` / `detected_at`. Dropping a partition is instant and leaves no bloat — a `DELETE WHERE valid_at < now() - interval` on a hot table causes constant dead tuples and autovacuum churn.
+Partitioned tables use **native Postgres daily range partitioning** (UTC days) on `valid_at` / `detected_at` — no `pg_partman`, so the stock `postgis/postgis` image is enough. The migration creates a `create_daily_partitions(parent, from, to)` SQL function, a `<table>_default` catch-all partition, and `<table>_pYYYYMMDD` partitions covering the table's retention window back from today (so the first ingestion backfill lands in real partitions) plus a few days ahead. The daily Celery job calls `create_daily_partitions()` to keep partitions ahead of incoming data (`weather_forecasts` needs ~8 days ahead because NWS forecasts run ~7 days out) and drops expired ones. Rows should never accumulate in `<table>_default`: Postgres refuses to create a day's partition if that day already has rows in DEFAULT. Dropping a partition is instant and leaves no bloat — a `DELETE WHERE valid_at < now() - interval` on a hot table causes constant dead tuples and autovacuum churn.
 
 ---
 
@@ -56,7 +56,7 @@ cities ────────────────────────�
   ▼                                                                  ▼
 forecast_points ──── 1:many ──► forecasts ──── FK ──► model_versions
   │                                │
-  │ via point_weather_map          │ 1:many
+  │ via point_weather_map          │ values copied (no FK — survives 30-day trim)
   ▼                                ▼
 weather_observations          forecast_verifications
 weather_forecasts (via grid)
@@ -163,7 +163,7 @@ Air quality stations — AirNow regulatory and PurpleAir low-cost sensors. Each 
 
 ## 2. Live Time-Series Tables (Partitioned)
 
-All tables in this section use **daily range partitioning** on their primary time column via `pg_partman`. Old partitions are dropped by the daily Celery job *after* rollups are built.
+All tables in this section use **daily range partitioning** on their primary time column (native Postgres partitioning — see Retention Policy). Old partitions are dropped by the daily Celery job *after* rollups are built.
 
 ---
 
@@ -203,11 +203,11 @@ FIRMS CSV/API rows carry no stable per-detection identifier, so `external_id` is
 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
-| `id` | TEXT | PK | UUIDv7 |
+| `id` | TEXT | PK (with `detected_at`) | UUIDv7 |
 | `external_id` | TEXT | NOT NULL | Hash of satellite+lat+lon+time — dedup key |
 | `satellite` | TEXT | NOT NULL, CHECK IN ('MODIS_Terra','MODIS_Aqua','VIIRS_SNPP','VIIRS_NOAA20','VIIRS_NOAA21') | Splits MODIS Terra and Aqua, which have different overpass times |
 | `product` | TEXT | NOT NULL, CHECK IN ('URT','RT','NRT','SP') | URT/RT/NRT = live. SP = archive (standard processing). Training uses SP; live inference sees NRT/URT. Track skew. |
-| `geom` | GEOGRAPHY(POINT,4326) | NOT NULL | Pixel centre. **Partition key** (on `detected_at`). |
+| `geom` | GEOGRAPHY(POINT,4326) | NOT NULL | Pixel centre |
 | `detected_at` | TIMESTAMPTZ | NOT NULL | UTC — satellite overpass time. **Partition key.** |
 | `received_at` | TIMESTAMPTZ | NOT NULL | UTC — when connector fetched it |
 | `ingested_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
@@ -219,7 +219,9 @@ FIRMS CSV/API rows carry no stable per-detection identifier, so `external_id` is
 | `track_km` | FLOAT | CHECK (track_km > 0) | Pixel height in km |
 | `daynight` | TEXT | CHECK IN ('D','N') | Day or night overpass |
 
-**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (satellite, external_id)`, `GiST (geom)`, `INDEX (detected_at DESC)`
+**Indexes:** `PRIMARY KEY (id, detected_at)`, `UNIQUE (satellite, external_id, detected_at)`, `GiST (geom)`, `INDEX (detected_at DESC)`
+
+**Partitioning note:** Postgres requires every primary key and unique index on a partitioned table to include the partition key, so `detected_at` is part of both. Because a detection's `detected_at` never changes, `(satellite, external_id, detected_at)` still dedups the same detection.
 
 ---
 
