@@ -377,8 +377,6 @@ def upgrade() -> None:
             pm25_upper              FLOAT       CHECK (pm25_upper >= 0),
             nearest_monitor_dist_km FLOAT       CHECK (nearest_monitor_dist_km > 0),
             is_shadow               BOOLEAN     NOT NULL DEFAULT FALSE,
-            is_experimental         BOOLEAN     NOT NULL DEFAULT TRUE
-                                        CHECK (is_experimental),
             feature_snapshot        JSONB,
 
             -- target_time must equal issued_at + horizon; DB-enforced, not just documented
@@ -433,9 +431,7 @@ def upgrade() -> None:
             horizon_hours           INT,
             model_key               TEXT        NOT NULL,
             -- nullable FK: becomes NULL when forecasts row is trimmed at 30 days
-            latest_forecast_id      TEXT        REFERENCES forecasts(id) ON DELETE SET NULL,
-            is_experimental         BOOLEAN     NOT NULL DEFAULT TRUE
-                                        CHECK (is_experimental)
+            latest_forecast_id      TEXT        REFERENCES forecasts(id) ON DELETE SET NULL
         )
     """)
     op.execute("CREATE INDEX ix_alerts_point_triggered  ON alerts (forecast_point_id, first_triggered_at DESC)")
