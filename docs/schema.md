@@ -17,7 +17,7 @@ These apply to every table and column. Violations require reviewer sign-off.
 | **Coordinate system** | `GEOGRAPHY(POINT, 4326)` — WGS-84. Never bare lat/lon floats for spatial queries. |
 | **Spatial indexes** | Every `GEOGRAPHY` column has a **GiST index**. Alembic autogenerate misses these — add by hand in the migration. |
 | **Source IDs** | Every externally ingested row stores the provider's own identifier in `external_id` for idempotent deduplication. |
-| **Experimental label** | Every `forecasts` row carries `is_experimental = TRUE`, enforced as a CHECK constraint. Never present model output as an official warning. |
+| **Experimental label** | All forecasts and alerts are experimental model output, so there is no DB flag for it. The label is a frontend responsibility: the forecast/alert display components and any notification text must say so. Never present model output as an official warning. |
 | **No raw archives in Postgres** | Raw API snapshots go to `data/raw/` on disk (S3 in production). Postgres holds only normalized, validated rows. |
 | **Primary keys** | **UUIDv7** (time-ordered, non-guessable) for every table with a surrogate `id`. Better B-tree performance on high-insert tables than random v4. Generate in application layer until PostgreSQL 18 is available. Exceptions use a natural key: `observations`, `weather_observations`, `weather_forecasts`, `monitor_daily_pm25` (composite keys), `point_weather_map` (`forecast_point_id`), `model_versions` (`model_key`), `zip_codes` (`zcta`). |
 | **Value lists** | `TEXT + CHECK` constraints instead of Postgres ENUMs. ENUMs are difficult to evolve in Alembic (can't remove values; adding has transaction caveats). Sensor/satellite lists grow as new platforms launch. |
@@ -393,7 +393,6 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 | `pm25_upper` | FLOAT | CHECK >= 0 | Upper bound |
 | `nearest_monitor_dist_km` | FLOAT | CHECK > 0 | UI shows lower confidence when large (e.g. >25 km). Copied from `point_weather_map` at write time. |
 | `is_shadow` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = test model run. Never shown to users or used for alerts. |
-| `is_experimental` | BOOLEAN | NOT NULL, DEFAULT TRUE, CHECK (is_experimental) | Always TRUE — DB rejects FALSE. |
 | `feature_snapshot` | JSONB |  | Top 5–10 feature values for the "Why?" panel. Written once, read per forecast. |
 
 **Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
@@ -453,7 +452,6 @@ A partial unique index enforces at most one open alert per point per severity.
 | `horizon_hours` | INT |  | Horizon of the peak forecast |
 | `model_key` | TEXT | NOT NULL | Model that raised the alert — copied at creation |
 | `latest_forecast_id` | TEXT | FK → forecasts(id), nullable, ON DELETE SET NULL | Latest supporting forecast. NULL after 30-day trim — alert survives. |
-| `is_experimental` | BOOLEAN | NOT NULL, DEFAULT TRUE, CHECK (is_experimental) | Always TRUE — alert is based on model prediction, not an official reading |
 
 **Indexes:** `PRIMARY KEY (id)`, `PARTIAL UNIQUE INDEX one_open_alert ON alerts (forecast_point_id, severity) WHERE status = 'open'`, `INDEX (forecast_point_id, first_triggered_at DESC)`, `INDEX (latest_forecast_id)`
 
