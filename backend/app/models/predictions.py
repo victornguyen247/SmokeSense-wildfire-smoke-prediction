@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, false, func, text, true
+from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, false, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,7 +63,6 @@ class Forecast(Base):
         CheckConstraint("pm25_lower >= 0"),
         CheckConstraint("pm25_upper >= 0"),
         CheckConstraint("nearest_monitor_dist_km > 0"),
-        CheckConstraint("is_experimental"),
         CheckConstraint("target_time = issued_at + make_interval(hours => horizon_hours)"),
         Index("ix_forecasts_target_time", "target_time"),
     )
@@ -79,7 +78,6 @@ class Forecast(Base):
     pm25_upper: Mapped[float | None]
     nearest_monitor_dist_km: Mapped[float | None]
     is_shadow: Mapped[bool] = mapped_column(server_default=false())
-    is_experimental: Mapped[bool] = mapped_column(server_default=true())
     feature_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     forecast_point: Mapped["ForecastPoint"] = relationship()
@@ -132,7 +130,6 @@ class Alert(Base):
     __table_args__ = (
         one_of("severity", SEVERITIES),
         one_of("status", ALERT_STATUSES),
-        CheckConstraint("is_experimental"),
         Index("ix_alerts_latest_forecast", "latest_forecast_id"),
         Index(
             "one_open_alert",
@@ -160,7 +157,6 @@ class Alert(Base):
     latest_forecast_id: Mapped[str | None] = mapped_column(
         ForeignKey("forecasts.id", ondelete="SET NULL")
     )
-    is_experimental: Mapped[bool] = mapped_column(server_default=true())
 
     forecast_point: Mapped["ForecastPoint"] = relationship()
     latest_forecast: Mapped["Forecast | None"] = relationship()
