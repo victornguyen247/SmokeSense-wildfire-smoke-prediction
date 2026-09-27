@@ -259,7 +259,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 SP confirmed |
 | **AirNow monitors nearby** | Victor Valley / Crestline area — confirm AQS site IDs and distances during the data check |
 | **PurpleAir density** | Moderate (Victor Valley / Wrightwood) |
-| **NWS grid** | SGX (San Diego) |
+| **NWS grid** | SGX (San Diego — its warning area covers the San Bernardino County mountains and Victor Valley; verified via `api.weather.gov/points`: Wrightwood → SGX zone CAZ055, Victorville → SGX zone CAZ060) |
 | **Why chosen** | Very small fire in the high desert with dry, windy conditions. Despite small acreage, generated localised AQI spikes. Tests the model's ability to detect exceedance from a small fire when atmospheric conditions are right (low humidity, high wind). |
 
 ---
