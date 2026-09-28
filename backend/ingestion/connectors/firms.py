@@ -145,8 +145,8 @@ def normalize_firms_row(
         "NOAA-21": "VIIRS_NOAA21",
 
         # MODIS
-        "TERRA": "MODIS_TERRA",
-        "AQUA": "MODIS_AQUA",
+        "TERRA": "MODIS_Terra",
+        "AQUA": "MODIS_Aqua",
     }
 
     satellite = satellite_map.get(
