@@ -79,14 +79,21 @@ The ingestion run timestamps are also stored as UTC timestamps.
 
 ## Provenance
 
-The POC preserves source/provenance metadata such as:
+The POC preserves source identifiers and timestamps needed to trace
+normalized records back to their provider records.
 
-* Data source
-* External station or detection identifier
-* Source timestamp
-* Station/site information where available
+For AirNow, the normalized data preserves:
+- source (`airnow`)
+- station/external ID
+- station name
+- source observation timestamp (`valid_at`)
 
-The current team decision is **not to store the complete provider response as a raw payload**. Source metadata is retained so that records can be traced back to their provider.
+`normalize_airnow_row()` also computes additional `source_metadata`
+(`agency_name`, `parameter`, and related source fields) for validation,
+but these fields are not persisted because the current PM-01 schema does
+not provide a dedicated provenance metadata column. Persisting those
+additional fields is out of scope for DATA-02 and can be addressed in a
+future schema revision if required.
 
 ## Idempotency
 

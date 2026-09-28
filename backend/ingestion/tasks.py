@@ -17,6 +17,11 @@ from app.core.config import settings
 from app.models import IngestionRun
 
 from ingestion.connectors.airnow import (
+    DEFAULT_BBOX,
+    DEFAULT_END_DATE,
+    DEFAULT_END_HOUR,
+    DEFAULT_START_DATE,
+    DEFAULT_START_HOUR,
     fetch_airnow_rows,
     normalize_airnow_row,
 )
@@ -28,7 +33,6 @@ from ingestion.db import (
     insert_airnow_observations,
     insert_fire_detections,
 )
-
 
 celery_app = Celery(
     "smokesense",
@@ -77,6 +81,8 @@ def ingest_firms_poc() -> dict:
     started_at = utc_now()
 
     session = SessionLocal()
+
+    run = None
 
     try:
         run = create_ingestion_run(
@@ -136,13 +142,11 @@ def ingest_firms_poc() -> dict:
 
     except Exception as exc:
         session.rollback()
-
-        run.status = "failed"
-        run.finished_at = utc_now()
-        run.error = str(exc)
-
-        session.commit()
-
+        if run is not None:
+            run.status = "failed"
+            run.finished_at = utc_now()
+            run.error = str(exc)
+            session.commit()
         raise
 
     finally:
@@ -157,6 +161,8 @@ def ingest_airnow_poc() -> dict:
 
     session = SessionLocal()
 
+    run = None
+
     try:
         # ingestion_runs uses "airdata" for AirNow/AirData ingestion.
         run = create_ingestion_run(
@@ -167,11 +173,11 @@ def ingest_airnow_poc() -> dict:
 
         rows = fetch_airnow_rows(
             settings.airnow_api_key,
-            bbox=os.getenv("AIRNOW_BBOX", ""),
-            start_date=os.getenv("AIRNOW_START_DATE", ""),
-            start_hour=os.getenv("AIRNOW_START_HOUR", ""),
-            end_date=os.getenv("AIRNOW_END_DATE", ""),
-            end_hour=os.getenv("AIRNOW_END_HOUR", ""),
+            bbox=os.getenv("AIRNOW_BBOX", DEFAULT_BBOX),
+            start_date=os.getenv("AIRNOW_START_DATE", DEFAULT_START_DATE),
+            start_hour=os.getenv("AIRNOW_START_HOUR", DEFAULT_START_HOUR),
+            end_date=os.getenv("AIRNOW_END_DATE", DEFAULT_END_DATE),
+            end_hour=os.getenv("AIRNOW_END_HOUR", DEFAULT_END_HOUR),
         )
 
         records = [
@@ -202,13 +208,11 @@ def ingest_airnow_poc() -> dict:
 
     except Exception as exc:
         session.rollback()
-
-        run.status = "failed"
-        run.finished_at = utc_now()
-        run.error = str(exc)
-
-        session.commit()
-
+        if run is not None:
+            run.status = "failed"
+            run.finished_at = utc_now()
+            run.error = str(exc)
+            session.commit()
         raise
 
     finally:
