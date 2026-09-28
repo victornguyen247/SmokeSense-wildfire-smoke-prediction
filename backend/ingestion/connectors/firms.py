@@ -129,7 +129,6 @@ def normalize_firms_row(
     )
 
     satellite_raw = str(row.get("satellite", "")).strip().upper()
-    instrument_raw = str(row.get("instrument", "")).strip().upper()
 
     satellite_map = {
         # FIRMS VIIRS codes
