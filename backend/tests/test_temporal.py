@@ -23,7 +23,7 @@ def test_add_temporal_features():
 
     assert result.loc[0, "day_of_year"] == 268
     assert result.loc[0, "month"] == 9
-    assert result.loc[0, "smoke_season"] == True
+    assert result.loc[0, "smoke_season"]
 
     # 14:30 UTC + (-96.8 / 15) hours
     expected_solar_hour = (
