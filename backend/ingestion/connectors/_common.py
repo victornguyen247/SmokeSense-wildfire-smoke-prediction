@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +123,49 @@ def require_ok(response: httpx.Response, *, secret: str = "") -> None:
         f"Request failed with HTTP {response.status_code} {response.reason_phrase}."
         f"{hint}\n  Response body: {body or '(empty)'}"
     )
+
+
+# HTTP statuses worth retrying: rate limits and server-side hiccups. Anything
+# else (400, 401, 403, 404) will fail the same way on every attempt.
+RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+
+def get_with_retry(
+    client: httpx.Client,
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    attempts: int = 4,
+    backoff_s: float = 2.0,
+    sleep=time.sleep,
+) -> httpx.Response:
+    """GET with exponential backoff on transient failures.
+
+    Retries network errors and RETRYABLE_STATUSES, waiting backoff_s, then
+    2x, 4x, ... between attempts (or the server's Retry-After, if larger).
+    Returns the final response either way, so callers still inspect the status
+    and body as usual; raises only if the last attempt is a network error.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            response = client.get(url, params=params, headers=headers)
+        except httpx.TransportError:
+            if attempt == attempts:
+                raise
+            sleep(backoff_s * 2 ** (attempt - 1))
+            continue
+
+        if response.status_code not in RETRYABLE_STATUSES or attempt == attempts:
+            return response
+
+        wait = backoff_s * 2 ** (attempt - 1)
+        retry_after = response.headers.get("retry-after", "")
+        if retry_after.isdigit():
+            wait = max(wait, float(retry_after))
+        sleep(wait)
+
+    raise AssertionError("unreachable")  # loop always returns or raises
 
 
 def preview_rows(rows: list[dict[str, Any]], limit: int = 3) -> None:
