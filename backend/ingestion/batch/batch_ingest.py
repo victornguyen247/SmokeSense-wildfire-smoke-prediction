@@ -308,6 +308,7 @@ class SourceCoverage:
 class CoverageReport:
     event_id: str
     sources: dict[str, SourceCoverage] = field(default_factory=dict)
+    event_error: str | None = None  # set when the whole event failed after all retries
 
     def record(self, coverage: SourceCoverage) -> None:
         self.sources[coverage.source] = coverage
@@ -315,6 +316,7 @@ class CoverageReport:
     def to_dict(self) -> dict:
         return {
             "event_id": self.event_id,
+            "event_error": self.event_error,
             "sources": {
                 name: {
                     "rows_fetched": c.rows_fetched,
@@ -581,12 +583,28 @@ def main() -> None:
             parser.error(f"No pilot event found with id '{args.event}'")
 
     reports = []
+    had_failure = False
+
     for event in events:
         print(f"--- Ingesting {event.event_id} ({event.name}) ---")
-        report = ingest_event_with_retries(event, resume=args.resume)
+        try:
+            report = ingest_event_with_retries(event, resume=args.resume)
+        except Exception as exc:
+            # A persistently-failing event (bad bbox, prolonged outage, the
+            # known MODIS confidence bug, etc.) must not take down the
+            # whole --all batch. Record it and move on, so events that
+            # already succeeded earlier in this same run still make it
+            # into the report instead of the process just dying with no
+            # output at all.
+            had_failure = True
+            print(f"[event:{event.event_id}] failed after all retries: {exc!r}")
+            report = CoverageReport(event_id=event.event_id, event_error=repr(exc))
         reports.append(report)
 
     write_coverage_report(reports, Path(args.report_out))
+
+    if had_failure:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
