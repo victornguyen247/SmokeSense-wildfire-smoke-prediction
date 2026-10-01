@@ -1,0 +1,22 @@
+{
+  "_note": "STARTER CONFIG — only PE-020 included for initial pipeline testing. bbox values are ROUGH ESTIMATES derived from county location + the 'within X km' monitor distance noted in pilot-events.md, NOT precise fire-perimeter data. Verify/tighten before using for real training data. Add the remaining 19 events once the pipeline is proven against this one.",
+  "events": [
+    {
+      "event_id": "PE-020",
+      "name": "Shasta Fire (2017)",
+      "region": "Northern California (Shasta County)",
+      "tier": "low",
+      "start_date": "2017-07-06",
+      "end_date": "2017-07-12",
+      "bbox": "-122.6,40.4,-122.1,40.8",
+      "bbox_note": "Approximate box around Shasta County near Redding, buffered ~20km beyond the 'within 20km' monitor distance noted in pilot-events.md. NOT verified against actual fire perimeter.",
+      "nws_grid": ["STO"],
+      "airnow_monitors_nearby": ["Redding"],
+      "purpleair_density": "none",
+      "firms_products": ["MODIS_SP", "VIIRS_SNPP_SP"],
+      "firms_products_note": "Must use _SP (archive) sources, not the _NRT default in firms.py — NRT only covers ~3 months back and this event is from 2017.",
+      "verification_status": "pending",
+      "verification_note": "Not yet confirmed against AQS per docs/pilot-events.md Data-availability verification table. Run DATA-03 against this event, then copy the resulting coverage numbers back into that table."
+    }
+  ]
+}
