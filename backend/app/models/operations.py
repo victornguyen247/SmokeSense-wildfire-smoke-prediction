@@ -46,6 +46,12 @@ class BatchIngestionProgress(Base):
     ingestion_runs (a 90-day audit log, one row per Celery job execution),
     this table never expires and never accumulates history -- it only
     ever answers "is this event/source pair done, right now."
+
+    "partial" is reserved but not yet set by any code path -- no source
+    currently models a partial-row-count outcome (e.g. an insert that
+    fails halfway through a batch). Left in the schema deliberately for
+    when that's needed, rather than added prematurely before a real use
+    case exists.
     """
 
     __tablename__ = "batch_ingestion_progress"

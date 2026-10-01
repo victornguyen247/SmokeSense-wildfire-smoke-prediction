@@ -4,10 +4,16 @@ Generalizes the DATA-02 POC into a batch job that loops over every pilot
 event, pulls fire/weather/PM2.5 data for its date range + downwind region,
 and writes to the cleaned historical store.
 
-Usage:
+Usage (run from backend/):
     python -m ingestion.batch.batch_ingest --event kincade_2026
     python -m ingestion.batch.batch_ingest --all
     python -m ingestion.batch.batch_ingest --event kincade_2026 --resume
+
+NOTE: --report-out defaults to "data/coverage_report.json", which is
+relative to the current working directory -- resolves to
+backend/data/coverage_report.json only when run from backend/, as the
+usage above and the test instructions do. Pass an absolute path if
+running from elsewhere.
 """
 
 from __future__ import annotations
