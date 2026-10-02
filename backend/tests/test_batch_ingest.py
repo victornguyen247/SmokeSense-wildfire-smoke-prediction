@@ -192,3 +192,68 @@ def test_raises_after_exhausting_all_attempts():
             ingest_event_with_retries(_dummy_event(), resume=False, max_attempts=3)
 
         assert mock_ingest.call_count == 3
+
+
+# ---------------------------------------------------------------------------
+# ingest_event -- NCEI + PurpleAir wiring
+# ---------------------------------------------------------------------------
+
+def _weather(qc_flag="V", rh_pct=40.0):
+    return {"station_id": "KRDD", "qc_flag": qc_flag, "rh_pct": rh_pct,
+            "wind_speed_ms": 2.0, "wind_dir_deg": 270.0, "temp_c": 30.0,
+            "pressure_hpa": 1010.0, "precip_1h_mm": None}
+
+
+def _purpleair(sensor="1", correction="purpleair_barkjohn", qa_flag="ok"):
+    return {"monitor": {"external_id": sensor},
+            "observation": {"correction": correction, "qa_flag": qa_flag,
+                            "pm25_cf1_a": 10.0, "pm25_cf1_b": 11.0, "rh_pct": 40.0}}
+
+
+@patch("ingestion.batch.batch_ingest.mark_progress")
+@patch("ingestion.batch.batch_ingest.SessionLocal")
+@patch("ingestion.batch.batch_ingest.insert_airnow_observations")
+@patch("ingestion.batch.batch_ingest.insert_weather_observations")
+@patch("ingestion.batch.batch_ingest.insert_fire_detections", return_value=0)
+@patch("ingestion.batch.batch_ingest.get_purpleair_pm25_records")
+@patch("ingestion.batch.batch_ingest.get_ncei_weather_records")
+@patch("ingestion.batch.batch_ingest.get_airnow_pm25_records", return_value=[])
+@patch("ingestion.batch.batch_ingest.get_firms_records", return_value=[])
+def test_ingest_event_runs_ncei_and_purpleair(
+    _firms, _airnow, get_ncei, get_purpleair, _insert_fire,
+    insert_weather, insert_pm25, _session, mark,
+):
+    from ingestion.batch.batch_ingest import ingest_event, settings
+
+    get_ncei.return_value = [_weather(), _weather(qc_flag="suspect", rh_pct=None)]
+    insert_weather.return_value = 2
+    get_purpleair.return_value = [
+        _purpleair("1"),
+        _purpleair("2", correction="purpleair_raw"),
+    ]
+    insert_pm25.return_value = 1
+
+    event = PilotEvent(
+        event_id="PE-T", name="t", bbox="-1,-1,1,1",
+        start_date="2020-09-01", end_date="2020-09-02",
+    )
+
+    with patch.object(settings, "purpleair_max_sensors", 2):
+        report = ingest_event(event).to_dict()["sources"]
+
+    ncei = report["ncei"]
+    assert ncei["rows_fetched"] == 2
+    assert ncei["rows_written"] == 2
+    assert ncei["null_counts"]["rh_pct"] == 1
+    assert any("quality control" in g for g in ncei["gaps"])
+
+    pa = report["purpleair"]
+    assert pa["rows_fetched"] == 2
+    assert pa["duplicates_skipped"] == 1
+    assert any("1 rows not label-eligible" in g for g in pa["gaps"])
+    assert any("capped" in g for g in pa["gaps"])
+    assert get_purpleair.call_args.kwargs["max_sensors"] == 2
+
+    statuses = {(c.args[2], c.kwargs["status"]) for c in mark.call_args_list}
+    assert ("ncei", "success") in statuses
+    assert ("purpleair", "success") in statuses
