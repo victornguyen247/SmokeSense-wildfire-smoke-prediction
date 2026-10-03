@@ -138,24 +138,53 @@ def parse_airnow_timestamp(
     return local_dt.astimezone(timezone.utc)
 
 
-def normalize_confidence(value: object) -> str | None:
-    """Normalize FIRMS confidence codes into PM-01 enum values."""
+FIRMS_CONFIDENCE_LABELS = {
+    "l": "low",
+    "n": "nominal",
+    "h": "high",
+    "low": "low",
+    "nominal": "nominal",
+    "high": "high",
+}
 
-    if value is None:
+# FIRMS convention for MODIS's numeric 0-100 confidence:
+#   0-29 = low, 30-79 = nominal, 80-100 = high
+MODIS_NOMINAL_MIN = 30
+MODIS_HIGH_MIN = 80
+
+
+def normalize_confidence(value: object) -> str | None:
+    """Normalize FIRMS confidence values into PM-01 enum values.
+
+    Handles both formats FIRMS uses:
+      * VIIRS: letter codes ("l"/"n"/"h") or the full words.
+      * MODIS: a number from 0 to 100 (e.g. "75", "75.0", 75), mapped by
+        the standard FIRMS thresholds (<30 low, 30-79 nominal, 80+ high).
+
+    Returns None for missing, unrecognized, or out-of-range (<0, >100,
+    NaN) values. fire_detections.confidence_level is NOT NULL, so callers
+    must treat None as a bad row rather than inserting it.
+    """
+
+    if value is None or isinstance(value, bool):
         return None
 
     text = str(value).strip().lower()
 
-    confidence_map = {
-        "l": "low",
-        "n": "nominal",
-        "h": "high",
-        "low": "low",
-        "nominal": "nominal",
-        "high": "high",
-    }
+    if text in FIRMS_CONFIDENCE_LABELS:
+        return FIRMS_CONFIDENCE_LABELS[text]
 
-    return confidence_map.get(text)
+    number = to_float(text)
+
+    # NaN fails the range comparison, so it is rejected here too.
+    if number is None or not 0 <= number <= 100:
+        return None
+
+    if number >= MODIS_HIGH_MIN:
+        return "high"
+    if number >= MODIS_NOMINAL_MIN:
+        return "nominal"
+    return "low"
 
 
 def stable_external_id(prefix: str, *parts: object) -> str:

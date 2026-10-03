@@ -29,7 +29,7 @@ from typing import Callable
 from datetime import date, datetime, timedelta, timezone
 
 from ingestion.connectors.firms import get_firms_records
-from ingestion.connectors.airnow import get_airnow_pm25_records
+from ingestion.connectors.airnow import get_airnow_pm25_records, split_airnow_range
 from ingestion.connectors.ncei import get_ncei_weather_records
 from ingestion.connectors.purpleair import get_purpleair_pm25_records
 
@@ -486,23 +486,30 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
             try:
                 coverage = SourceCoverage(source="airnow")
 
-                # NOTE: requesting the full event date range in one call.
-                # fetch_airnow_rows doesn't document a range cap the way
-                # FIRMS does -- if this errors or times out on a long event
-                # (Aug Complex is ~87 days), this will need chunking too,
-                # e.g. one call per day. Confirm empirically on a long
-                # event before assuming this scales as-is.
-                records = with_retries(
-                    lambda: get_airnow_pm25_records(
-                        api_key=settings.airnow_api_key,
-                        bbox=event.bbox,
-                        start_date=event.start_date,
-                        start_hour="00",
-                        end_date=event.end_date,
-                        end_hour="23",
-                    ),
-                    label=f"airnow:{event.event_id}",
-                )
+                # AirNow's /aq/data/ rejects queries over a per-request
+                # record cap (HTTP 400, ~8.3k-8.7k rows; measured 2026-10-02
+                # -- a 21-day Sacramento-box query failed, 20 days passed),
+                # and slow responses approach the 30s client timeout on
+                # multi-week windows. So chunk like FIRMS does, and retry
+                # per chunk so a late failure doesn't re-pull earlier ones.
+                # The connector also bisects a chunk on its own if a dense
+                # bbox still trips the cap.
+                records: list[dict] = []
+                for chunk_start, chunk_end in split_airnow_range(
+                    event.start_date, event.end_date
+                ):
+                    chunk_records = with_retries(
+                        lambda cs=chunk_start, ce=chunk_end: get_airnow_pm25_records(
+                            api_key=settings.airnow_api_key,
+                            bbox=event.bbox,
+                            start_date=cs,
+                            start_hour="00",
+                            end_date=ce,
+                            end_hour="23",
+                        ),
+                        label=f"airnow:{event.event_id}:{chunk_start}",
+                    )
+                    records.extend(chunk_records)
 
                 coverage.rows_fetched = len(records)
                 if coverage.rows_fetched == 0:

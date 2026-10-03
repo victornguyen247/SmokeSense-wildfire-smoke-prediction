@@ -43,6 +43,7 @@ Bounding-box order is **west, south, east, north**. CONUS is `-125,24,-66.5,49.5
 - **`day_range` is 1–5.** Anything larger returns `Invalid day range. Expects [1..5].` as a plain-text body under HTTP 200.
 - **`day_range=1` means "the current UTC day so far"**, which is routinely *empty* in the early UTC hours and looks exactly like a broken key. Our validation script uses `2` for this reason.
 - **An invalid MAP_KEY returns HTTP 200** with an error sentence in the body instead of CSV. Status code alone never proves the key works — inspect the body.
+- **`confidence` has two formats.** VIIRS reports letter codes (`l`/`n`/`h`); MODIS reports a number 0–100. We store the value as-is in `confidence_raw` and normalize to `low`/`nominal`/`high` in `confidence_level` using the standard FIRMS thresholds: **<30 low, 30–79 nominal, 80+ high** (`ingestion/normalize.py::normalize_confidence`). `confidence_level` is NOT NULL, so an unrecognized value must be treated as a bad row, not inserted.
 - These are *detections* (points), not fire *perimeters*. They are noisy and intermittent; keep detection-level data separate from any incident/perimeter data and aggregate carefully over time.
 
 ### NRT vs. SP — this shapes our training set
@@ -165,6 +166,7 @@ Current services we care about:
 - **Errors arrive under HTTP 200.** AirNow reports problems as `{"WebServiceError":[{"Message":"..."}]}` with a 2xx status. Always check for that envelope.
 - `hourObserved` labels an hour by its **end**: `23:00` means the period 22:00–22:59, local to the reporting area. `localTimeZone` is an abbreviation (`PDT`) that Python cannot parse directly.
 - Observations for the previous hour post **10–30 minutes past the hour**.
+- **`/aq/data/` (monitoring sites by bounding box) has a per-query record cap, so long ranges must be chunked.** Over the cap it fails loudly — HTTP 400 with `This query exceeds the record query limit. Please narrow the date range and/or area of interest.` — it does not truncate silently. Measured 2026-10-02 for PM2.5: the Sacramento box (~400 rows/day) passed at 20 days (8,275 rows) and failed at 21; latency is ~1 s per day of data, so multi-week windows also approach our 30 s client timeout. The cap is row-based, so dense areas hit it sooner. The connector chunks to ≤7 days (`split_airnow_range`) and, if a window still trips the cap, bisects it automatically.
 - Regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally) — not enough label density on their own in fire-prone areas, which is why we add PurpleAir below.
 
 ### Terms & attribution — [EPA AirNow Data Exchange Guidelines](https://www.airnowapi.org/docs/DataUseGuidelines.pdf)
