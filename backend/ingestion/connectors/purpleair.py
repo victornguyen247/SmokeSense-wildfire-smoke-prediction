@@ -76,6 +76,11 @@ HISTORY_FIELDS = (
 
 FEET_TO_M = 0.3048
 
+# Sensors per run unless PURPLEAIR_MAX_SENSORS says otherwise. Must match
+# the purpleair_max_sensors default in app/core/config.py (the batch reads
+# that one); a test keeps the two in sync.
+DEFAULT_MAX_SENSORS = 5
+
 
 def _zip_columnar(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """PurpleAir returns {"fields": [...], "data": [[...], ...]}; zip them."""
@@ -408,7 +413,7 @@ def main() -> None:
     end_date = os.getenv("PURPLEAIR_END_DATE", DEFAULT_END_DATE)
 
     # Small default so a smoke test cannot burn through the points balance.
-    max_sensors = int(os.getenv("PURPLEAIR_MAX_SENSORS", "5"))
+    max_sensors = int(os.getenv("PURPLEAIR_MAX_SENSORS", str(DEFAULT_MAX_SENSORS)))
 
     records = get_purpleair_pm25_records(
         api_key=api_key,

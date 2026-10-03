@@ -175,3 +175,17 @@ def test_unexpected_shape_raises():
 
     with pytest.raises(RuntimeError, match="unexpected response shape"):
         purpleair.fetch_purpleair_sensors("key", client=client)
+
+
+# --- Sensor cap default ------------------------------------------------------
+
+
+def test_batch_cap_default_matches_connector_and_is_capped(monkeypatch):
+    """The batch reads Settings; an old .env without the variable must stay capped."""
+    from app.core.config import Settings
+
+    monkeypatch.delenv("PURPLEAIR_MAX_SENSORS", raising=False)
+    settings = Settings(_env_file=None)
+
+    assert settings.purpleair_max_sensors == purpleair.DEFAULT_MAX_SENSORS
+    assert settings.purpleair_max_sensors > 0
