@@ -189,3 +189,77 @@ def test_batch_cap_default_matches_connector_and_is_capped(monkeypatch):
 
     assert settings.purpleair_max_sensors == purpleair.DEFAULT_MAX_SENSORS
     assert settings.purpleair_max_sensors > 0
+
+
+# --- Sensor cap keeps the sensors nearest the bbox center ---------------------
+# bbox center is (39.5, -121.5). Distances are deliberately well separated.
+
+CAP_BBOX = "-122.0,39.0,-121.0,40.0"
+
+CAP_SENSORS = [
+    {"sensor_index": 10, "latitude": 39.50, "longitude": -121.50},  # at center
+    {"sensor_index": 20, "latitude": 39.60, "longitude": -121.50},  # 0.1 deg N
+    {"sensor_index": 30, "latitude": 39.50, "longitude": -121.70},  # 0.2 deg W
+    {"sensor_index": 40, "latitude": 39.95, "longitude": -121.05},  # NE corner
+    {"sensor_index": 50, "latitude": 39.02, "longitude": -121.98},  # SW corner
+]
+NEAREST_3 = {10, 20, 30}
+
+
+def _pulled_sensor_indexes(monkeypatch, sensors, max_sensors):
+    """Run get_purpleair_pm25_records with the API mocked; return which
+    sensors had their history pulled."""
+    pulled = []
+
+    def fake_sensors(api_key, bbox, start_date, end_date, client):
+        return [dict(s) for s in sensors]
+
+    def fake_history(api_key, sensor_index, start_date, end_date, client):
+        pulled.append(sensor_index)
+        return []
+
+    monkeypatch.setattr(purpleair, "fetch_purpleair_sensors", fake_sensors)
+    monkeypatch.setattr(purpleair, "fetch_purpleair_history_rows", fake_history)
+
+    purpleair.get_purpleair_pm25_records(
+        "key", CAP_BBOX, "2021-08-05", "2021-08-05", max_sensors=max_sensors
+    )
+    return pulled
+
+
+def test_cap_keeps_nearest_sensors_whatever_the_api_order(monkeypatch):
+    from itertools import permutations
+
+    for order in permutations(CAP_SENSORS):
+        pulled = _pulled_sensor_indexes(monkeypatch, list(order), max_sensors=3)
+        assert set(pulled) == NEAREST_3, [s["sensor_index"] for s in order]
+
+
+def test_cap_pulls_nearest_first(monkeypatch):
+    farthest_first = list(reversed(CAP_SENSORS))
+    assert _pulled_sensor_indexes(monkeypatch, farthest_first, max_sensors=5) == [
+        10, 20, 30, 40, 50,
+    ]
+
+
+def test_no_cap_pulls_every_sensor(monkeypatch):
+    pulled = _pulled_sensor_indexes(monkeypatch, CAP_SENSORS, max_sensors=None)
+    assert sorted(pulled) == [10, 20, 30, 40, 50]
+
+
+def test_ranking_scales_longitude_by_latitude():
+    """At ~40N a degree of longitude is ~0.77 of a degree of latitude, so a
+    sensor 0.5 deg east is nearer than one 0.45 deg north."""
+    east = {"sensor_index": 1, "latitude": 39.5, "longitude": -121.0}
+    north = {"sensor_index": 2, "latitude": 39.95, "longitude": -121.5}
+
+    ranked = purpleair.nearest_to_bbox_center([north, east], CAP_BBOX)
+    assert [s["sensor_index"] for s in ranked] == [1, 2]
+
+
+def test_ranking_ties_break_on_sensor_index():
+    a = {"sensor_index": 7, "latitude": 39.6, "longitude": -121.5}
+    b = {"sensor_index": 3, "latitude": 39.4, "longitude": -121.5}
+
+    ranked = purpleair.nearest_to_bbox_center([a, b], CAP_BBOX)
+    assert [s["sensor_index"] for s in ranked] == [3, 7]

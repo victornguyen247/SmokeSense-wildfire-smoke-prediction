@@ -21,6 +21,7 @@ PurpleAir before pulling thousands of sensors (docs/data-sources.md §4).
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -347,6 +348,30 @@ def normalize_purpleair_row(
     }
 
 
+def nearest_to_bbox_center(
+    sensors: list[dict[str, Any]], bbox: str
+) -> list[dict[str, Any]]:
+    """Sort sensors nearest-first to the bbox center, for max_sensors.
+
+    A ranking heuristic only -- not a distance, and not used for any other
+    decision. Squared lat/lon difference, with longitude scaled by
+    cos(center latitude) so an east-west degree isn't over-weighted. Ties
+    keep sensor_index order so the selection is deterministic.
+    """
+
+    west, south, east, north = (float(part) for part in bbox.split(","))
+    center_lat = (south + north) / 2
+    center_lon = (west + east) / 2
+    lon_scale = math.cos(math.radians(center_lat))
+
+    def rank(sensor: dict[str, Any]) -> tuple[float, int]:
+        d_lat = sensor["latitude"] - center_lat
+        d_lon = (sensor["longitude"] - center_lon) * lon_scale
+        return (d_lat * d_lat + d_lon * d_lon, sensor.get("sensor_index", 0))
+
+    return sorted(sensors, key=rank)
+
+
 def get_purpleair_pm25_records(
     api_key: str,
     bbox: str = DEFAULT_BBOX,
@@ -355,6 +380,9 @@ def get_purpleair_pm25_records(
     max_sensors: int | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch and normalize hourly PurpleAir PM2.5 for all sensors in bbox.
+
+    With max_sensors, only the sensors nearest the bbox center are pulled
+    (see nearest_to_bbox_center).
 
     Rows are de-duplicated on (sensor, valid_at), the observations primary
     key, since adjacent history chunks can share a boundary hour.
@@ -366,7 +394,9 @@ def get_purpleair_pm25_records(
         sensors = fetch_purpleair_sensors(api_key, bbox, start_date, end_date, client)
 
         if max_sensors is not None:
-            sensors = sensors[:max_sensors]
+            # The API's order is arbitrary; keep the sensors nearest the
+            # bbox center so a cap doesn't drop the ones that matter.
+            sensors = nearest_to_bbox_center(sensors, bbox)[:max_sensors]
 
         ingested_at = datetime.now(timezone.utc)
         records: dict[tuple[str, datetime], dict[str, Any]] = {}
