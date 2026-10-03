@@ -354,6 +354,59 @@ WEATHER_FIELDS = (
     "precip_1h_mm",
 )
 
+# FIRMS fields where a null is a real gap. confidence_level is NOT NULL in
+# fire_detections, so it is always 0 in a report that got written -- a null
+# fails the insert and shows up as the source's error instead.
+FIRMS_FIELDS = (
+    "confidence_level",
+    "frp_mw",
+    "scan_km",
+    "track_km",
+    "daynight",
+)
+
+
+def count_firms_nulls(records: list[dict]) -> dict[str, int]:
+    """null_counts for FIRMS detections.
+
+    bright_t31_k is counted over MODIS rows only: VIIRS has no T31 band, so
+    it is null on every VIIRS row by design.
+    """
+    counts = count_nulls(records, FIRMS_FIELDS)
+    modis = [r for r in records if str(r.get("satellite", "")).startswith("MODIS")]
+    counts["bright_t31_k"] = sum(r.get("bright_t31_k") is None for r in modis)
+    return counts
+
+
+def count_missing_station_hours(
+    records: list[dict], start_date: str, end_date: str
+) -> int:
+    """Hours in the window that each reporting AirNow site has no reading for.
+
+    This is AirNow's real null rate: every stored column that can be null is
+    null by design (PurpleAir-only QA fields, no elevation from /aq/data/),
+    while gaps show up as missing hours -- either never sent, or dropped as a
+    -999 sentinel. Sites with no rows at all in the window aren't counted,
+    since the response doesn't say they exist.
+    """
+    window_start = datetime.combine(
+        date.fromisoformat(start_date), datetime.min.time(), timezone.utc
+    )
+    window_end = datetime.combine(
+        date.fromisoformat(end_date) + timedelta(days=1),
+        datetime.min.time(),
+        timezone.utc,
+    )
+    window_hours = int((window_end - window_start).total_seconds() // 3600)
+
+    hours_by_site: dict[str, set[datetime]] = {}
+    for record in records:
+        valid_at = record["observation"]["valid_at"]
+        if window_start <= valid_at < window_end:
+            hours_by_site.setdefault(record["monitor"]["external_id"], set()).add(valid_at)
+
+    return sum(window_hours - len(hours) for hours in hours_by_site.values())
+
 
 def load_existing_coverage(session, event_id: str, source: str) -> SourceCoverage:
     """Build a report entry for a source skipped via --resume.
@@ -504,6 +557,7 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                         all_records.extend(chunk_records)
 
                 coverage.rows_fetched = len(all_records)
+                coverage.null_counts = count_firms_nulls(all_records)
                 if coverage.rows_fetched == 0:
                     coverage.gaps.append("no rows returned")
 
@@ -560,6 +614,11 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                     records.extend(chunk_records)
 
                 coverage.rows_fetched = len(records)
+                coverage.null_counts = {
+                    "pm25_missing_station_hours": count_missing_station_hours(
+                        records, event.start_date, event.end_date
+                    )
+                }
                 if coverage.rows_fetched == 0:
                     coverage.gaps.append("no rows returned")
 

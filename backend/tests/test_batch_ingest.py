@@ -339,6 +339,20 @@ def _run_main_with_airnow_insert_failure(tmp_path, store):
     def fake_firms(**kwargs):
         return [{} for _ in range(detections[kwargs["source"]])]
 
+    # Real record shape (the batch reads observation/monitor before insert):
+    # 6 sites x 48 hours, less the 2 hours AirNow never sent.
+    from ingestion.connectors.airnow import normalize_airnow_row
+
+    airnow_records = [
+        normalize_airnow_row({
+            "Latitude": 40.17, "Longitude": -122.26, "Parameter": "PM2.5",
+            "UTC": f"2021-08-0{5 + h // 24}T{h % 24:02d}:00", "Value": 10.0,
+            "SiteName": f"site {site}", "FullAQSCode": f"06103000{site}",
+        })
+        for site in range(6)
+        for h in range(48)
+    ][:286]
+
     def fake_load_progress(event_id):
         return batch_ingest.EventProgress(event_id, {
             r.source for r in store
@@ -349,7 +363,7 @@ def _run_main_with_airnow_insert_failure(tmp_path, store):
          patch.object(batch_ingest, "load_progress", fake_load_progress), \
          patch.object(batch_ingest, "get_firms_records", side_effect=fake_firms) as firms, \
          patch.object(batch_ingest, "insert_fire_detections", return_value=9658), \
-         patch.object(batch_ingest, "get_airnow_pm25_records", return_value=[{}] * 286), \
+         patch.object(batch_ingest, "get_airnow_pm25_records", return_value=airnow_records), \
          patch.object(batch_ingest, "insert_airnow_observations",
                       side_effect=RuntimeError(AIRNOW_CHECK_VIOLATION)), \
          patch.object(batch_ingest, "get_ncei_weather_records") as ncei, \
