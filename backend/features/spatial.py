@@ -162,8 +162,7 @@ def aggregate_fire_features_200km(
             Distance to the nearest available fire.
 
         fire_bearing_deg:
-            Bearing from the nearest fire to the forecast location.
-
+            Bearing from the forecast location to the nearest fire.
         fire_bearing_sin / fire_bearing_cos:
             Circular encoding of the nearest fire bearing.
 
@@ -233,10 +232,10 @@ def aggregate_fire_features_200km(
     ]
 
     nearest_bearing = bearing_degrees(
-        nearest["latitude"],
-        nearest["longitude"],
         location_latitude,
         location_longitude,
+        nearest["latitude"],
+        nearest["longitude"],
     )
 
     bearing_radians = math.radians(nearest_bearing)

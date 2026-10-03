@@ -612,6 +612,7 @@ def build_feature_dataset(
     weather_forecasts: pd.DataFrame,
     point_weather_map: pd.DataFrame,
     pm25_observations: pd.DataFrame,
+    pilot_event_id: str | None = None,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
 ) -> pd.DataFrame:
     """
@@ -660,5 +661,15 @@ def build_feature_dataset(
         result,
         pm25_observations,
     )
+
+    if pilot_event_id is not None:
+        result["pilot_event_id"] = pilot_event_id
+    else:
+        result["pilot_event_id"] = pd.NA
+
+    # Drop rows that do not have an eligible PM2.5 training target.
+    result = result.dropna(
+        subset=["target_pm25"]
+    ).reset_index(drop=True)
 
     return result
