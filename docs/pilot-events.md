@@ -346,20 +346,20 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 
 ---
 
-### PE-020 · Shasta Fire (2017 — small rural fire)
+### PE-020 · Crews Fire
 
 | Field | Value |
 |---|---|
 | **pilot_event_id** | `PE-020` |
-| **Region** | Northern California (Shasta County) |
-| **Start date** | 2017-07-06 |
-| **End date** | 2017-07-12 |
-| **Acres burned** | ~1,800 |
-| **FIRMS archive** | MODIS + VIIRS-SNPP SP confirmed |
-| **AirNow monitors nearby** | Redding — within 20 km |
-| **PurpleAir density** | None (2017 — pre-density era) |
-| **NWS grid** | STO (Sacramento) |
-| **Why chosen** | Small fire, short duration, limited smoke impact at the single nearby monitor. PM2.5 never exceeded 12 µg/m³ (Good AQI) for more than a few hours. Provides the cleanest "low impact" training rows and is the baseline for the model to learn to predict near-zero exceedance probability for small fires with favourable wind alignment. |
+| **Region** | Bay Area / Central Coast (Santa Clara County — southeast of Gilroy) |
+| **Start date** | 2020-07-05 |
+| **End date** | 2020-07-13 |
+| **Acres burned** | ~5,513 |
+| **FIRMS archive** | VIIRS-SNPP + MODIS SP |
+| **AirNow monitors nearby** | Gilroy-9th Street (AQS) — confirm site ID and distance to forecast points during the data check |
+| **PurpleAir density** | Good (South Bay / Gilroy, 2020) |
+| **NWS grid** | MTR (Bay Area — Santa Clara) |
+| **Why chosen** | Small, short-duration grass-and-oak fire with limited smoke impact. It burned before the August 2020 lightning siege (SCU, LNU, August Complex), so background PM2.5 should be clean — confirm during the AQS check. Dense nearby monitoring makes it the cleanest "low impact" baseline for learning near-zero exceedance probability for small fires. *(Replaces the original PE-020, a 2017 "Shasta Fire" that does not exist.)* |
 
 ---
 
@@ -386,11 +386,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | PE-017 | Caldor (first 3 days) | 2021 | Sierra | low thousands | Low | Pre-escalation signature |
 | PE-018 | Monument | 2021 | NorCal | 223,000 | Low | Adverse wind alignment |
 | PE-019 | LNU Complex (48h) | 2020 | Bay Area | 8,200 | Low | Marine layer, diurnal pattern |
-| PE-020 | Shasta (2017) | 2017 | NorCal | 1,800 | Low | Cleanest near-zero baseline |
+| PE-020 | Crews | 2020 | Bay Area | 5,513 | Low | Cleanest near-zero baseline |
 
 **Tier counts:** High 5, High-Medium 6, Medium-Low 3, Low 6.
 
-**Geographic coverage:** Northern California (12), Sierra Nevada / Foothills (3), Southern California (3), Bay Area (2) — satisfies the ≥3 region requirement. Project scope is **California only**; regions are California sub-regions.
+**Geographic coverage:** Northern California (11), Sierra Nevada / Foothills (3), Southern California (3), Bay Area (3) — satisfies the ≥3 region requirement. Project scope is **California only**; regions are California sub-regions.
 
 **Date range:** 2007–2024 — 17 years of FIRMS and AQS archival data.
 
