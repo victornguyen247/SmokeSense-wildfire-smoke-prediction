@@ -62,6 +62,8 @@ Bounding-box order is **west, south, east, north**. CONUS is `-125,24,-66.5,49.5
 
 **The near-real-time archive is a rolling ~3-month window.** Anything older must come from the standard-processing (`_SP`) products, which lag roughly 2–3 months behind today. Plan any backfill around that seam — you cannot train on years of `_NRT` data.
 
+**`_SP` and `_NRT` don't always use the same `satellite` codes.** Verified 2026-10-03 against real responses: `VIIRS_SNPP_SP` sends `N` (same as NRT), `MODIS_SP` sends `Terra`/`Aqua`, but `VIIRS_NOAA20_SP` sends `N20`, where `VIIRS_NOAA20_NRT` sends `J`. `normalize_firms_row` maps both to `VIIRS_NOAA20`. NOAA-21 has no `_SP` product yet, so its archive code is unconfirmed and deliberately unmapped; check a real response before adding one.
+
 ### Terms & attribution
 
 FIRMS data is open and free. NASA asks for acknowledgement in publications and products:
