@@ -246,7 +246,11 @@ def normalize_airnow_row(
     row: dict[str, Any],
     ingested_at: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Normalize one AirNow monitoring-site PM2.5 observation."""
+    """Normalize one AirNow monitoring-site PM2.5 observation.
+
+    Returns None for rows to skip: non-PM2.5 parameters, and hours AirNow
+    reports with a negative "no reading" sentinel (-999).
+    """
 
     parameter = str(
         row.get("Parameter")
@@ -391,6 +395,13 @@ def normalize_airnow_row(
 
             if pm25 is not None:
                 break
+
+    # AirNow reports -999 when it has no valid value for that hour. Drop the
+    # row rather than falling back to another field: the real case had
+    # Value=-999 with RawConcentration=12.0, and a raw reading is not the
+    # published regulatory value AirNow withheld.
+    if pm25 is not None and pm25 < 0:
+        return None
 
     if pm25 is None:
         raise ValueError(
