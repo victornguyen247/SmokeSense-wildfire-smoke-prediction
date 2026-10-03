@@ -226,6 +226,8 @@ PurpleAir bills **points per field per sensor**, so a query's cost scales with h
 - Running afoul of these can cost you API access outright.
 - Sensor owners can query their own sensors for free.
 
+**`PURPLEAIR_MAX_SENSORS` keeps the sensors nearest the bbox center, not the first ones the API returns.** The `/sensors` response comes in no useful order, so a plain truncation kept arbitrary sensors (in the 2026-10-03 PE-002 test, the first 3 returned for a five-county box). `nearest_to_bbox_center` ranks sensors by squared lat/lon difference from the center, with longitude scaled by `cos(latitude)`. It's a ranking heuristic only, not used for any actual distance decision, and the bbox center stands in for "near the smoke", so keep event bboxes centered on the fire. The cap limits the per-sensor history calls only: the `/sensors` lookup still returns, and bills, every sensor in the bbox. That 2-day, 3-sensor run cost 4,983 points, of which the history should be only about 432.
+
 ### Critical: correct before training
 
 Raw PurpleAir readings **over-report** during heavy wildfire smoke — exactly the regime we care about. Apply the **EPA (Barkjohn) correction** before use, the same correction EPA applies for the AirNow Fire and Smoke Map. **Never train on raw uncorrected PurpleAir data.**
