@@ -257,3 +257,194 @@ def test_ingest_event_runs_ncei_and_purpleair(
     statuses = {(c.args[2], c.kwargs["status"]) for c in mark.call_args_list}
     assert ("ncei", "success") in statuses
     assert ("purpleair", "success") in statuses
+
+
+# ---------------------------------------------------------------------------
+# Failed-event report reflects DB state (load_event_report)
+# ---------------------------------------------------------------------------
+# Reproduces the 2026-10-03 TEST-PE002-DIXIE run: FIRMS committed 9,658 rows
+# (7,930 VIIRS_SNPP_SP + 1,728 MODIS_SP), then the AirNow insert failed on a
+# -999 sentinel. The written report used to show "sources": {} even though
+# FIRMS was safely in the DB.
+#
+# Only the connectors, inserts, DB session and sleeps are faked. mark_progress,
+# ingest_event, ingest_event_with_retries, load_event_report and main run for
+# real against an in-memory batch_ingestion_progress.
+
+import json  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+AIRNOW_CHECK_VIOLATION = (
+    '(psycopg.errors.CheckViolation) new row for relation "observations_default" '
+    'violates check constraint "observations_pm25_check"'
+)
+
+
+class _FakeQuery:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def filter_by(self, **criteria):
+        return _FakeQuery(
+            [r for r in self._rows if all(getattr(r, k) == v for k, v in criteria.items())]
+        )
+
+    def all(self):
+        return list(self._rows)
+
+    def one_or_none(self):
+        assert len(self._rows) <= 1
+        return self._rows[0] if self._rows else None
+
+
+class _FakeSession:
+    """Just enough of a Session for batch_ingestion_progress reads/writes."""
+
+    def __init__(self, store):
+        self._store = store
+
+    def query(self, _model):
+        return _FakeQuery(self._store)
+
+    def add(self, obj):
+        if obj not in self._store:
+            self._store.append(obj)
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        pass
+
+
+def _run_main_with_airnow_insert_failure(tmp_path, store):
+    from ingestion.batch import batch_ingest
+
+    events_config = tmp_path / "events.json"
+    events_config.write_text(json.dumps({"events": [{
+        "event_id": "TEST-PE002-DIXIE",
+        "name": "mid-event failure",
+        "start_date": "2021-08-05",
+        "end_date": "2021-08-06",
+        "bbox": "-123.1,39.3,-120.0,41.2",
+        "firms_products": ["VIIRS_SNPP_SP", "MODIS_SP"],
+    }]}))
+    report_out = tmp_path / "report.json"
+
+    detections = {"VIIRS_SNPP_SP": 7930, "MODIS_SP": 1728}
+
+    def fake_firms(**kwargs):
+        return [{} for _ in range(detections[kwargs["source"]])]
+
+    def fake_load_progress(event_id):
+        return batch_ingest.EventProgress(event_id, {
+            r.source for r in store
+            if r.pilot_event_id == event_id and r.status == "success"
+        })
+
+    with patch.object(batch_ingest, "SessionLocal", lambda: _FakeSession(store)), \
+         patch.object(batch_ingest, "load_progress", fake_load_progress), \
+         patch.object(batch_ingest, "get_firms_records", side_effect=fake_firms) as firms, \
+         patch.object(batch_ingest, "insert_fire_detections", return_value=9658), \
+         patch.object(batch_ingest, "get_airnow_pm25_records", return_value=[{}] * 286), \
+         patch.object(batch_ingest, "insert_airnow_observations",
+                      side_effect=RuntimeError(AIRNOW_CHECK_VIOLATION)), \
+         patch.object(batch_ingest, "get_ncei_weather_records") as ncei, \
+         patch.object(batch_ingest, "get_purpleair_pm25_records") as purpleair, \
+         patch.object(batch_ingest.time, "sleep"), \
+         patch("sys.argv", ["batch_ingest", "--event", "TEST-PE002-DIXIE",
+                            "--events-config", str(events_config),
+                            "--report-out", str(report_out)]):
+        with pytest.raises(SystemExit) as exit_info:
+            batch_ingest.main()
+
+    report = json.loads(report_out.read_text())
+    return exit_info.value.code, report, firms, ncei, purpleair
+
+
+def test_failed_event_report_keeps_already_succeeded_source(tmp_path):
+    store = []
+    exit_code, report, firms, ncei, purpleair = _run_main_with_airnow_insert_failure(
+        tmp_path, store
+    )
+
+    assert exit_code == 1
+    (event,) = report
+    assert "observations_pm25_check" in event["event_error"]
+
+    sources = event["sources"]
+    assert list(sources) == ["firms", "airnow", "ncei", "purpleair"]
+
+    # FIRMS committed before AirNow broke: its real counts must survive.
+    assert sources["firms"]["rows_fetched"] == 9658
+    assert sources["firms"]["rows_written"] == 9658
+    assert sources["firms"]["duplicates_skipped"] == 0
+    assert sources["firms"]["gaps"] == []
+
+    # The source that broke says why, from its progress row.
+    assert sources["airnow"]["gaps"] == [f"failed: {AIRNOW_CHECK_VIOLATION}"]
+
+    # Sources after the failure never ran.
+    for name in ("ncei", "purpleair"):
+        assert sources[name]["gaps"] == [
+            "not attempted (event failed before this source ran)"
+        ]
+    ncei.assert_not_called()
+    purpleair.assert_not_called()
+
+    # Retries forced resume, so FIRMS was fetched once (2 products), not 3x.
+    assert firms.call_count == 2
+
+
+def test_failed_event_report_matches_progress_table(tmp_path):
+    store = []
+    _, report, *_ = _run_main_with_airnow_insert_failure(tmp_path, store)
+
+    by_source = {r.source: r for r in store}
+    assert by_source["firms"].status == "success"
+    assert by_source["airnow"].status == "failed"
+    assert set(by_source) == {"firms", "airnow"}
+
+    sources = report[0]["sources"]
+    assert sources["firms"]["rows_written"] == by_source["firms"].rows_written
+
+
+def test_load_event_report_running_row_is_reported_as_unfinished():
+    from ingestion.batch import batch_ingest
+
+    store = [SimpleNamespace(pilot_event_id="E", source="ncei", status="running",
+                             error=None, rows_fetched=None, rows_written=None)]
+
+    with patch.object(batch_ingest, "SessionLocal", lambda: _FakeSession(store)):
+        report = batch_ingest.load_event_report("E", "boom").to_dict()
+
+    assert report["event_error"] == "boom"
+    assert report["sources"]["ncei"]["gaps"] == ["did not finish (status 'running')"]
+
+
+def test_main_still_writes_report_if_progress_cannot_be_read(tmp_path):
+    from ingestion.batch import batch_ingest
+
+    events_config = tmp_path / "events.json"
+    events_config.write_text(json.dumps({"events": [{
+        "event_id": "E", "name": "e", "start_date": "2021-08-05",
+        "end_date": "2021-08-05", "bbox": "-1,-1,1,1",
+    }]}))
+    report_out = tmp_path / "report.json"
+
+    with patch.object(batch_ingest, "ingest_event_with_retries",
+                      side_effect=RuntimeError("db down")), \
+         patch.object(batch_ingest, "load_event_report",
+                      side_effect=RuntimeError("db still down")), \
+         patch("sys.argv", ["batch_ingest", "--event", "E",
+                            "--events-config", str(events_config),
+                            "--report-out", str(report_out)]):
+        with pytest.raises(SystemExit):
+            batch_ingest.main()
+
+    (event,) = json.loads(report_out.read_text())
+    assert event["event_error"] == "RuntimeError('db down')"
+    assert event["sources"] == {}
