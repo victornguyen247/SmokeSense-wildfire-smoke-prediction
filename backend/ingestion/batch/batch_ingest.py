@@ -396,6 +396,54 @@ def load_existing_coverage(session, event_id: str, source: str) -> SourceCoverag
     )
 
 
+# Every source ingest_event() runs, in order. Matches the source CHECK on
+# batch_ingestion_progress.
+SOURCES = ("firms", "airnow", "ncei", "purpleair")
+
+
+def load_event_report(event_id: str, event_error: str) -> CoverageReport:
+    """Rebuild a failed event's report from batch_ingestion_progress.
+
+    Sources commit independently, so when an event fails after all retries,
+    the sources that succeeded before the failure are safely in the DB. The
+    report should say so -- not show an empty "sources" block. Successful
+    sources reuse load_existing_coverage(); anything else gets a gap with
+    its real state.
+
+    Counts for successful sources come from the progress row, so
+    null_counts are not available for them here.
+    """
+    report = CoverageReport(event_id=event_id, event_error=event_error)
+
+    session = SessionLocal()
+    try:
+        rows = {
+            row.source: row
+            for row in session.query(BatchIngestionProgress)
+            .filter_by(pilot_event_id=event_id)
+            .all()
+        }
+
+        for source in SOURCES:
+            row = rows.get(source)
+
+            if row is None:
+                gap = "not attempted (event failed before this source ran)"
+            elif row.status == "success":
+                report.record(load_existing_coverage(session, event_id, source))
+                continue
+            elif row.status == "failed":
+                gap = f"failed: {row.error or 'no error recorded'}"
+            else:
+                gap = f"did not finish (status {row.status!r})"
+
+            report.record(SourceCoverage(source=source, gaps=[gap]))
+    finally:
+        session.close()
+
+    return report
+
+
 def write_coverage_report(reports: list[CoverageReport], out_path: Path) -> None:
     """Write the combined data-quality report for ML-owner review.
 
@@ -735,7 +783,15 @@ def main() -> None:
             # output at all.
             had_failure = True
             print(f"[event:{event.event_id}] failed after all retries: {exc!r}")
-            report = CoverageReport(event_id=event.event_id, event_error=repr(exc))
+            try:
+                report = load_event_report(event.event_id, repr(exc))
+            except Exception as report_exc:
+                # e.g. the DB itself is what failed -- still write a report.
+                print(
+                    f"[event:{event.event_id}] could not read progress for the "
+                    f"report: {report_exc!r}"
+                )
+                report = CoverageReport(event_id=event.event_id, event_error=repr(exc))
         reports.append(report)
 
     write_coverage_report(reports, Path(args.report_out))
