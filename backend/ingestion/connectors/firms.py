@@ -136,6 +136,11 @@ def normalize_firms_row(
         "J": "VIIRS_NOAA20",
         "1": "VIIRS_NOAA21",
 
+        # FIRMS archive (_SP) VIIRS codes, confirmed against a real
+        # VIIRS_NOAA20_SP response (2021-08-05). NOAA-21's archive code is
+        # not mapped until confirmed the same way.
+        "N20": "VIIRS_NOAA20",
+
         # Explicit satellite names
         "SNPP": "VIIRS_SNPP",
         "NOAA20": "VIIRS_NOAA20",
