@@ -43,6 +43,7 @@ Bounding-box order is **west, south, east, north**. CONUS is `-125,24,-66.5,49.5
 - **`day_range` is 1–5.** Anything larger returns `Invalid day range. Expects [1..5].` as a plain-text body under HTTP 200.
 - **`day_range=1` means "the current UTC day so far"**, which is routinely *empty* in the early UTC hours and looks exactly like a broken key. Our validation script uses `2` for this reason.
 - **An invalid MAP_KEY returns HTTP 200** with an error sentence in the body instead of CSV. Status code alone never proves the key works — inspect the body.
+- **`confidence` has two formats.** VIIRS reports letter codes (`l`/`n`/`h`); MODIS reports a number 0–100. We store the value as-is in `confidence_raw` and normalize to `low`/`nominal`/`high` in `confidence_level` using the standard FIRMS thresholds: **<30 low, 30–79 nominal, 80+ high** (`ingestion/normalize.py::normalize_confidence`). `confidence_level` is NOT NULL, so an unrecognized value must be treated as a bad row, not inserted.
 - These are *detections* (points), not fire *perimeters*. They are noisy and intermittent; keep detection-level data separate from any incident/perimeter data and aggregate carefully over time.
 
 ### NRT vs. SP — this shapes our training set
@@ -60,6 +61,10 @@ Bounding-box order is **west, south, east, north**. CONUS is `-125,24,-66.5,49.5
 | `VIIRS_NOAA20_SP` | 2018-04-01 → 2026-06-30 | **History** |
 
 **The near-real-time archive is a rolling ~3-month window.** Anything older must come from the standard-processing (`_SP`) products, which lag roughly 2–3 months behind today. Plan any backfill around that seam — you cannot train on years of `_NRT` data.
+
+**`_SP` and `_NRT` don't always use the same `satellite` codes.** Verified 2026-10-03 against real responses: `VIIRS_SNPP_SP` sends `N` (same as NRT), `MODIS_SP` sends `Terra`/`Aqua`, but `VIIRS_NOAA20_SP` sends `N20`, where `VIIRS_NOAA20_NRT` sends `J`. `normalize_firms_row` maps both to `VIIRS_NOAA20`. NOAA-21 has no `_SP` product yet, so its archive code is unconfirmed and deliberately unmapped; check a real response before adding one.
+
+**Null vs. intentionally missing, for the coverage report's `null_counts`.** The VIIRS CSV has no `bright_t31` column (it sends `bright_ti5` instead), so `bright_t31_k` is null on every VIIRS row by design. The report counts it over MODIS rows only, where a null is a real gap: on the 2026-10-03 PE-002 window, a plain count would have shown 14,881 nulls out of 16,609 detections, all of them VIIRS. `confidence_level` is counted too, but it's `NOT NULL` in `fire_detections`: in a report that got written it's always 0, and an unrecognized confidence value instead fails the FIRMS source with that error.
 
 ### Terms & attribution
 
@@ -107,6 +112,18 @@ Cache the `/points` result (grids change rarely) but re-check periodically, as t
 - US-only. A coordinate outside NWS coverage returns a `/points` response with no `forecast` URL.
 - For **historical** weather, `api.weather.gov` is not the right tool — NOAA NCEI provides the climate/weather archive.
 
+### Historical weather — NCEI Global Hourly
+
+Connector: `backend/ingestion/connectors/ncei.py`. No key.
+
+- **Station list:** `https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv` (ICAO code, USAF+WBAN ID, coordinates, active dates).
+- **Data:** `https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-hourly&stations=<USAF+WBAN>&startDate=...&endDate=...&format=csv`. Times are already UTC.
+- Values are packed ISD strings: `WND = "270,1,N,0046,1"` (direction °, quality, type, speed in m/s ×10, quality), `TMP`/`DEW = "+0250,1"` (°C ×10), `SLP = "10132,1"` (hPa ×10), `AA1 = "01,0005,9,1"` (period h, precip mm ×10). Missing values are all-9s.
+- Quality codes `2, 3, 6, 7` are suspect or erroneous. The connector drops those values and sets `qc_flag = 'suspect'`.
+- There's no RH field, so the connector derives RH from temperature and dew point.
+- Only routine hourly reports (`FM-15`, `FM-12`, `SAO`) are kept. `FM-16` specials and `SOD`/`SOM` summaries are skipped.
+- `station_id` is the ICAO code (e.g. `KRDD`) when one exists, so historical rows line up with live NWS observations.
+
 ### Terms & attribution
 
 Public U.S. Government data — open, free for any purpose, no usage fees and no attribution requirement stated.
@@ -153,6 +170,9 @@ Current services we care about:
 - **Errors arrive under HTTP 200.** AirNow reports problems as `{"WebServiceError":[{"Message":"..."}]}` with a 2xx status. Always check for that envelope.
 - `hourObserved` labels an hour by its **end**: `23:00` means the period 22:00–22:59, local to the reporting area. `localTimeZone` is an abbreviation (`PDT`) that Python cannot parse directly.
 - Observations for the previous hour post **10–30 minutes past the hour**.
+- **`/aq/data/` (monitoring sites by bounding box) has a per-query record cap, so long ranges must be chunked.** Over the cap it fails loudly — HTTP 400 with `This query exceeds the record query limit. Please narrow the date range and/or area of interest.` — it does not truncate silently. Measured 2026-10-02 for PM2.5: the Sacramento box (~400 rows/day) passed at 20 days (8,275 rows) and failed at 21; latency is ~1 s per day of data, so multi-week windows also approach our 30 s client timeout. The cap is row-based, so dense areas hit it sooner. The connector chunks to ≤7 days (`split_airnow_range`) and, if a window still trips the cap, bisects it automatically.
+- **`-999` in `Value` means "no valid reading for this hour", not a concentration.** Verified 2026-10-03 against a real `/aq/data/` response: Red Bluff – Walnut office, 2021-08-05 19:00 UTC, had `Value: -999.0` while `RawConcentration` was `12.0`. `normalize_airnow_row` drops any row whose concentration is negative rather than falling back to `RawConcentration`: the raw reading isn't the regulatory value AirNow withheld, and `observations.pm25` has `CHECK (pm25 >= 0)`. That window had 1 sentinel row in 286.
+- **AirNow's `null_counts` is missing station-hours, not column nulls.** Every nullable column AirNow fills is null by design: `pm25_cf1_a`, `pm25_cf1_b`, `rh_pct` and `qa_flag` are PurpleAir-only fields, and `/aq/data/` never sends elevation. Gaps show up as hours with no row instead. `pm25_missing_station_hours` counts, for each site that reported at least once, the hours in the window it has no reading for, whether AirNow never sent them or they were dropped as `-999`. A site that sent nothing in the window isn't in the response, so it can't be counted. Same PE-002 window: 3, all Red Bluff (17:00 and 18:00 UTC never sent, 19:00 dropped).
 - Regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally) — not enough label density on their own in fire-prone areas, which is why we add PurpleAir below.
 
 ### Terms & attribution — [EPA AirNow Data Exchange Guidelines](https://www.airnowapi.org/docs/DataUseGuidelines.pdf)
@@ -211,11 +231,18 @@ PurpleAir bills **points per field per sensor**, so a query's cost scales with h
 - Running afoul of these can cost you API access outright.
 - Sensor owners can query their own sensors for free.
 
+**`PURPLEAIR_MAX_SENSORS` keeps the sensors nearest the bbox center, not the first ones the API returns.** The `/sensors` response comes in no useful order, so a plain truncation kept arbitrary sensors (in the 2026-10-03 PE-002 test, the first 3 returned for a five-county box). `nearest_to_bbox_center` ranks sensors by squared lat/lon difference from the center, with longitude scaled by `cos(latitude)`. It's a ranking heuristic only, not used for any actual distance decision, and the bbox center stands in for "near the smoke", so keep event bboxes centered on the fire. The cap limits the per-sensor history calls only: the `/sensors` lookup still returns, and bills, every sensor in the bbox. That 2-day, 3-sensor run cost 4,983 points, of which the history should be only about 432.
+
 ### Critical: correct before training
 
 Raw PurpleAir readings **over-report** during heavy wildfire smoke — exactly the regime we care about. Apply the **EPA (Barkjohn) correction** before use, the same correction EPA applies for the AirNow Fire and Smoke Map. **Never train on raw uncorrected PurpleAir data.**
 
-*(Not yet implemented — tracked separately from the credential work in DATA-01.)*
+Implemented in `backend/ingestion/connectors/purpleair.py` (`barkjohn_correct` in `ingestion/normalize.py`), using the U.S.-wide equation `PM2.5 = 0.524 × PA_cf1 − 0.0862 × RH + 5.75`, where `PA_cf1` is the mean of channels A and B:
+
+- **A/B channel check:** a reading is `invalid` when the channels differ by more than 5 µg/m³ **and** by more than 70%. It's `suspect` when only one channel reported.
+- **Missing humidity:** the row is stored as `purpleair_raw`, which is never label-eligible.
+- **Recomputing:** raw channels and RH are stored, so rows can be recomputed if we adopt EPA's extended high-concentration correction.
+- **Historical pulls:** these need `max_age=0` on `/v1/sensors`, or sensors that went offline more than 7 days ago are hidden. History requests are capped at 14 days per call at 60-minute averages.
 
 ### Terms & attribution
 
