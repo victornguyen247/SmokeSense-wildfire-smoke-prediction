@@ -30,12 +30,15 @@ from datetime import date, datetime, timedelta, timezone
 
 from ingestion.connectors.firms import get_firms_records
 from ingestion.connectors.airnow import get_airnow_pm25_records, split_airnow_range
+from ingestion.connectors.ncei import get_ncei_weather_records
+from ingestion.connectors.purpleair import get_purpleair_pm25_records
 
-# TODO: once built, import the weather + PurpleAir connectors here too:
-# from ingestion.connectors.ncei import get_ncei_weather_records
-# from ingestion.connectors.purpleair import get_purpleair_records
-
-from ingestion.db import SessionLocal, insert_fire_detections, insert_airnow_observations
+from ingestion.db import (
+    SessionLocal,
+    insert_airnow_observations,
+    insert_fire_detections,
+    insert_weather_observations,
+)
 from app.core.config import settings
 
 # Confirmed 2026-09-29 via Claude Code against origin/dev (PR #12):
@@ -337,6 +340,21 @@ class CoverageReport:
         }
 
 
+def count_nulls(records: list[dict], fields: tuple[str, ...]) -> dict[str, int]:
+    """Count missing values per field, for the report's null_counts."""
+    return {name: sum(record.get(name) is None for record in records) for name in fields}
+
+
+WEATHER_FIELDS = (
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "temp_c",
+    "rh_pct",
+    "pressure_hpa",
+    "precip_1h_mm",
+)
+
+
 def load_existing_coverage(session, event_id: str, source: str) -> SourceCoverage:
     """Build a report entry for a source skipped via --resume.
 
@@ -516,19 +534,125 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                 )
                 raise
 
-        # --- NCEI (historical weather) — connector not built yet ---
-        if not progress.is_done("ncei"):
-            report.record(SourceCoverage(
-                source="ncei",
-                gaps=["NCEI connector not yet implemented"],
-            ))
+        # --- NCEI (historical weather) ---
+        if progress.is_done("ncei"):
+            report.record(load_existing_coverage(session, event.event_id, "ncei"))
+        else:
+            mark_progress(session, event.event_id, "ncei", status="running")
+            try:
+                coverage = SourceCoverage(source="ncei")
 
-        # --- PurpleAir (PM2.5, low-cost, Barkjohn-corrected) — not built yet ---
-        if not progress.is_done("purpleair"):
-            report.record(SourceCoverage(
-                source="purpleair",
-                gaps=["PurpleAir connector + Barkjohn correction not yet implemented"],
-            ))
+                # The connector chunks by month and retries each request
+                # itself; with_retries here covers a failure mid-event.
+                records = with_retries(
+                    lambda: get_ncei_weather_records(
+                        bbox=event.bbox,
+                        start_date=event.start_date,
+                        end_date=event.end_date,
+                    ),
+                    label=f"ncei:{event.event_id}",
+                )
+
+                coverage.rows_fetched = len(records)
+                coverage.null_counts = count_nulls(records, WEATHER_FIELDS)
+                if coverage.rows_fetched == 0:
+                    coverage.gaps.append("no rows returned (no ISD stations in bbox?)")
+
+                suspect = sum(r["qc_flag"] != "V" for r in records)
+                if suspect:
+                    coverage.gaps.append(
+                        f"{suspect} rows had a value dropped by NCEI quality control"
+                    )
+
+                coverage.rows_written = insert_weather_observations(session, records)
+                coverage.duplicates_skipped = coverage.rows_fetched - coverage.rows_written
+                session.commit()
+
+                mark_progress(
+                    session, event.event_id, "ncei", status="success",
+                    rows_fetched=coverage.rows_fetched,
+                    rows_written=coverage.rows_written,
+                )
+                report.record(coverage)
+                progress.mark_done("ncei")
+
+            except Exception as exc:
+                session.rollback()
+                mark_progress(
+                    session, event.event_id, "ncei", status="failed", error=str(exc)
+                )
+                raise
+
+        # --- PurpleAir (PM2.5, low-cost, Barkjohn-corrected) ---
+        if progress.is_done("purpleair"):
+            report.record(load_existing_coverage(session, event.event_id, "purpleair"))
+        else:
+            mark_progress(session, event.event_id, "purpleair", status="running")
+            try:
+                coverage = SourceCoverage(source="purpleair")
+
+                # PurpleAir bills points per sensor-hour. A cap keeps a
+                # large event from draining the balance; 0 means no cap.
+                max_sensors = settings.purpleair_max_sensors or None
+
+                records = with_retries(
+                    lambda: get_purpleair_pm25_records(
+                        api_key=settings.purpleair_api_key,
+                        bbox=event.bbox,
+                        start_date=event.start_date,
+                        end_date=event.end_date,
+                        max_sensors=max_sensors,
+                    ),
+                    label=f"purpleair:{event.event_id}",
+                )
+
+                observations = [r["observation"] for r in records]
+                coverage.rows_fetched = len(records)
+                coverage.null_counts = count_nulls(
+                    observations, ("pm25_cf1_a", "pm25_cf1_b", "rh_pct")
+                )
+
+                if coverage.rows_fetched == 0:
+                    coverage.gaps.append("no rows returned")
+
+                # Raw (no humidity) or failed-QA rows are stored for audit
+                # but are never usable as training labels -- say how many.
+                not_label = sum(
+                    o["correction"] != "purpleair_barkjohn" or o["qa_flag"] != "ok"
+                    for o in observations
+                )
+                if not_label:
+                    coverage.gaps.append(
+                        f"{not_label} rows not label-eligible "
+                        "(uncorrected or failed A/B channel check)"
+                    )
+
+                if max_sensors is not None:
+                    sensors = {r["monitor"]["external_id"] for r in records}
+                    if len(sensors) >= max_sensors:
+                        coverage.gaps.append(
+                            f"capped at PURPLEAIR_MAX_SENSORS={max_sensors}; "
+                            "more sensors may exist in bbox"
+                        )
+
+                coverage.rows_written = insert_airnow_observations(session, records)
+                coverage.duplicates_skipped = coverage.rows_fetched - coverage.rows_written
+                session.commit()
+
+                mark_progress(
+                    session, event.event_id, "purpleair", status="success",
+                    rows_fetched=coverage.rows_fetched,
+                    rows_written=coverage.rows_written,
+                )
+                report.record(coverage)
+                progress.mark_done("purpleair")
+
+            except Exception as exc:
+                session.rollback()
+                mark_progress(
+                    session, event.event_id, "purpleair", status="failed", error=str(exc)
+                )
+                raise
 
     finally:
         session.close()

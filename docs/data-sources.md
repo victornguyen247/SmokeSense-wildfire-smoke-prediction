@@ -108,6 +108,18 @@ Cache the `/points` result (grids change rarely) but re-check periodically, as t
 - US-only. A coordinate outside NWS coverage returns a `/points` response with no `forecast` URL.
 - For **historical** weather, `api.weather.gov` is not the right tool — NOAA NCEI provides the climate/weather archive.
 
+### Historical weather — NCEI Global Hourly
+
+Connector: `backend/ingestion/connectors/ncei.py`. No key.
+
+- **Station list:** `https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv` (ICAO code, USAF+WBAN ID, coordinates, active dates).
+- **Data:** `https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-hourly&stations=<USAF+WBAN>&startDate=...&endDate=...&format=csv`. Times are already UTC.
+- Values are packed ISD strings: `WND = "270,1,N,0046,1"` (direction °, quality, type, speed in m/s ×10, quality), `TMP`/`DEW = "+0250,1"` (°C ×10), `SLP = "10132,1"` (hPa ×10), `AA1 = "01,0005,9,1"` (period h, precip mm ×10). Missing values are all-9s.
+- Quality codes `2, 3, 6, 7` are suspect or erroneous. The connector drops those values and sets `qc_flag = 'suspect'`.
+- There's no RH field, so the connector derives RH from temperature and dew point.
+- Only routine hourly reports (`FM-15`, `FM-12`, `SAO`) are kept. `FM-16` specials and `SOD`/`SOM` summaries are skipped.
+- `station_id` is the ICAO code (e.g. `KRDD`) when one exists, so historical rows line up with live NWS observations.
+
 ### Terms & attribution
 
 Public U.S. Government data — open, free for any purpose, no usage fees and no attribution requirement stated.
@@ -217,7 +229,12 @@ PurpleAir bills **points per field per sensor**, so a query's cost scales with h
 
 Raw PurpleAir readings **over-report** during heavy wildfire smoke — exactly the regime we care about. Apply the **EPA (Barkjohn) correction** before use, the same correction EPA applies for the AirNow Fire and Smoke Map. **Never train on raw uncorrected PurpleAir data.**
 
-*(Not yet implemented — tracked separately from the credential work in DATA-01.)*
+Implemented in `backend/ingestion/connectors/purpleair.py` (`barkjohn_correct` in `ingestion/normalize.py`), using the U.S.-wide equation `PM2.5 = 0.524 × PA_cf1 − 0.0862 × RH + 5.75`, where `PA_cf1` is the mean of channels A and B:
+
+- **A/B channel check:** a reading is `invalid` when the channels differ by more than 5 µg/m³ **and** by more than 70%. It's `suspect` when only one channel reported.
+- **Missing humidity:** the row is stored as `purpleair_raw`, which is never label-eligible.
+- **Recomputing:** raw channels and RH are stored, so rows can be recomputed if we adopt EPA's extended high-concentration correction.
+- **Historical pulls:** these need `max_age=0` on `/v1/sensors`, or sensors that went offline more than 7 days ago are hidden. History requests are capped at 14 days per call at 60-minute averages.
 
 ### Terms & attribution
 

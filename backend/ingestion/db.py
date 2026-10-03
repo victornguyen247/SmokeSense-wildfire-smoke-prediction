@@ -1,10 +1,10 @@
-"""Small persistence helpers for the DATA-02 ingestion POC."""
+"""Small persistence helpers for the ingestion connectors (DATA-02/03)."""
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
-from app.models import FireDetection, Monitor, Observation
+from app.models import FireDetection, Monitor, Observation, WeatherObservation
 
 
 engine = create_engine(
@@ -106,7 +106,11 @@ def insert_airnow_observations(
     session: Session,
     rows: list[dict],
 ) -> int:
-    """Insert AirNow monitors and observations idempotently."""
+    """Insert AirNow monitors and observations idempotently.
+
+    PurpleAir records use the same monitor/observation shape, so the
+    PurpleAir connector's output goes through here too.
+    """
 
     written = 0
 
@@ -139,6 +143,45 @@ def insert_airnow_observations(
             rh_pct=observation_data["rh_pct"],
             qa_flag=observation_data["qa_flag"],
             data_status=observation_data["data_status"],
+        )
+
+        session.add(observation)
+        written += 1
+
+    return written
+
+
+def insert_weather_observations(
+    session: Session,
+    rows: list[dict],
+) -> int:
+    """Insert NCEI weather observations, skipping rows already stored."""
+
+    written = 0
+
+    for row in rows:
+        existing = session.scalar(
+            select(WeatherObservation).where(
+                WeatherObservation.station_id == row["station_id"],
+                WeatherObservation.valid_at == row["valid_at"],
+            )
+        )
+
+        if existing:
+            continue
+
+        observation = WeatherObservation(
+            station_id=row["station_id"],
+            valid_at=row["valid_at"],
+            received_at=row["received_at"],
+            geom=point_wkt(row["latitude"], row["longitude"]),
+            wind_speed_ms=row["wind_speed_ms"],
+            wind_dir_deg=row["wind_dir_deg"],
+            temp_c=row["temp_c"],
+            rh_pct=row["rh_pct"],
+            pressure_hpa=row["pressure_hpa"],
+            precip_1h_mm=row["precip_1h_mm"],
+            qc_flag=row["qc_flag"],
         )
 
         session.add(observation)

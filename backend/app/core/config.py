@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # NWS API needs no key but requires a User-Agent identifying your app.
     nws_user_agent: str = "SmokeSense (contact@example.com)"
 
+    # PurpleAir bills points per sensor-hour. Caps how many sensors the
+    # DATA-03 batch pulls per event. Defaults to the same safe cap as the
+    # connector's smoke test, so a .env that predates this setting stays
+    # capped; set PURPLEAIR_MAX_SENSORS=0 to explicitly remove the cap.
+    purpleair_max_sensors: int = 5
+
     @property
     def database_url(self) -> str:
         # Local Docker Postgres has no TLS; add ?sslmode=require only for hosted DBs.
