@@ -107,6 +107,35 @@ def test_lagged_pm25_does_not_use_future_values():
     # the 11:00 features.
     assert row_11["pm25_lag_1h"] == 5.0
 
+def test_lagged_pm25_requires_exact_timestamp():
+    dataframe = pd.DataFrame(
+        {
+            "forecast_point_id": ["A"] * 3,
+            "issue_time": [
+                "2026-09-25 10:00:00+00:00",
+                "2026-09-25 11:00:00+00:00",
+                "2026-09-25 13:00:00+00:00",
+            ],
+            "pm25": [5.0, 6.0, 8.0],
+        }
+    )
+
+    result = add_lagged_pm25(dataframe)
+
+    row_13 = result[
+        result["issue_time"]
+        == pd.Timestamp(
+            "2026-09-25 13:00:00+00:00"
+        )
+    ].iloc[0]
+
+    # 12:00 does not exist, so the 1-hour lag
+    # must not incorrectly use the 11:00 row.
+    assert pd.isna(row_13["pm25_lag_1h"])
+
+    # 10:00 exists exactly 3 hours earlier.
+    assert row_13["pm25_lag_3h"] == 5.0
+
 
 def test_lagged_pm25_is_separated_by_location():
     dataframe = pd.DataFrame(

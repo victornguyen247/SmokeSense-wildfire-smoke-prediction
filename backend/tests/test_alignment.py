@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from features.alignment import (
     add_fire_alignment_features,
@@ -420,8 +421,31 @@ def test_add_weather_alignment_features():
         horizons=(6,),
     )
 
-    # Normally this would come from the fire feature step.
-    aligned["fire_bearing_deg"] = 90.0
+    fire_detections = pd.DataFrame(
+        [
+            {
+                "latitude": 38.5,
+                "longitude": -121.0,
+                "detected_at": pd.Timestamp(
+                    "2024-08-01 10:00:00",
+                    tz="UTC",
+                ),
+                "frp_mw": 100.0,
+            }
+        ]
+    )
+
+    aligned = add_fire_alignment_features(
+        aligned,
+        fire_detections,
+    )
+
+    # The fire is east of the forecast point, so the
+    # point -> fire bearing should be 90 degrees.
+    assert aligned["fire_bearing_deg"].iloc[0] == pytest.approx(
+        90.0,
+        abs=0.5,
+    )
 
     point_weather_map = pd.DataFrame(
         [
@@ -472,7 +496,7 @@ def test_add_weather_alignment_features():
     # fire bearing = 90°
     # wind FROM direction = 90°
     # Contract: cos(90 - 90) = 1.
-    assert abs(row["wind_alignment"] - 1.0) < 1e-6
+    assert abs(row["wind_alignment"] - 1.0) < 1e-5
 
 def test_add_weather_alignment_features_excludes_future_forecast():
     forecast_points = pd.DataFrame(

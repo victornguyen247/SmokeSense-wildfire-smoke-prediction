@@ -58,10 +58,13 @@ def add_lagged_pm25(
     pm25_column: str = "pm25",
 ) -> pd.DataFrame:
     """
-    Add historical PM2.5 lag features.
+    Add time-aware historical PM2.5 lag features.
 
-    Only observations before the current issue_time are used.
-    Expected input frequency: hourly.
+    Each lag uses the exact timestamp
+    issue_time - lag_hours within the same forecast point.
+
+    Missing timestamps remain NaN instead of falling back to
+    the previous available row.
     """
     result = dataframe.copy()
 
@@ -70,20 +73,53 @@ def add_lagged_pm25(
         utc=True,
     )
 
+    # Preserve the original row order so callers receive
+    # their data in the same order they provided.
+    result["_original_order"] = range(len(result))
+
+    lookup = result[
+        [
+            group_column,
+            timestamp_column,
+            pm25_column,
+        ]
+    ].copy()
+
+    for lag_hours in (1, 3, 6, 12, 24):
+        lag_column = f"pm25_lag_{lag_hours}h"
+
+        lagged = lookup.copy()
+        lagged[timestamp_column] = (
+            lagged[timestamp_column]
+            + pd.Timedelta(hours=lag_hours)
+        )
+        lagged = lagged.rename(
+            columns={
+                pm25_column: lag_column,
+            }
+        )
+
+        result = result.merge(
+            lagged[
+                [
+                    group_column,
+                    timestamp_column,
+                    lag_column,
+                ]
+            ],
+            on=[
+                group_column,
+                timestamp_column,
+            ],
+            how="left",
+            sort=False,
+        )
+
     result = result.sort_values(
-        [group_column, timestamp_column]
-    )
-
-    grouped = result.groupby(
-        group_column,
-        sort=False,
-    )[pm25_column]
-
-    result["pm25_lag_1h"] = grouped.shift(1)
-    result["pm25_lag_3h"] = grouped.shift(3)
-    result["pm25_lag_6h"] = grouped.shift(6)
-    result["pm25_lag_12h"] = grouped.shift(12)
-    result["pm25_lag_24h"] = grouped.shift(24)
+        "_original_order"
+    ).drop(
+        columns="_original_order"
+    ).reset_index(drop=True)
 
     return result
 

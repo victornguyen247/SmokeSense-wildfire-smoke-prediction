@@ -141,13 +141,13 @@ def test_aggregate_fire_features_200km():
         abs=1.0,
     )
 
-    # From (0, 0.5) to (0, 0) is west.
+    # From the forecast point (0, 0) to the fire (0, 0.5) is east.
     assert result["fire_bearing_deg"] == pytest.approx(
-        270.0
+        90.0
     )
 
     assert result["fire_bearing_sin"] == pytest.approx(
-        -1.0,
+        1.0,
         abs=0.01,
     )
 
