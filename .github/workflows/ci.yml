@@ -36,6 +36,8 @@ jobs:
   backend:
     name: Backend (lint + test)
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/backend
     defaults:
       run:
         working-directory: backend
