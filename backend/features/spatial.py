@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 
 EARTH_RADIUS_KM = 6371.008
 
@@ -135,10 +136,10 @@ def nearest_previous_fire_features(
     ]
 
     bearing = bearing_degrees(
-        nearest["latitude"],
-        nearest["longitude"],
         location_latitude,
         location_longitude,
+        nearest["latitude"],
+        nearest["longitude"],
     )
 
     return {
@@ -199,25 +200,24 @@ def aggregate_fire_features_200km(
             "active_fire_count_200km": 0,
         }
 
-    distances = []
+    location_lat = math.radians(location_latitude)
+    fire_lats = np.radians(fires["latitude"].to_numpy(dtype=float))
+    delta_lats = fire_lats - location_lat
+    delta_lons = np.radians(
+        fires["longitude"].to_numpy(dtype=float) - location_longitude
+    )
+    a = (
+        np.sin(delta_lats / 2) ** 2
+        + math.cos(location_lat)
+        * np.cos(fire_lats)
+        * np.sin(delta_lons / 2) ** 2
+    )
+    distances = 2 * EARTH_RADIUS_KM * np.arctan2(
+        np.sqrt(a), np.sqrt(1 - a)
+    )
+    nearby_positions = np.flatnonzero(distances <= radius_km)
 
-    for _, fire in fires.iterrows():
-        distance = haversine_distance_km(
-            location_latitude,
-            location_longitude,
-            fire["latitude"],
-            fire["longitude"],
-        )
-
-        distances.append(distance)
-
-    fires["distance_km"] = distances
-
-    nearby_fires = fires[
-        fires["distance_km"] <= radius_km
-    ].copy()
-
-    if nearby_fires.empty:
+    if not len(nearby_positions):
         return {
             "nearest_fire_dist_km": 9999.0,
             "fire_bearing_deg": None,
@@ -227,9 +227,11 @@ def aggregate_fire_features_200km(
             "active_fire_count_200km": 0,
         }
 
-    nearest = nearby_fires.loc[
-        nearby_fires["distance_km"].idxmin()
+    nearest_position = nearby_positions[
+        np.argmin(distances[nearby_positions])
     ]
+    nearest = fires.iloc[nearest_position]
+    nearest_distance = distances[nearest_position]
 
     nearest_bearing = bearing_degrees(
         location_latitude,
@@ -240,29 +242,19 @@ def aggregate_fire_features_200km(
 
     bearing_radians = math.radians(nearest_bearing)
 
-    nearby_fires["frp_mw"] = nearby_fires[
-        "frp_mw"
-    ].fillna(0.0)
-
-    nearby_fires["distance_weight"] = (
-        1.0
-        - nearby_fires["distance_km"] / radius_km
+    nearby_distances = distances[nearby_positions]
+    nearby_frp = (
+        fires.iloc[nearby_positions]["frp_mw"].fillna(0.0).to_numpy()
     )
-
-    nearby_fires["weighted_frp"] = (
-        nearby_fires["frp_mw"]
-        * nearby_fires["distance_weight"]
+    total_frp = np.sum(
+        nearby_frp * (1.0 - nearby_distances / radius_km)
     )
-
-    total_frp = nearby_fires[
-        "weighted_frp"
-    ].sum()
 
     return {
-        "nearest_fire_dist_km": nearest["distance_km"],
+        "nearest_fire_dist_km": nearest_distance,
         "fire_bearing_deg": nearest_bearing,
         "fire_bearing_sin": math.sin(bearing_radians),
         "fire_bearing_cos": math.cos(bearing_radians),
         "total_frp_200km": total_frp,
-        "active_fire_count_200km": len(nearby_fires),
+        "active_fire_count_200km": len(nearby_positions),
     }

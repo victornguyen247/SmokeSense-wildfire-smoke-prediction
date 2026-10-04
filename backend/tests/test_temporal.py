@@ -305,7 +305,7 @@ def test_nearest_previous_fire():
     )
 
     assert result["fire_bearing_deg"] == pytest.approx(
-        270.0
+        90.0
     )
 
     assert result["fire_frp_mw"] == 25.0
