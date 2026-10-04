@@ -6,6 +6,8 @@ import math
 
 import numpy as np
 
+import pandas as pd
+
 EARTH_RADIUS_KM = 6371.008
 
 
@@ -154,9 +156,14 @@ def aggregate_fire_features_200km(
     fire_detections,
     issue_time,
     radius_km: float = 200.0,
+    lookback_hours: float = 24.0,
 ) -> dict:
-    """
-    Aggregate fire detections available before issue_time within radius_km.
+    """ 
+    Aggregate recent fire detections before issue_time within radius_km.
+
+    Only fire detections within lookback_hours before issue_time
+    are included. Detections at or after issue_time are excluded
+    to prevent future leakage.
 
     Returns:
         nearest_fire_dist_km:
@@ -171,10 +178,11 @@ def aggregate_fire_features_200km(
             Distance-decayed FRP from all fires within radius_km.
 
         active_fire_count_200km:
-            Number of fire detections within radius_km.
+            Number of recent fire detections within radius_km
+            and within the lookback window.
 
-    Fire detections at or after issue_time are excluded to prevent
-    future leakage.
+    Only detections within lookback_hours before issue_time are included.
+    Detections at or after issue_time are excluded to prevent future leakage.
 
     Distance-decay:
         weight = 1 - distance_km / radius_km
@@ -186,8 +194,11 @@ def aggregate_fire_features_200km(
         150 km -> 25% FRP
         200 km -> 0% FRP
     """
+    lookback_start = issue_time - pd.Timedelta(hours=lookback_hours)
+
     fires = fire_detections[
-        fire_detections["detected_at"] < issue_time
+        (fire_detections["detected_at"] >= lookback_start)
+        & (fire_detections["detected_at"] < issue_time)
     ].copy()
 
     if fires.empty:

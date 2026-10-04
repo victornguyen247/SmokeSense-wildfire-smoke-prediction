@@ -85,6 +85,27 @@ def add_lagged_pm25(
         ]
     ].copy()
 
+    # A PM2.5 history table can contain both a real observation and
+    # a null placeholder for the same point/timestamp. Lag features
+    # require one deterministic value per (point, timestamp).
+    #
+    # Prefer a real PM2.5 observation over a null placeholder.
+    lookup["_has_pm25"] = lookup[pm25_column].notna()
+
+    lookup = (
+        lookup
+        .sort_values(
+            [group_column, timestamp_column, "_has_pm25"],
+            ascending=[True, True, False],
+            kind="mergesort",
+        )
+        .drop_duplicates(
+            [group_column, timestamp_column],
+            keep="first",
+        )
+        .drop(columns="_has_pm25")
+    )
+
     for lag_hours in (1, 3, 6, 12, 24):
         lag_column = f"pm25_lag_{lag_hours}h"
 

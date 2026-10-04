@@ -493,9 +493,11 @@ def test_add_weather_alignment_features():
     assert abs(row["wind_dir_sin"] - 1.0) < 1e-6
     assert abs(row["wind_dir_cos"]) < 1e-6
 
-    # fire bearing = 90°
-    # wind FROM direction = 90°
-    # Contract: cos(90 - 90) = 1.
+    # Fire is east of the forecast point.
+    # Therefore fire -> location = west (270°).
+    # Wind FROM = east (90°), so wind TO = west (270°).
+    # Smoke travels directly from the fire toward the location.
+    # Therefore wind alignment = cos(270 - 270) = 1.
     assert abs(row["wind_alignment"] - 1.0) < 1e-5
 
 def test_add_weather_alignment_features_excludes_future_forecast():

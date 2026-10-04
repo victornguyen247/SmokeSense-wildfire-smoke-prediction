@@ -262,3 +262,44 @@ def test_aggregate_fire_features_returns_sentinels_when_no_previous_fire():
     assert result["fire_bearing_deg"] is None
     assert result["total_frp_200km"] == 0.0
     assert result["active_fire_count_200km"] == 0
+
+def test_aggregate_fire_features_uses_recent_fire_window():
+    issue_time = pd.Timestamp("2026-09-25 12:00:00+00:00")
+
+    fire_detections = pd.DataFrame({
+        "detected_at": pd.to_datetime(
+            [
+                "2026-09-25 11:00:00+00:00",
+                "2026-09-24 13:00:00+00:00",
+                "2026-09-24 11:00:00+00:00",
+                "2026-09-25 13:00:00+00:00",
+            ]
+        ),
+        "latitude": [
+            32.7767,
+            32.7767,
+            32.7767,
+            32.7767,
+        ],
+        "longitude": [
+            -96.7970,
+            -96.7970,
+            -96.7970,
+            -96.7970,
+        ],
+        "frp_mw": [
+            10.0,
+            20.0,
+            30.0,
+            40.0,
+        ],
+    })
+
+    result = aggregate_fire_features_200km(
+        location_latitude=32.7767,
+        location_longitude=-96.7970,
+        fire_detections=fire_detections,
+        issue_time=issue_time,
+    )
+
+    assert result["active_fire_count_200km"] == 2

@@ -429,9 +429,17 @@ def add_weather_alignment_features(
     # Wind direction is stored using the meteorological FROM convention.
     # GEO-01 defines wind_alignment relative to that wind direction.
     bearing = pd.to_numeric(result.loc[row_ids, "fire_bearing_deg"], errors="coerce")
+
+    # Smoke travels in the opposite (TO) direction.
+    fire_to_location_direction = (bearing + 180.0) % 360.0
+    wind_to_direction = (wind_direction + 180.0) % 360.0
+
     result.loc[row_ids, "wind_alignment"] = np.cos(
-        np.radians(bearing - wind_direction)
+        np.radians(
+            fire_to_location_direction - wind_to_direction
+        )
     )
+
     return result.drop(columns="_row_id").reset_index(drop=True)
 
 def add_pm25_target(
