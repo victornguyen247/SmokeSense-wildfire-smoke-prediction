@@ -13,7 +13,7 @@ These apply to every table and column. Violations require reviewer sign-off.
 | **Timestamps** | All `TIMESTAMPTZ` columns are **UTC**. No naive datetimes anywhere. `normalize.py` coerces every value before any row is written. |
 | **Two-timestamp pattern** | `valid_at` = the time the data describes. `received_at` / `issued_at` = when the connector fetched it. Both are always stored where the distinction exists. |
 | **PM2.5 units** | Always **µg/m³**. Never AQI integers. |
-| **PM2.5 correction** | Three-value enum: `regulatory` (AirNow — always label-eligible), `purpleair_raw` (never a label), `purpleair_barkjohn` (EPA-corrected — label-eligible). Only `regulatory` or `purpleair_barkjohn` rows with `qa_flag = 'ok'` may be used as ML training labels or for verification. |
+| **PM2.5 correction** | Three-value enum: `regulatory` (AirNow — always label-eligible), `purpleair_raw` (never a label), `purpleair_barkjohn` (EPA-corrected — label-eligible). Label and verification eligibility: `regulatory` rows are always label-eligible; `purpleair_barkjohn` rows need `qa_flag = 'ok'`; `purpleair_raw` is never a label. |
 | **Coordinate system** | `GEOGRAPHY(POINT, 4326)` — WGS-84. Never bare lat/lon floats for spatial queries. |
 | **Spatial indexes** | Every `GEOGRAPHY` column has a **GiST index**. Alembic autogenerate misses these — add by hand in the migration. |
 | **Source IDs** | Every externally ingested row stores the provider's own identifier in `external_id` for idempotent deduplication. |
@@ -182,11 +182,11 @@ PurpleAir raw channel values (`pm25_cf1_a`, `pm25_cf1_b`) are stored so the Bark
 | `received_at` | TIMESTAMPTZ | NOT NULL | UTC — when connector fetched it |
 | `ingested_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC — when row was written |
 | `pm25` | FLOAT | NOT NULL, CHECK (pm25 >= 0) | µg/m³, 1-hour average — corrected value for PurpleAir, raw regulatory value for AirNow (`RawConcentration`, not the NowCast `Value`) |
-| `correction` | TEXT | NOT NULL, CHECK IN ('regulatory','purpleair_raw','purpleair_barkjohn') | Only `regulatory` or `purpleair_barkjohn` rows with `qa_flag = 'ok'` are label-eligible |
+| `correction` | TEXT | NOT NULL, CHECK IN ('regulatory','purpleair_raw','purpleair_barkjohn') | `regulatory` rows are always label-eligible; `purpleair_barkjohn` rows need `qa_flag = 'ok'`; `purpleair_raw` is never a label |
 | `pm25_cf1_a` | FLOAT | CHECK (pm25_cf1_a >= 0) | PurpleAir channel A raw — stored for correction recompute |
 | `pm25_cf1_b` | FLOAT | CHECK (pm25_cf1_b >= 0) | PurpleAir channel B raw |
 | `rh_pct` | FLOAT | CHECK (rh_pct BETWEEN 0 AND 100) | Humidity at sensor — input to Barkjohn correction |
-| `qa_flag` | TEXT |  | Quality flag: `ok`, `suspect`, `invalid`. Only `ok` rows are label-eligible. |
+| `qa_flag` | TEXT |  | Quality flag: `ok`, `suspect`, `invalid`. Gates label eligibility for `purpleair_barkjohn` only (must be `ok`); `regulatory` rows are label-eligible regardless of `qa_flag`. |
 | `data_status` | TEXT | CHECK IN ('preliminary','validated') | `preliminary` = real-time AQS value. `validated` = final quality-assured value. |
 
 **Primary Key:** `(monitor_id, valid_at)` — replaces UUID PK; this is the natural unique key and avoids a second index.
@@ -516,7 +516,7 @@ All columns below must be present with exactly these names and dtypes. Adding co
 | `pilot_event_id` | str | — | Which fire event this row belongs to (from `pilot-events.md`). Used for grouped train/test split. |
 | `horizon_hours` | int8 | — | 1, 3, 6, 12, or 24 |
 | **Target variable** |  |  |  |
-| `target_pm25` | float32 | µg/m³ | EPA Barkjohn-corrected or regulatory PM2.5 at `target_time`. Only `regulatory` or `purpleair_barkjohn` with `qa_flag = 'ok'`. Rows with no eligible monitor must be dropped. |
+| `target_pm25` | float32 | µg/m³ | EPA Barkjohn-corrected or regulatory PM2.5 at `target_time`. Any `regulatory` row, or `purpleair_barkjohn` with `qa_flag = 'ok'`; never `purpleair_raw`. Rows with no eligible monitor must be dropped. |
 | `target_source` | str | — | `regulatory` or `purpleair_barkjohn` — audit trail for which monitor provided the label |
 | `target_monitor_dist_km` | float32 | km | Distance from `forecast_point` to the monitor that provided the label. Filter out rows >25 km for weak labels. |
 | **Fire features** (relative to `issue_time`) |  |  |  |
