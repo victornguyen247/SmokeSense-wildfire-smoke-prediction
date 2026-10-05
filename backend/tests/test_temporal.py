@@ -338,7 +338,15 @@ def test_nearest_previous_fire_ignores_future_fire():
     assert result["fire_bearing_deg"] is None
     assert result["fire_frp_mw"] is None
 
-def test_lagged_pm25_prefers_real_observation_over_placeholder():
+@pytest.mark.parametrize(
+    "pm25_values",
+    [
+        [25.0, None],
+        [None, 25.0],
+    ],
+    ids=["real-first", "placeholder-first"],
+)
+def test_lagged_pm25_prefers_real_observation_over_placeholder(pm25_values):
     dataframe = pd.DataFrame({
         "forecast_point_id": ["A", "A", "A"],
         "issue_time": [
@@ -346,7 +354,7 @@ def test_lagged_pm25_prefers_real_observation_over_placeholder():
             "2026-09-25 10:00:00+00:00",
             "2026-09-25 11:00:00+00:00",
         ],
-        "pm25": [25.0, None, 30.0],
+        "pm25": [*pm25_values, 30.0],
     })
 
     result = add_lagged_pm25(dataframe)
