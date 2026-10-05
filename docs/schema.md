@@ -173,13 +173,15 @@ Hourly PM2.5 readings — one row per monitor per hour. Rolling \~72-hour window
 
 PurpleAir raw channel values (`pm25_cf1_a`, `pm25_cf1_b`) are stored so the Barkjohn correction can be rerun if EPA updates the formula. The corrected value goes in `pm25`.
 
+`pm25` is always a **1-hour average** for the hour starting at `valid_at`. For AirNow it is `RawConcentration`, never AirNow's `Value`, which is the NowCast (a 12-hour weighted average). NowCast and AQI are **display-only**: compute them from stored hourly `pm25` when showing them; never store them in `pm25` or use them as labels or lags.
+
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
 | `monitor_id` | TEXT | NOT NULL, FK → monitors(id) |  |
 | `valid_at` | TIMESTAMPTZ | NOT NULL | UTC — start of the hour this reading averages. **Partition key.** |
 | `received_at` | TIMESTAMPTZ | NOT NULL | UTC — when connector fetched it |
 | `ingested_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC — when row was written |
-| `pm25` | FLOAT | NOT NULL, CHECK (pm25 >= 0) | µg/m³ — corrected value for PurpleAir, raw regulatory value for AirNow |
+| `pm25` | FLOAT | NOT NULL, CHECK (pm25 >= 0) | µg/m³, 1-hour average — corrected value for PurpleAir, raw regulatory value for AirNow (`RawConcentration`, not the NowCast `Value`) |
 | `correction` | TEXT | NOT NULL, CHECK IN ('regulatory','purpleair_raw','purpleair_barkjohn') | Only `regulatory` or `purpleair_barkjohn` rows with `qa_flag = 'ok'` are label-eligible |
 | `pm25_cf1_a` | FLOAT | CHECK (pm25_cf1_a >= 0) | PurpleAir channel A raw — stored for correction recompute |
 | `pm25_cf1_b` | FLOAT | CHECK (pm25_cf1_b >= 0) | PurpleAir channel B raw |
