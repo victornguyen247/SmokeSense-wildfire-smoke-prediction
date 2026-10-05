@@ -214,6 +214,41 @@ def test_add_fire_alignment_features():
         < 60
     )
 
+def test_add_fire_alignment_features_accepts_custom_lookback():
+    aligned = build_feature_times(
+        pd.DataFrame(
+            [{
+                "forecast_point_id": "FP-001",
+                "location_lat": 0.0,
+                "location_lon": 0.0,
+            }]
+        ),
+        pd.Series([pd.Timestamp("2024-08-01 12:00:00", tz="UTC")]),
+        horizons=(6,),
+    )
+    fire_detections = pd.DataFrame(
+        [{
+            "latitude": 0.5,
+            "longitude": 0.0,
+            "detected_at": pd.Timestamp("2024-07-31 00:00:00", tz="UTC"),
+            "frp_mw": 100.0,
+        }]
+    )
+
+    default_result = add_fire_alignment_features(
+        aligned,
+        fire_detections,
+    )
+    result = add_fire_alignment_features(
+        aligned,
+        fire_detections,
+        lookback_hours=48.0,
+    )
+
+    assert default_result["active_fire_count_200km"].iloc[0] == 0
+    assert result["active_fire_count_200km"].iloc[0] == 1
+
+
 def test_add_fire_alignment_features_excludes_future_fire():
     forecast_points = pd.DataFrame(
         [
@@ -395,13 +430,27 @@ def test_add_pm25_alignment_features_does_not_use_future_values():
     assert result["pm25_lag_12h"].isna().all()
     assert result["pm25_lag_24h"].isna().all()
 
-def test_add_weather_alignment_features():
+@pytest.mark.parametrize(
+    ("wind_dir_deg", "expected_sin", "expected_cos", "expected_alignment"),
+    [
+        (90.0, 1.0, 0.0, 1.0),
+        (270.0, -1.0, 0.0, -1.0),
+        (0.0, 0.0, 1.0, 0.0),
+    ],
+    ids=["wind-toward-location", "wind-opposite", "wind-perpendicular"],
+)
+def test_add_weather_alignment_features(
+    wind_dir_deg,
+    expected_sin,
+    expected_cos,
+    expected_alignment,
+):
     forecast_points = pd.DataFrame(
         [
             {
                 "forecast_point_id": "FP-001",
-                "location_lat": 38.5,
-                "location_lon": -121.5,
+                "location_lat": 0.0,
+                "location_lon": 0.0,
             }
         ]
     )
@@ -424,8 +473,8 @@ def test_add_weather_alignment_features():
     fire_detections = pd.DataFrame(
         [
             {
-                "latitude": 38.5,
-                "longitude": -121.0,
+                "latitude": 0.0,
+                "longitude": 0.5,
                 "detected_at": pd.Timestamp(
                     "2024-08-01 10:00:00",
                     tz="UTC",
@@ -469,7 +518,7 @@ def test_add_weather_alignment_features():
                     tz="UTC",
                 ),
                 "wind_speed_ms": 5.0,
-                "wind_dir_deg": 90.0,
+                "wind_dir_deg": wind_dir_deg,
                 "temp_c": 30.0,
                 "rh_pct": 40.0,
                 "precip_prob_pct": 10.0,
@@ -490,13 +539,15 @@ def test_add_weather_alignment_features():
     assert row["rh_pct"] == 40.0
     assert row["precip_prob_pct"] == 10.0
 
-    assert abs(row["wind_dir_sin"] - 1.0) < 1e-6
-    assert abs(row["wind_dir_cos"]) < 1e-6
+    assert row["wind_dir_sin"] == pytest.approx(expected_sin, abs=1e-6)
+    assert row["wind_dir_cos"] == pytest.approx(expected_cos, abs=1e-6)
 
-    # fire bearing = 90°
-    # wind FROM direction = 90°
-    # Contract: cos(90 - 90) = 1.
-    assert abs(row["wind_alignment"] - 1.0) < 1e-5
+    # The fire bearing is east (90°). Same, opposite, and perpendicular
+    # wind-from directions should produce +1, -1, and 0 respectively.
+    assert row["wind_alignment"] == pytest.approx(
+        expected_alignment,
+        abs=1e-5,
+    )
 
 def test_add_weather_alignment_features_excludes_future_forecast():
     forecast_points = pd.DataFrame(
@@ -786,7 +837,16 @@ def test_build_feature_dataset():
                     tz="UTC",
                 ),
                 "frp_mw": 100.0,
-            }
+            },
+            {
+                "latitude": 38.7,
+                "longitude": -121.5,
+                "detected_at": pd.Timestamp(
+                    "2024-07-31 00:00:00",
+                    tz="UTC",
+                ),
+                "frp_mw": 50.0,
+            },
         ]
     )
 
@@ -923,6 +983,7 @@ def test_build_feature_dataset():
         point_weather_map=point_weather_map,
         pm25_observations=pm25_observations,
         horizons=(6,),
+        lookback_hours=48.0,
     )
 
     assert len(result) == 1
@@ -965,3 +1026,4 @@ def test_build_feature_dataset():
     assert row["target_pm25"] == 35.0
     assert row["target_source"] == "regulatory"
     assert row["horizon_hours"] == 6
+    assert row["active_fire_count_200km"] == 2
