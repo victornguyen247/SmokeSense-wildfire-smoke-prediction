@@ -14,6 +14,7 @@ It does not write to PostgreSQL yet.
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -387,7 +388,9 @@ def normalize_airnow_row(
     raw = row.get("RawConcentration", row.get("raw_concentration"))
     pm25 = to_float(raw) if raw not in (None, "") else None
 
-    if pm25 is None:
+    # to_float accepts "nan"/"inf"; a non-finite reading is as unusable as a
+    # missing one (NaN would even pass CHECK (pm25 >= 0) in Postgres).
+    if pm25 is None or not math.isfinite(pm25):
         # Present on every row when the request sets
         # includerawconcentrations=1, so a missing value means the request
         # is wrong -- fail loudly rather than store something else.

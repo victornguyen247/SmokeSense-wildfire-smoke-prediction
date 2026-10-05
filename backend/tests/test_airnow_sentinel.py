@@ -198,10 +198,15 @@ def test_floor_constant():
 
 
 # ---------------------------------------------------------------------------
-# Missing RawConcentration fails loudly, never falls back to Value
+# Missing or non-finite RawConcentration fails loudly, never falls back to
+# Value. to_float parses "nan"/"inf", and NaN passes CHECK (pm25 >= 0) in
+# Postgres, so non-finite values must be rejected here.
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("raw", [None, "", "x"])
+@pytest.mark.parametrize(
+    "raw",
+    [None, "", "x", "nan", "inf", "-inf", float("nan"), float("inf"), float("-inf")],
+)
 def test_unusable_raw_raises(raw):
     row = _red_bluff_smoke_peak_row()
     row["RawConcentration"] = raw
