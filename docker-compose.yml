@@ -38,7 +38,9 @@ services:
     # 0.0.0.0 is required so published ports are reachable from the host.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
-      - ./backend/.env
+      - ./backend/.env    
+    environment:
+      PYTHONPATH: /code
     volumes:
       - ./backend:/code
     ports:
@@ -56,6 +58,8 @@ services:
     command: celery -A ingestion.tasks worker --beat --loglevel=info
     env_file:
       - ./backend/.env
+    environment:
+      PYTHONPATH: /code
     volumes:
       - ./backend:/code
     depends_on:
