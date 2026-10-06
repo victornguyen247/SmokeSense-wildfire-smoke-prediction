@@ -29,7 +29,8 @@ from typing import Callable
 from datetime import date, datetime, timedelta, timezone
 
 from ingestion.connectors.firms import get_firms_records
-from ingestion.connectors.airnow import get_airnow_pm25_records, split_airnow_range
+from ingestion.connectors.airnow import get_airnow_pm25_records, padded_airnow_windows
+from ingestion.connectors.airnow_time_offsets import max_abs_shift_hours
 from ingestion.connectors.ncei import get_ncei_weather_records
 from ingestion.connectors.purpleair import get_purpleair_pm25_records
 
@@ -378,6 +379,19 @@ def count_firms_nulls(records: list[dict]) -> dict[str, int]:
     return counts
 
 
+def event_window(start_date: str, end_date: str) -> tuple[datetime, datetime]:
+    """UTC [start, end) covering an inclusive start/end date range."""
+    window_start = datetime.combine(
+        date.fromisoformat(start_date), datetime.min.time(), timezone.utc
+    )
+    window_end = datetime.combine(
+        date.fromisoformat(end_date) + timedelta(days=1),
+        datetime.min.time(),
+        timezone.utc,
+    )
+    return window_start, window_end
+
+
 def count_missing_station_hours(
     records: list[dict], start_date: str, end_date: str
 ) -> int:
@@ -389,14 +403,7 @@ def count_missing_station_hours(
     -999 sentinel. Sites with no rows at all in the window aren't counted,
     since the response doesn't say they exist.
     """
-    window_start = datetime.combine(
-        date.fromisoformat(start_date), datetime.min.time(), timezone.utc
-    )
-    window_end = datetime.combine(
-        date.fromisoformat(end_date) + timedelta(days=1),
-        datetime.min.time(),
-        timezone.utc,
-    )
+    window_start, window_end = event_window(start_date, end_date)
     window_hours = int((window_end - window_start).total_seconds() // 3600)
 
     hours_by_site: dict[str, set[datetime]] = {}
@@ -596,22 +603,36 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                 # per chunk so a late failure doesn't re-pull earlier ones.
                 # The connector also bisects a chunk on its own if a dense
                 # bbox still trips the cap.
+                #
+                # The window is padded by the largest configured time
+                # correction, so a site whose labels are shifted still
+                # supplies the event's first and last true hours. Rows
+                # whose corrected valid_at lands outside the event are
+                # dropped, which leaves unshifted sites exactly as before.
                 records: list[dict] = []
-                for chunk_start, chunk_end in split_airnow_range(
-                    event.start_date, event.end_date
+                for start_date, start_hour, end_date, end_hour in padded_airnow_windows(
+                    event.start_date, event.end_date, max_abs_shift_hours()
                 ):
                     chunk_records = with_retries(
-                        lambda cs=chunk_start, ce=chunk_end: get_airnow_pm25_records(
-                            api_key=settings.airnow_api_key,
-                            bbox=event.bbox,
-                            start_date=cs,
-                            start_hour="00",
-                            end_date=ce,
-                            end_hour="23",
+                        lambda sd=start_date, sh=start_hour, ed=end_date, eh=end_hour: (
+                            get_airnow_pm25_records(
+                                api_key=settings.airnow_api_key,
+                                bbox=event.bbox,
+                                start_date=sd,
+                                start_hour=sh,
+                                end_date=ed,
+                                end_hour=eh,
+                            )
                         ),
-                        label=f"airnow:{event.event_id}:{chunk_start}",
+                        label=f"airnow:{event.event_id}:{start_date}T{start_hour}",
                     )
                     records.extend(chunk_records)
+
+                window_start, window_end = event_window(event.start_date, event.end_date)
+                records = [
+                    r for r in records
+                    if window_start <= r["observation"]["valid_at"] < window_end
+                ]
 
                 coverage.rows_fetched = len(records)
                 coverage.null_counts = {
