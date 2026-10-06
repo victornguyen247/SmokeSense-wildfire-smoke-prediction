@@ -113,6 +113,42 @@ def split_airnow_range(
     return chunks
 
 
+def padded_airnow_windows(
+    start_date: str,
+    end_date: str,
+    pad_hours: int,
+    max_days: int = MAX_CHUNK_DAYS,
+) -> list[tuple[str, str, str, str]]:
+    """Hourly AirNow windows covering a date range plus pad_hours each side.
+
+    Returns (start_date, start_hour, end_date, end_hour) tuples for
+    fetch_airnow_rows. The range is chunked with split_airnow_range, then
+    only the first window's start and the last window's end are moved out
+    by pad_hours, so windows still tile with no gap or overlap.
+
+    Padding lets a site whose labels are shifted (airnow_time_offsets.py)
+    still supply the range's first and last true hours; callers drop rows
+    whose corrected valid_at falls outside the range.
+
+    e.g. padded_airnow_windows("2021-08-05", "2021-08-06", 1) ->
+        [("2021-08-04", "23", "2021-08-07", "00")]
+    """
+    if pad_hours < 0:
+        raise ValueError("pad_hours must not be negative")
+
+    windows = [
+        [chunk_start, "00", chunk_end, "23"]
+        for chunk_start, chunk_end in split_airnow_range(start_date, end_date, max_days)
+    ]
+
+    first_start = datetime.fromisoformat(start_date) - timedelta(hours=pad_hours)
+    last_end = datetime.fromisoformat(end_date) + timedelta(hours=23 + pad_hours)
+    windows[0][0:2] = [first_start.date().isoformat(), f"{first_start.hour:02d}"]
+    windows[-1][2:4] = [last_end.date().isoformat(), f"{last_end.hour:02d}"]
+
+    return [tuple(window) for window in windows]
+
+
 def _request_airnow_rows(
     api_key: str,
     bbox: str,

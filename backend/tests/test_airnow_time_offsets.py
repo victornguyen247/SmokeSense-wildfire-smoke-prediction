@@ -13,6 +13,7 @@ correction matters.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
@@ -20,6 +21,7 @@ from ingestion.connectors.airnow import normalize_airnow_row
 from ingestion.connectors.airnow_time_offsets import (
     AIRNOW_TIME_OFFSETS,
     airnow_time_shift,
+    max_abs_shift_hours,
 )
 
 
@@ -192,3 +194,10 @@ def test_periods_are_sorted_and_do_not_overlap():
             assert period.evidence.strip(), station_id
         for earlier, later in zip(periods, periods[1:]):
             assert earlier.end_utc <= later.start_utc, station_id
+
+
+def test_max_abs_shift_hours():
+    assert max_abs_shift_hours() == 1
+
+    with patch.dict(AIRNOW_TIME_OFFSETS, clear=True):
+        assert max_abs_shift_hours() == 0

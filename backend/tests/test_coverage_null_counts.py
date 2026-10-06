@@ -14,9 +14,11 @@ Walnut office had 45 of 48 hours: 17:00 and 18:00 UTC on Aug 5 were never
 sent, and 19:00 was the -999 sentinel that normalize_airnow_row drops.
 
 Red Bluff's AirNow labels are 1 h late in this window, so normalize_airnow_row
-moves every reading 1 h earlier (airnow_time_offsets.py). The window is
-fetched by AirNow label, so its label 00:00 Aug 5 lands on Aug 4 23:00,
-outside the window, and nothing fills Aug 6 23:00: one more missing hour.
+moves every reading 1 h earlier (airnow_time_offsets.py). The batch pads its
+AirNow fetch by the largest configured shift (1 h) on both ends, so the
+fixtures carry labels Aug 4 23:00 .. Aug 7 00:00: Red Bluff's label Aug 7
+00:00 fills Aug 6 23:00, and rows corrected to outside the window are
+dropped.
 """
 
 from __future__ import annotations
@@ -30,6 +32,10 @@ from ingestion.batch.batch_ingest import (
     count_missing_station_hours,
 )
 from ingestion.connectors.airnow import get_airnow_pm25_records
+from ingestion.connectors.airnow_time_offsets import (
+    AIRNOW_TIME_OFFSETS,
+    OffsetPeriod,
+)
 from ingestion.connectors.firms import normalize_firms_row
 
 
@@ -159,13 +165,18 @@ def _airnow_raw_row(site, hour, value=10.0):
     }
 
 
+# Labels the batch requests for the 2-day window, padded by 1 h each side.
+PADDED_HOURS = range(-1, 49)
+
+
 def _real_window_raw_rows():
     """Raw rows matching the real window: 6 sites x 48 hours, except Red
-    Bluff 17:00/18:00 never sent and 19:00 sent as -999."""
+    Bluff 17:00/18:00 never sent and 19:00 sent as -999, plus each site's
+    padding labels (Aug 4 23:00 and Aug 7 00:00)."""
     red_bluff = AIRNOW_SITES[2]
     rows = []
     for site in AIRNOW_SITES:
-        for hour in range(48):
+        for hour in PADDED_HOURS:
             if site is red_bluff and hour in (17, 18):
                 continue
             value = -999.0 if (site is red_bluff and hour == 19) else 10.0
@@ -178,21 +189,19 @@ def _records(raw_rows):
         return get_airnow_pm25_records(api_key="x")
 
 
-def test_real_window_has_four_missing_station_hours():
+def test_real_window_has_three_missing_station_hours():
     raw = _real_window_raw_rows()
-    assert len(raw) == 286  # matches the real response
+    assert len(raw) == 286 + 12  # the real response, plus 2 padding labels per site
 
     records = _records(raw)
-    assert len(records) == 285  # -999 dropped, as stored
+    assert len(records) == 285 + 12  # -999 dropped
 
-    # 3 dropped or never sent, plus Red Bluff's Aug 6 23:00 (module docstring).
-    assert count_missing_station_hours(records, "2021-08-05", "2021-08-06") == 4
+    assert count_missing_station_hours(records, "2021-08-05", "2021-08-06") == 3
 
 
-def test_complete_window_misses_only_red_bluffs_last_hour():
-    raw = [_airnow_raw_row(site, h) for site in AIRNOW_SITES for h in range(48)]
-    # Only Red Bluff's Aug 6 23:00, lost to its time correction.
-    assert count_missing_station_hours(_records(raw), "2021-08-05", "2021-08-06") == 1
+def test_complete_window_has_no_missing_hours():
+    raw = [_airnow_raw_row(site, h) for site in AIRNOW_SITES for h in PADDED_HOURS]
+    assert count_missing_station_hours(_records(raw), "2021-08-05", "2021-08-06") == 0
 
 
 def test_sentinel_hour_counts_as_missing():
@@ -252,4 +261,75 @@ def test_ingest_event_reports_firms_and_airnow_null_counts(
         "confidence_level": 0, "frp_mw": 0, "scan_km": 0, "track_km": 0,
         "daynight": 0, "bright_t31_k": 1,
     }
-    assert sources["airnow"]["null_counts"] == {"pm25_missing_station_hours": 4}
+    assert sources["airnow"]["null_counts"] == {"pm25_missing_station_hours": 3}
+    # Only rows whose corrected hour is inside the event are counted.
+    assert sources["airnow"]["rows_fetched"] == 285
+
+    # One padded window: the event's 48 hours plus 1 h each side.
+    kwargs = get_airnow.call_args.kwargs
+    assert (kwargs["start_date"], kwargs["start_hour"]) == ("2021-08-04", "23")
+    assert (kwargs["end_date"], kwargs["end_hour"]) == ("2021-08-07", "00")
+
+
+def _fetch_by_label(sites):
+    """Fake fetch_airnow_rows: one row per site for every requested label."""
+    def fetch(api_key, bbox, start_date, start_hour, end_date, end_hour, verbose=False):
+        start = datetime.fromisoformat(f"{start_date}T{start_hour}:00+00:00")
+        end = datetime.fromisoformat(f"{end_date}T{end_hour}:00+00:00")
+        hours = int((end - start).total_seconds() // 3600)
+        return [
+            _airnow_raw_row(site, (start - WINDOW_START).total_seconds() / 3600 + h)
+            for site in sites
+            for h in range(hours + 1)
+        ]
+    return fetch
+
+
+@patch("ingestion.batch.batch_ingest.mark_progress")
+@patch("ingestion.batch.batch_ingest.SessionLocal")
+@patch("ingestion.batch.batch_ingest.get_purpleair_pm25_records", return_value=[])
+@patch("ingestion.batch.batch_ingest.get_ncei_weather_records", return_value=[])
+@patch("ingestion.batch.batch_ingest.insert_weather_observations", return_value=0)
+@patch("ingestion.batch.batch_ingest.insert_airnow_observations")
+@patch("ingestion.batch.batch_ingest.insert_fire_detections", return_value=0)
+@patch("ingestion.batch.batch_ingest.get_firms_records", return_value=[])
+def test_shifted_sites_keep_first_and_last_event_hours(
+    _firms, _insert_fire, insert_airnow, *_mocks,
+):
+    """A -1 site and a +1 site both cover every event hour; an unshifted
+    site keeps exactly its labels."""
+    from ingestion.batch.batch_ingest import ingest_event
+
+    redding, red_bluff, chico = AIRNOW_SITES[1], AIRNOW_SITES[2], AIRNOW_SITES[4]
+    # Test-only +1 period for Redding (the real config has none in 2021);
+    # Red Bluff's real -1 period covers the window.
+    plus_one = OffsetPeriod(
+        datetime(2021, 8, 1, tzinfo=timezone.utc),
+        datetime(2021, 8, 10, tzinfo=timezone.utc),
+        +1,
+        "test only",
+    )
+    insert_airnow.side_effect = lambda session, rows: len(rows)
+
+    event = PilotEvent(
+        event_id="TEST-SHIFT", name="t", bbox="-123.1,39.3,-120.0,41.2",
+        start_date="2021-08-05", end_date="2021-08-06",
+        firms_products=["VIIRS_SNPP_SP"],
+    )
+    with patch.dict(AIRNOW_TIME_OFFSETS, {redding[3]: [plus_one]}), patch(
+        "ingestion.connectors.airnow.fetch_airnow_rows",
+        side_effect=_fetch_by_label([redding, red_bluff, chico]),
+    ):
+        sources = ingest_event(event).to_dict()["sources"]
+
+    # First call is AirNow; PurpleAir writes through the same function after.
+    stored = insert_airnow.call_args_list[0].args[1]
+    window = {WINDOW_START + timedelta(hours=h) for h in range(48)}
+    for name, *_ in (redding, red_bluff, chico):
+        hours = [r["observation"]["valid_at"] for r in stored if r["monitor"]["name"] == name]
+        assert sorted(hours) == sorted(window), name
+        assert min(hours) == datetime(2021, 8, 5, 0, tzinfo=timezone.utc)
+        assert max(hours) == datetime(2021, 8, 6, 23, tzinfo=timezone.utc)
+
+    assert sources["airnow"]["rows_fetched"] == 3 * 48
+    assert sources["airnow"]["null_counts"] == {"pm25_missing_station_hours": 0}

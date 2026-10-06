@@ -85,6 +85,23 @@ AIRNOW_TIME_OFFSETS: dict[str, list[OffsetPeriod]] = {
 }
 
 
+def max_abs_shift_hours() -> int:
+    """Largest |shift_hours| in the config: how far a label can be off.
+
+    Batch fetches pad their AirNow window by this on both ends, so a
+    shifted site still has a row for the event's first and last hours.
+    """
+
+    return max(
+        (
+            abs(period.shift_hours)
+            for periods in AIRNOW_TIME_OFFSETS.values()
+            for period in periods
+        ),
+        default=0,
+    )
+
+
 def airnow_time_shift(station_id: str, label_utc: datetime) -> timedelta:
     """Correction to add to an AirNow UTC label for this station and hour."""
 
