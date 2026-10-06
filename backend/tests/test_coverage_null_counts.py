@@ -12,6 +12,11 @@ AirNow: every nullable stored column is null by design, so null_counts
 reports missing station-hours instead. In the real window, Red Bluff -
 Walnut office had 45 of 48 hours: 17:00 and 18:00 UTC on Aug 5 were never
 sent, and 19:00 was the -999 sentinel that normalize_airnow_row drops.
+
+Red Bluff's AirNow labels are 1 h late in this window, so normalize_airnow_row
+moves every reading 1 h earlier (airnow_time_offsets.py). The window is
+fetched by AirNow label, so its label 00:00 Aug 5 lands on Aug 4 23:00,
+outside the window, and nothing fills Aug 6 23:00: one more missing hour.
 """
 
 from __future__ import annotations
@@ -173,23 +178,25 @@ def _records(raw_rows):
         return get_airnow_pm25_records(api_key="x")
 
 
-def test_real_window_has_three_missing_station_hours():
+def test_real_window_has_four_missing_station_hours():
     raw = _real_window_raw_rows()
     assert len(raw) == 286  # matches the real response
 
     records = _records(raw)
     assert len(records) == 285  # -999 dropped, as stored
 
-    assert count_missing_station_hours(records, "2021-08-05", "2021-08-06") == 3
+    # 3 dropped or never sent, plus Red Bluff's Aug 6 23:00 (module docstring).
+    assert count_missing_station_hours(records, "2021-08-05", "2021-08-06") == 4
 
 
-def test_complete_window_has_no_missing_hours():
+def test_complete_window_misses_only_red_bluffs_last_hour():
     raw = [_airnow_raw_row(site, h) for site in AIRNOW_SITES for h in range(48)]
-    assert count_missing_station_hours(_records(raw), "2021-08-05", "2021-08-06") == 0
+    # Only Red Bluff's Aug 6 23:00, lost to its time correction.
+    assert count_missing_station_hours(_records(raw), "2021-08-05", "2021-08-06") == 1
 
 
 def test_sentinel_hour_counts_as_missing():
-    site = AIRNOW_SITES[2]
+    site = AIRNOW_SITES[4]  # Chico: no time correction
     raw = [_airnow_raw_row(site, h, -999.0 if h == 19 else 10.0) for h in range(24)]
     assert count_missing_station_hours(_records(raw), "2021-08-05", "2021-08-05") == 1
 
@@ -245,4 +252,4 @@ def test_ingest_event_reports_firms_and_airnow_null_counts(
         "confidence_level": 0, "frp_mw": 0, "scan_km": 0, "track_km": 0,
         "daynight": 0, "bright_t31_k": 1,
     }
-    assert sources["airnow"]["null_counts"] == {"pm25_missing_station_hours": 3}
+    assert sources["airnow"]["null_counts"] == {"pm25_missing_station_hours": 4}

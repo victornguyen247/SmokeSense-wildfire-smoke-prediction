@@ -26,6 +26,7 @@ from ingestion.connectors._common import (
     load_env,
     require_env,
 )
+from ingestion.connectors.airnow_time_offsets import airnow_time_shift
 from ingestion.normalize import (
     parse_airnow_timestamp,
     point_wkt,
@@ -376,6 +377,10 @@ def normalize_airnow_row(
             hour_observed,
             timezone_name,
         )
+
+    # Some sites label readings under the wrong UTC hour for known periods
+    # (airnow_time_offsets.py); everything below uses the true hour.
+    valid_at += airnow_time_shift(station_id, valid_at)
 
     # ---------------------------------------------------------
     # PM2.5 concentration
