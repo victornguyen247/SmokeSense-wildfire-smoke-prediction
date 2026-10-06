@@ -178,7 +178,25 @@ Current services we care about:
 
   `normalize_airnow_row` never falls back to `Value`. A row without a usable `RawConcentration` raises a `ValueError`: it was present on all 7,065 rows of a 48-hour California pull (2026-10-05), so a missing value means the request is wrong.
 - **Negative `RawConcentration`:** `-999` means "no reading for this hour", and the row is dropped. Other negatives are instrument noise near zero: from −5 up to 0 they're clamped to 0, below −5 the row is dropped (`RAW_NEGATIVE_FLOOR`; `observations.pm25` has `CHECK (pm25 >= 0)`). The 48-hour pull had 70 raw `-999` rows (on 70 of them `Value` still had a NowCast, from earlier hours) and 256 other negatives, all between −4.8 and −1.0. A `-999` in `Value` alone doesn't drop the hour: Red Bluff, 2021-08-05 19:00 UTC, had `Value: -999.0` because the two previous hours were missing, but `RawConcentration: 12.0`, which matches AQS.
-- **Red Bluff – Walnut office (AQS 061030007) is labelled one hour late in UTC on AirNow from at least Jan 2020 to Jan 2023, and not by Sep 2023.** Comparing `RawConcentration` with AQS 88101 on its GMT columns, Red Bluff matches exactly only with a +1 h shift (AirNow `2021-08-06T17:00` = AQS Date/Time GMT `2021-08-06 16:00`). That held in 6 checkable 2-day windows in winter and summer, so it isn't a daylight-saving effect. Chico, Redding, Willows-Colusa, Gridley and Weaverville match with no shift. The connector does **not** correct this yet. Note that AirData's "local" date/time columns are local *standard* time all year, so always match on the GMT columns.
+- **Red Bluff – Walnut office (AQS 061030007): AirNow's UTC timestamps are wrong by ±1 h for long stretches, and the connector does not correct this yet.**
+  - **Sign convention.** "Late" means AirNow labels a reading 1 h after the AQS hour, so the true hour is the label **minus 1 h**. Example: AirNow `2021-08-06T17:00`, `RawConcentration` 204.0 is AQS Date GMT `2021-08-06`, Time GMT `16:00`, 204.0. "Early" is the reverse: true hour = label + 1 h.
+  - **History**, from comparing AirNow `RawConcentration` with AQS 88101 (GMT columns) hour by hour over 2017 and 2021–2023 (2018–2020 not scanned). Boundaries are the last hour clearly at the old offset and the first clearly at the new one.
+
+    | Period (UTC) | AirNow vs true hour |
+    | --- | --- |
+    | Jan 3 – Feb 10 2017 (earliest data checked) | 1 h early |
+    | Sep 1 2017 – 2021-09-14 15:00 | 1 h late (2018–2020 not scanned hour by hour; 2-day windows in Jan and Sep 2020 also showed +1 h) |
+    | 2021-09-14 16:00 – 2022-08-24 16:00 | correct |
+    | 2022-08-24 ~17:00–20:00 – 2022-09-26 13:00 | 1 h late |
+    | 2022-09-27 01:00 – 2022-10-01 06:00 | 1 h early |
+    | 2022-10-01 08:00 – 2023-01-01 06:00 | correct |
+    | Jan 2023 (switch inside the Jan 1–3 gap) – 2023-04-01 06:00 | 1 h late |
+    | 2023-04-01 ~08:00–09:00 onward (checked to Dec 31 2023) | correct |
+
+    This shows which source is off *relative to* the other, not which one changed.
+  - **AirNow archive gaps** for this site (no rows): Feb 11 – Aug 30 2017; Jan 2 and Jan 4–10 2022 (Jan 1, 3 and 11–13 have only 1–8 rows); Apr 11 – May 8 2023 (partial days Apr 10 and May 9).
+  - **AQS 88101 stores this site's values truncated toward zero from 2023-05-09 to 2023-06-30.** Example: AirNow `2023-05-10T00:00` = 3.6, AQS GMT `00:00` = 3.0. In that period, truncated AirNow equals AQS on 994/994 hours, and no AQS value is fractional. From Jul 2 2023 they match exactly (3,869/3,869 hours, 90% fractional in both).
+  - **Other sites:** in the 2-day windows checked (2020–2023 for Chico; Jan and Aug 2021 for the 88502 sites), Chico, Redding, Willows-Colusa, Gridley and Weaverville match AQS with no shift. AirData's "local" date/time columns are local *standard* time all year (GMT − local = 8 h even in summer), so always match on the GMT columns.
 - **AirNow's `null_counts` is missing station-hours, not column nulls.** Every nullable column AirNow fills is null by design: `pm25_cf1_a`, `pm25_cf1_b`, `rh_pct` and `qa_flag` are PurpleAir-only fields, and `/aq/data/` never sends elevation. Gaps show up as hours with no row instead. `pm25_missing_station_hours` counts, for each site that reported at least once, the hours in the window it has no reading for, whether AirNow never sent them or they were dropped (raw `-999`, or below −5). A site that sent nothing in the window isn't in the response, so it can't be counted. Same PE-002 window: 4 — Red Bluff Aug 5 16:00 UTC (raw `-999`), 17:00 and 18:00 (never sent), and Willows-Colusa Aug 5 21:00 (raw `-999`).
 - Regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally) — not enough label density on their own in fire-prone areas, which is why we add PurpleAir below.
 
