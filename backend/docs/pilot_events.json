@@ -26,7 +26,7 @@
       ],
       "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 14,137, VIIRS_SNPP_SP 66,362, VIIRS_NOAA20_SP 67,593. VIIRS_NOAA21 has no _SP product.",
       "verification_status": "firms_airnow_verified",
-      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Willows-Colusa 06-021-0003 18.9 km 99.4%; Red Bluff - Walnut office 06-103-0007 29.2 km 84.7%. Peak daily PM2.5 and tier still pending (AQS check). Red Bluff's AirNow UTC timestamps are 1 h late in this period (docs/data-sources.md); the connector does not correct this yet."
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Willows-Colusa 06-021-0003 18.9 km 99.4%; Red Bluff - Walnut office 06-103-0007 29.2 km 84.7%. Peak daily PM2.5 and tier still pending (AQS check). Red Bluff's AirNow UTC labels are 1 h late in this period (2017-08-31 to 2021-09-14). PR #24's ingestion/connectors/airnow_time_offsets.py corrects them, but #24 merged into fix/airnow-raw-hourly-pm25 after that branch had already merged to dev (#23), so dev does not have the correction yet; ingest PE-001 only once it lands."
     },
     {
       "event_id": "PE-003",
