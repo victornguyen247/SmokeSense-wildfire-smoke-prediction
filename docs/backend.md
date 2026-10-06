@@ -19,7 +19,7 @@ backend/
     core/
       config.py           typed settings (pydantic-settings) — single source of config
       database.py         engine, session, PostGIS setup
-      logging.py          structured logging
+      logging.py          logging defaults (quiets httpx/httpcore so request URLs with keys aren't logged)
     api/
       routes/             one file per domain: predictions, locations, alerts, city_history
     schemas/              pydantic request/response models (the API contract)
