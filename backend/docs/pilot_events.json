@@ -1,22 +1,198 @@
 {
-  "_note": "STARTER CONFIG — only PE-020 included for initial pipeline testing. bbox values are ROUGH ESTIMATES derived from county location + the 'within X km' monitor distance noted in pilot-events.md, NOT precise fire-perimeter data. Verify/tighten before using for real training data. Add the remaining 19 events once the pipeline is proven against this one.",
+  "_note": "Pilot events that passed the DATA-03 FIRMS + AirNow check on 2026-10-06 (7 of the 20 in docs/pilot-events.md). Each bbox is centred on the event's FRP-weighted FIRMS _SP cluster, because PurpleAir distance-ranking uses the bbox centre as a proxy for the fire. Borderline and failed events, with reasons, are listed under Data-availability verification in docs/pilot-events.md and are deliberately not included here. Peak PM2.5 / tier confirmation from AQS is still pending for every event.",
   "events": [
     {
-      "event_id": "PE-020",
-      "name": "Shasta Fire (2017)",
-      "region": "Northern California (Shasta County)",
+      "event_id": "PE-001",
+      "name": "August Complex Fire",
+      "region": "Northern California (Trinity, Tehama, Glenn, Lake, Mendocino counties)",
+      "tier": "high",
+      "start_date": "2020-08-17",
+      "end_date": "2020-11-12",
+      "bbox": "-123.86,39.26,-122.13,40.59",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (39.929, -122.995): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 148 x 148 km. E-W buffer widened symmetrically to include Willows-Colusa, 18.9 km from the fire. Other fires: Zogg Fire (40.49,-122.62; 2020-09-27..11-06) lies inside the box: 3,321 detections, 2.3% of in-box FRP.",
+      "nws_grid": [
+        "EKA",
+        "STO"
+      ],
+      "airnow_monitors_nearby": [
+        "Willows-Colusa",
+        "Red Bluff - Walnut office"
+      ],
+      "purpleair_density": "moderate",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 14,137, VIIRS_SNPP_SP 66,362, VIIRS_NOAA20_SP 67,593. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Willows-Colusa 06-021-0003 18.9 km 99.4%; Red Bluff - Walnut office 06-103-0007 29.2 km 84.7%. Peak daily PM2.5 and tier still pending (AQS check). Red Bluff's AirNow UTC timestamps are 1 h late in this period (docs/data-sources.md); the connector does not correct this yet."
+    },
+    {
+      "event_id": "PE-003",
+      "name": "Mendocino Complex Fire",
+      "region": "Northern California (Mendocino, Lake, Colusa, Glenn counties)",
+      "tier": "high",
+      "start_date": "2018-07-27",
+      "end_date": "2018-09-18",
+      "bbox": "-123.37,38.79,-122.21,39.75",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (39.268, -122.790): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 100 x 107 km. Other fires: 9 detections, 0.0% of in-box FRP.",
+      "nws_grid": [
+        "EKA",
+        "STO",
+        "MTR"
+      ],
+      "airnow_monitors_nearby": [
+        "Ukiah Library"
+      ],
+      "purpleair_density": "sparse",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 4,597, VIIRS_SNPP_SP 16,272, VIIRS_NOAA20_SP 16,310. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Ukiah Library 06-045-0006 9.4 km 96.5%. Peak daily PM2.5 and tier still pending (AQS check)."
+    },
+    {
+      "event_id": "PE-004",
+      "name": "Park Fire",
+      "region": "Northern California (Butte, Tehama counties)",
+      "tier": "high",
+      "start_date": "2024-07-24",
+      "end_date": "2024-10-24",
+      "bbox": "-122.29,39.59,-121.19,40.59",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (40.091, -121.741): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 94 x 111 km. Other fires: 10 detections, 0.0% of in-box FRP.",
+      "nws_grid": [
+        "STO"
+      ],
+      "airnow_monitors_nearby": [
+        "Chico - East",
+        "Paradise - Clark Road",
+        "Red Bluff - Walnut office"
+      ],
+      "purpleair_density": "excellent",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 2,839, VIIRS_SNPP_SP 3,685, VIIRS_NOAA20_SP 9,630. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Chico - East 06-007-0008 4.1 km 99.1%; Paradise - Clark Road 06-007-2003 9.2 km 74.6%; Red Bluff - Walnut office 06-103-0007 17.6 km 94.0%. Peak daily PM2.5 and tier still pending (AQS check)."
+    },
+    {
+      "event_id": "PE-005",
+      "name": "SCU Lightning Complex Fire",
+      "region": "Bay Area / Diablo Range (Santa Clara, Alameda, Contra Costa, San Joaquin, Stanislaus counties)",
+      "tier": "high",
+      "start_date": "2020-08-18",
+      "end_date": "2020-09-22",
+      "bbox": "-122.02,36.89,-120.93,37.77",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (37.330, -121.474): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 96 x 98 km. Other fires: 91 detections, 0.1% of in-box FRP.",
+      "nws_grid": [
+        "MTR",
+        "STO"
+      ],
+      "airnow_monitors_nearby": [
+        "San Jose - Knox Ave",
+        "TracyAP",
+        "San Jose - Jackson St.",
+        "Modesto - 14th Street",
+        "Gilroy - 9th Street",
+        "Santa Cruz AMS"
+      ],
+      "purpleair_density": "excellent",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 2,206, VIIRS_SNPP_SP 9,294, VIIRS_NOAA20_SP 9,090. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): San Jose - Knox Ave 06-085-0006 5.8 km 99.1%; TracyAP 06-077-3005 9.2 km 99.5%; San Jose - Jackson St. 06-085-0005 9.3 km 99.4%; Modesto - 14th Street 06-099-0005 12.0 km 99.4%; Gilroy - 9th Street 06-085-0002 17.1 km 99.0%; Santa Cruz AMS 06-087-0007 45.4 km 99.1%. Peak daily PM2.5 and tier still pending (AQS check)."
+    },
+    {
+      "event_id": "PE-007",
+      "name": "Glass Fire",
+      "region": "Northern California (Napa, Sonoma counties)",
+      "tier": "high-medium",
+      "start_date": "2020-09-27",
+      "end_date": "2020-10-20",
+      "bbox": "-122.93,38.21,-122.14,38.88",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (38.545, -122.533): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 69 x 75 km. Other fires: 7 detections, 0.0% of in-box FRP.",
+      "nws_grid": [
+        "MTR"
+      ],
+      "airnow_monitors_nearby": [
+        "Sebastopol"
+      ],
+      "purpleair_density": "good",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 659, VIIRS_SNPP_SP 2,431, VIIRS_NOAA20_SP 2,099. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Sebastopol 06-097-0004 15.5 km 99.1%. Peak daily PM2.5 and tier still pending (AQS check)."
+    },
+    {
+      "event_id": "PE-010",
+      "name": "Woolsey Fire",
+      "region": "Southern California (Los Angeles, Ventura counties)",
+      "tier": "high-medium",
+      "start_date": "2018-11-08",
+      "end_date": "2018-11-21",
+      "bbox": "-119.23,33.78,-118.37,34.45",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (34.118, -118.802): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 79 x 75 km. Other fires: 82 detections, 0.0% of in-box FRP.",
+      "nws_grid": [
+        "LOX"
+      ],
+      "airnow_monitors_nearby": [
+        "Thousand Oaks - Moorpark Road",
+        "Simi Valley - Cochran Street",
+        "El Rio - Rio Mesa School #2",
+        "Reseda",
+        "Piru - Pacific",
+        "Santa Clarita"
+      ],
+      "purpleair_density": "moderate",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 515, VIIRS_SNPP_SP 1,824, VIIRS_NOAA20_SP 2,291. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Thousand Oaks - Moorpark Road 06-111-0007 2.2 km 99.4%; Simi Valley - Cochran Street 06-111-2002 2.2 km 99.1%; El Rio - Rio Mesa School #2 06-111-3001 7.2 km 99.7%; Reseda 06-037-1201 10.1 km 98.5%; Piru - Pacific 06-111-0009 12.7 km 97.6%; Santa Clarita 06-037-6012 15.2 km 97.9%. Peak daily PM2.5 and tier still pending (AQS check)."
+    },
+    {
+      "event_id": "PE-014",
+      "name": "River Fire",
+      "region": "Sierra Nevada Foothills (Nevada, Placer counties)",
       "tier": "low",
-      "start_date": "2017-07-06",
-      "end_date": "2017-07-12",
-      "bbox": "-122.6,40.4,-122.1,40.8",
-      "bbox_note": "Approximate box around Shasta County near Redding, buffered ~20km beyond the 'within 20km' monitor distance noted in pilot-events.md. NOT verified against actual fire perimeter.",
-      "nws_grid": ["STO"],
-      "airnow_monitors_nearby": ["Redding"],
-      "purpleair_density": "none",
-      "firms_products": ["MODIS_SP", "VIIRS_SNPP_SP"],
-      "firms_products_note": "Must use _SP (archive) sources, not the _NRT default in firms.py — NRT only covers ~3 months back and this event is from 2017.",
-      "verification_status": "pending",
-      "verification_note": "Not yet confirmed against AQS per docs/pilot-events.md Data-availability verification table. Run DATA-03 against this event, then copy the resulting coverage numbers back into that table."
+      "start_date": "2021-08-04",
+      "end_date": "2021-08-08",
+      "bbox": "-121.29,38.85,-120.68,39.37",
+      "bbox_note": "Centred on the FRP-weighted centroid of the event's FIRMS _SP cluster (39.109, -120.982): the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. 53 x 58 km. Other fires: 0 detections, 0.0% of in-box FRP.",
+      "nws_grid": [
+        "STO"
+      ],
+      "airnow_monitors_nearby": [
+        "Colfax",
+        "Auburn"
+      ],
+      "purpleair_density": "good",
+      "firms_products": [
+        "MODIS_SP",
+        "VIIRS_SNPP_SP",
+        "VIIRS_NOAA20_SP"
+      ],
+      "firms_products_note": "Archive (_SP) products with detections in this bbox and window: MODIS_SP 14, VIIRS_SNPP_SP 47, VIIRS_NOAA20_SP 73. VIIRS_NOAA21 has no _SP product.",
+      "verification_status": "firms_airnow_verified",
+      "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): Colfax 06-061-0004 1.5 km 94.2%; Auburn 06-061-0003 18.6 km 100.0%. Peak daily PM2.5 and tier still pending (AQS check)."
     }
   ]
 }

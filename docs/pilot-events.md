@@ -409,25 +409,60 @@ PM-01 requires each event to have a recorded check confirming nearby monitor cov
 
 | ID | AQS site IDs (≤ 25 km) | % hours | Peak daily PM2.5 | Tier confirmed? | FIRMS SP detections | Checked by / date |
 |---|---|---|---|---|---|---|
-| PE-001 | | | | | | Pending |
-| PE-002 | | | | | | Pending |
-| PE-003 | | | | | | Pending |
-| PE-004 | | | | | | Pending |
-| PE-005 | | | | | | Pending |
-| PE-006 | | | | | | Pending |
-| PE-007 | | | | | | Pending |
-| PE-008 | | | | | | Pending |
-| PE-009 | | | | | | Pending |
-| PE-010 | | | | | | Pending |
-| PE-011 | | | | | | Pending |
-| PE-012 | | | | | | Pending |
-| PE-013 | | | | | | Pending |
-| PE-014 | | | | | | Pending |
-| PE-015 | | | | | | Pending |
-| PE-016 | | | | | | Pending |
-| PE-017 | | | | | | Pending |
-| PE-018 | | | | | | Pending |
-| PE-019 | | | | | | Pending |
-| PE-020 | | | | | | Pending |
+| PE-001 | 06-021-0003 Willows-Colusa (18.9 km)<br>06-103-0007 Red Bluff - Walnut office (29.2 km, >25) | 99.4% (Willows-Colusa) | Pending | Pending | 148,092 (MODIS 14,137 / SNPP 66,362 / NOAA-20 67,593) | Pending |
+| PE-002 | 06-007-0008 Chico - East (34.6 km, >25) | 95.6% (Chico - East) | Pending | Pending | 142,306 (MODIS 13,870 / SNPP 62,382 / NOAA-20 66,054) | Pending |
+| PE-003 | 06-045-0006 Ukiah Library (9.4 km) | 96.5% (Ukiah Library) | Pending | Pending | 37,179 (MODIS 4,597 / SNPP 16,272 / NOAA-20 16,310) | Pending |
+| PE-004 | 06-007-0008 Chico - East (4.1 km)<br>06-007-2003 Paradise - Clark Road (9.2 km)<br>06-103-0007 Red Bluff - Walnut office (17.6 km) | 99.1% (Chico - East) | Pending | Pending | 16,154 (MODIS 2,839 / SNPP 3,685 / NOAA-20 9,630) | Pending |
+| PE-005 | 06-085-0006 San Jose - Knox Ave (5.8 km)<br>06-077-3005 TracyAP (9.2 km)<br>06-085-0005 San Jose - Jackson St. (9.3 km)<br>06-099-0005 Modesto - 14th Street (12.0 km)<br>06-085-0002 Gilroy - 9th Street (17.1 km)<br>06-087-0007 Santa Cruz AMS (45.4 km, >25) | 99.5% (TracyAP) | Pending | Pending | 20,590 (MODIS 2,206 / SNPP 9,294 / NOAA-20 9,090) | Pending |
+| PE-006 | 06-097-0004 Sebastopol (38.5 km, >25) | 97.7% (Sebastopol) | Pending | Pending | 224 (MODIS 63 / SNPP 161) | Pending |
+| PE-007 | 06-097-0004 Sebastopol (15.5 km) | 99.1% (Sebastopol) | Pending | Pending | 5,189 (MODIS 659 / SNPP 2,431 / NOAA-20 2,099) | Pending |
+| PE-008 | 06-105-0002 Weaverville (11.9 km) | 74.0% (Weaverville) | Pending | Pending | 31,129 (MODIS 3,747 / SNPP 14,154 / NOAA-20 13,228) | Pending |
+| PE-009 | None in bbox (no AirNow data) | 0% | Pending | Pending | 1,198 (MODIS 1,198) | Pending |
+| PE-010 | 06-111-0007 Thousand Oaks - Moorpark Road (2.2 km)<br>06-111-2002 Simi Valley - Cochran Street (2.2 km)<br>06-111-3001 El Rio - Rio Mesa School #2 (7.2 km)<br>06-037-1201 Reseda (10.1 km)<br>06-111-0009 Piru - Pacific (12.7 km)<br>06-037-6012 Santa Clarita (15.2 km) | 99.7% (El Rio - Rio Mesa School #2) | Pending | Pending | 4,630 (MODIS 515 / SNPP 1,824 / NOAA-20 2,291) | Pending |
+| PE-011 | 06-097-0004 Sebastopol (14.1 km) | 72.8% (Sebastopol) | Pending | Pending | 4,227 (MODIS 404 / SNPP 1,803 / NOAA-20 2,020) | Pending |
+| PE-012 | 06-043-1001 Yosemite Village - Visitor Center (28.1 km, >25)<br>06-019-5001 Clovis - N. Villa Ave (32.5 km, >25) | 99.6% (Clovis - N. Villa Ave) | Pending | Pending | 89,129 (MODIS 7,518 / SNPP 40,517 / NOAA-20 41,094) | Pending |
+| PE-013 | 06-105-0002 Weaverville (31.7 km, >25)<br>06-103-0007 Red Bluff - Walnut office (33.3 km, >25) | 87.5% (Weaverville) | Pending | Pending | 3,451 (MODIS 374 / SNPP 1,681 / NOAA-20 1,396) | Pending |
+| PE-014 | 06-061-0004 Colfax (1.5 km)<br>06-061-0003 Auburn (18.6 km) | 100.0% (Auburn) | Pending | Pending | 134 (MODIS 14 / SNPP 47 / NOAA-20 73) | Pending |
+| PE-015 | 06-071-0306 Victorville - Park Avenue (29.1 km, >25)<br>06-037-0016 Glendora - Laurel (31.2 km, >25) | 100.0% (Victorville - Park Avenue) | Pending | Pending | 118 (MODIS 17 / SNPP 42 / NOAA-20 59) | Pending |
+| PE-016 | 06-093-2002 Mt Shasta (25.2 km, >25) | 94.6% (Mt Shasta) | Pending | Pending | 11,515 (MODIS 1,126 / SNPP 5,193 / NOAA-20 5,196) | Pending |
+| PE-017 | None in bbox (nearest: 06-009-0001 San Andreas, 40.8 km) | 0% | Pending | Pending | 261 (MODIS 43 / SNPP 132 / NOAA-20 86) | Pending |
+| PE-018 | 06-105-0002 Weaverville (8.4 km) | 97.0% (Weaverville) | Pending | Pending | 93,254 (MODIS 9,847 / SNPP 41,648 / NOAA-20 41,759) | Pending |
+| PE-019 | 06-095-3003 Vacaville (28.6 km, >25) | 100.0% (Vacaville) | Pending | Pending | 678 (MODIS 33 / SNPP 385 / NOAA-20 260) | Pending |
+| PE-020 | None in bbox (nearest: 06-007-0008 Chico -  East, 102.8 km) | 0% | Pending | Pending | 0 (MODIS 0 / SNPP 0) | Pending |
 
 An event that fails the check (no site ≤ 25 km, or < 75% hours) is replaced, and the replacement is noted here.
+
+**Measured 2026-10-06 (FIRMS + AirNow only).** Filled from live API calls, not yet from AQS:
+
+- **Bbox** — each event's bbox is centred on the FRP-weighted centroid of its FIRMS `_SP` cluster, with the cluster's FRP-weighted 98th-percentile extent plus a 25 km buffer, symmetric about the centroid. The config (`backend/docs/pilot_events.json`) holds it. PE-020 has no cluster, so its row uses the bbox already in the config.
+- **FIRMS SP detections** — every `_SP` archive product with coverage for the window (MODIS, VIIRS-SNPP from 2012-01-20, VIIRS-NOAA20 from 2018-04-01; NOAA-21 has no `_SP` product), counted inside the bbox.
+- **AQS site IDs** — AirNow `/aq/data/` sites that reported PM2.5 inside the bbox during the window, with the AQS ID AirNow sends. The distance is to the nearest FIRMS detection of the event's cluster. Sites over 25 km away are marked `>25`: they can still carry labels at forecast points placed next to them, but there is no monitor near the fire. Where none reports in the bbox, the nearest site comes from a one-day AirNow probe of a 300 km box.
+- **% hours** — share of the window's UTC hours (start date 00:00 to end date 23:00, as `batch_ingest` requests them) with a valid `RawConcentration` at the best site.
+- Peak daily PM2.5, tier and sign-off still need the AQS check.
+
+**Verdicts**
+
+| ID | Verdict | Bbox (km, W × H) | Reason |
+|---|---|---|---|
+| PE-001 | Pass | 148 × 148 | 148,092 FIRMS _SP detections in the bbox; nearest AirNow site Willows-Colusa (06-021-0003) is 18.9 km from the fire with 99.4% of hours; 2 reporting site(s) in the bbox. |
+| PE-002 | Borderline | 173 × 136 | Nearest reporting AirNow site Chico - East (06-007-0008) is 34.6 km from the fire (95.6% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-003 | Pass | 100 × 107 | 37,179 FIRMS _SP detections in the bbox; nearest AirNow site Ukiah Library (06-045-0006) is 9.4 km from the fire with 96.5% of hours; 1 reporting site(s) in the bbox. |
+| PE-004 | Pass | 94 × 111 | 16,154 FIRMS _SP detections in the bbox; nearest AirNow site Chico - East (06-007-0008) is 4.1 km from the fire with 99.1% of hours; 3 reporting site(s) in the bbox. |
+| PE-005 | Pass | 96 × 98 | 20,590 FIRMS _SP detections in the bbox; nearest AirNow site San Jose - Knox Ave (06-085-0006) is 5.8 km from the fire with 99.1% of hours; 6 reporting site(s) in the bbox. |
+| PE-006 | Borderline | 82 × 78 | Nearest reporting AirNow site Sebastopol (06-097-0004) is 38.5 km from the fire (97.7% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-007 | Pass | 69 × 75 | 5,189 FIRMS _SP detections in the bbox; nearest AirNow site Sebastopol (06-097-0004) is 15.5 km from the fire with 99.1% of hours; 1 reporting site(s) in the bbox. |
+| PE-008 | Borderline | 104 × 114 | Only AirNow site Weaverville (06-105-0002, 11.9 km) has 74.0% of hours, under the doc's 75% rule. |
+| PE-009 | Fail | 95 × 98 | AirNow /aq/data/ has no rows in the bbox for the window and none in a 300 km box around the fire (statewide California returns 0 rows for 2007 and 2008; AirNow coverage starts later). Labels would need AQS/AirData instead. |
+| PE-010 | Pass | 79 × 75 | 4,630 FIRMS _SP detections in the bbox; nearest AirNow site Thousand Oaks - Moorpark Road (06-111-0007) is 2.2 km from the fire with 99.4% of hours; 6 reporting site(s) in the bbox. |
+| PE-011 | Borderline | 66 × 77 | Only AirNow site Sebastopol (06-097-0004, 14.1 km) has 72.8% of hours, under the doc's 75% rule. |
+| PE-012 | Borderline | 94 × 117 | Nearest reporting AirNow site Yosemite Village - Visitor Center (06-043-1001) is 28.1 km from the fire (98.8% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-013 | Borderline | 64 × 90 | Nearest reporting AirNow site Weaverville (06-105-0002) is 31.7 km from the fire (87.5% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-014 | Pass | 53 × 58 | 134 FIRMS _SP detections in the bbox; nearest AirNow site Colfax (06-061-0004) is 1.5 km from the fire with 94.2% of hours; 2 reporting site(s) in the bbox. |
+| PE-015 | Borderline | 53 × 52 | Nearest reporting AirNow site Victorville - Park Avenue (06-071-0306) is 29.1 km from the fire (100.0% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-016 | Borderline | 74 × 70 | Nearest reporting AirNow site Mt Shasta (06-093-2002) is 25.2 km from the fire (94.6% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-017 | Fail | 57 × 53 | No AirNow site reports in the bbox. Nearest site in a 1-day probe: San Andreas (06-009-0001), 40.8 km from the fire: inside the 150 km event rule, outside the 25 km rule. Placerville and South Lake Tahoe (listed in the doc) do not report PM2.5 to AirNow in this window. |
+| PE-018 | Borderline | 86 × 105 | 55% of in-box FRP is from other fires (41.115,-122.977, 41,111 detections); (40.332,-123.014, 6,818 detections): the River Complex to the north and McFarland Fire to the south. Monitor is fine (Weaverville 06-105-0002, 8.4 km, 97.0%). |
+| PE-019 | Borderline | 64 × 88 | Nearest reporting AirNow site Vacaville (06-095-3003) is 28.6 km from the fire (100.0% of hours): passes the 150 km event rule but no monitor within 25 km, so no training rows near the fire. |
+| PE-020 | Fail | 42 × 45 (dev config) | 0 FIRMS _SP detections in the bbox (MODIS_SP and VIIRS_SNPP_SP, 2017-07-06..2017-07-12); no AirNow site reports in the bbox, so no monitor within 25 km; nearest AirNow site Chico - East (06-007-0008) is 102.8 km from the box centre. All of Shasta County had 3 detections in the window, none inside the box: the fire named on dev could not be found (open PR #21 says it does not exist). |
+
+Only **Pass** events are in `backend/docs/pilot_events.json`. Borderline events need a decision (accept, re-window or replace). Failed events need a replacement: for PE-020, open PR #21's Crews Fire (2020-07-05 → 07-13) passes the same check — 272 detections in a 60 × 55 km bbox, Gilroy - 9th Street (06-085-0002) 6.7 km from the fire at 98.6% of hours and Hollister (06-069-0002) at 18.2 km.
