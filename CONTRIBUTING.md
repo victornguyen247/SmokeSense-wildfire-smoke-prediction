@@ -185,6 +185,7 @@ Re-run it whenever a required check is added or renamed — the check names in t
 - Never commit real secrets. `.env` is git-ignored; commit only `.env.example`.
 - API keys (FIRMS, AirNow, PurpleAir) go in your local `backend/.env`. See [docs/data-sources.md](docs/data-sources.md) for where to get them.
 - If you add a new config value, add it to `.env.example` with a placeholder in the same PR so teammates know it exists.
+- Keys must never reach logs. AirNow takes its key as a URL query parameter and FIRMS puts its map key in the URL path, and httpx logs every request URL at INFO. `ingestion/__init__.py` raises the `httpx` and `httpcore` loggers to WARNING for every ingestion entry point (`app/core/logging.py`). Don't lower them, and don't log or print request URLs or params yourself. `tests/test_no_keys_in_logs.py` checks this.
 
 ---
 
