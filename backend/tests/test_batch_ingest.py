@@ -346,7 +346,8 @@ def _run_main_with_airnow_insert_failure(tmp_path, store):
     airnow_records = [
         normalize_airnow_row({
             "Latitude": 40.17, "Longitude": -122.26, "Parameter": "PM2.5",
-            "UTC": f"2021-08-0{5 + h // 24}T{h % 24:02d}:00", "Value": 10.0,
+            "UTC": f"2021-08-0{5 + h // 24}T{h % 24:02d}:00",
+            "Value": 10.0, "RawConcentration": 10.0,
             "SiteName": f"site {site}", "FullAQSCode": f"06103000{site}",
         })
         for site in range(6)
