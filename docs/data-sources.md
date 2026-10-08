@@ -178,26 +178,62 @@ Current services we care about:
 
   `normalize_airnow_row` never falls back to `Value`. A row without a usable `RawConcentration` raises a `ValueError`: it was present on all 7,065 rows of a 48-hour California pull (2026-10-05), so a missing value means the request is wrong.
 - **Negative `RawConcentration`:** `-999` means "no reading for this hour", and the row is dropped. Other negatives are instrument noise near zero: from −5 up to 0 they're clamped to 0, below −5 the row is dropped (`RAW_NEGATIVE_FLOOR`; `observations.pm25` has `CHECK (pm25 >= 0)`). The 48-hour pull had 70 raw `-999` rows (on 70 of them `Value` still had a NowCast, from earlier hours) and 256 other negatives, all between −4.8 and −1.0. A `-999` in `Value` alone doesn't drop the hour: Red Bluff, 2021-08-05 19:00 UTC, had `Value: -999.0` because the two previous hours were missing, but `RawConcentration: 12.0`, which matches AQS.
-- **Red Bluff – Walnut office (AQS 061030007): AirNow's UTC timestamps are wrong by ±1 h for long stretches, and the connector does not correct this yet.**
+- **Red Bluff – Walnut office (AQS 061030007): AirNow's UTC timestamps are wrong by ±1 h for long stretches.** `normalize_airnow_row` corrects the scanned periods from a per-site config (see *AirNow time-offset config* below).
   - **Sign convention.** "Late" means AirNow labels a reading 1 h after the AQS hour, so the true hour is the label **minus 1 h**. Example: AirNow `2021-08-06T17:00`, `RawConcentration` 204.0 is AQS Date GMT `2021-08-06`, Time GMT `16:00`, 204.0. "Early" is the reverse: true hour = label + 1 h.
-  - **History**, from comparing AirNow `RawConcentration` with AQS 88101 (GMT columns) hour by hour over 2017 and 2021–2023 (2018–2020 not scanned). Boundaries are the last hour clearly at the old offset and the first clearly at the new one.
+  - **History**, from comparing AirNow `RawConcentration` with AQS 88101 (GMT columns) hour by hour over 2017–2023. Boundaries are the last hour clearly at the old offset and the first clearly at the new one.
 
     | Period (UTC) | AirNow vs true hour |
     | --- | --- |
     | Jan 3 – Feb 10 2017 (earliest data checked) | 1 h early |
-    | Sep 1 2017 – 2021-09-14 15:00 | 1 h late (2018–2020 not scanned hour by hour; 2-day windows in Jan and Sep 2020 also showed +1 h) |
+    | 2017-08-31 23:00 – 2021-09-14 15:00 (Aug 31 19:00–21:00 are correct) | 1 h late: 18,699 of 18,700 unambiguous hours, every year 2017–2021 |
     | 2021-09-14 16:00 – 2022-08-24 16:00 | correct |
     | 2022-08-24 ~17:00–20:00 – 2022-09-26 13:00 | 1 h late |
-    | 2022-09-27 01:00 – 2022-10-01 06:00 | 1 h early |
+    | 2022-09-26 23:00 – 2022-10-01 06:00 | 1 h early |
     | 2022-10-01 08:00 – 2023-01-01 06:00 | correct |
     | Jan 2023 (switch inside the Jan 1–3 gap) – 2023-04-01 06:00 | 1 h late |
     | 2023-04-01 ~08:00–09:00 onward (checked to Dec 31 2023) | correct |
 
-    This shows which source is off *relative to* the other, not which one changed.
-  - **AirNow archive gaps** for this site (no rows): Feb 11 – Aug 30 2017; Jan 2 and Jan 4–10 2022 (Jan 1, 3 and 11–13 have only 1–8 rows); Apr 11 – May 8 2023 (partial days Apr 10 and May 9).
+    This shows which source is off *relative to* the other, not which one changed. We align to AQS as the reference because AQS is the validated archive, and AirNow agrees with it at about 99% of checkable site-windows statewide (599 of 605 in the six sampled windows). That is a convention we chose, not proof of which clock is right: cross-correlating with neighboring sites could not tell.
+  - **AirNow archive gaps** for this site (no rows): Feb 11 – Aug 30 2017; Jan 2 – Apr 24 2018; Jan 23 – Apr 18 2019; 5–6-day gaps in Nov 2018 and Jan/Feb, Apr and Dec 2020; Jan 2 and Jan 4–10 2022 (Jan 1, 3 and 11–13 have only 1–8 rows); Apr 11 – May 8 2023 (partial days Apr 10 and May 9).
   - **AQS 88101 stores this site's values truncated toward zero from 2023-05-09 to 2023-06-30.** Example: AirNow `2023-05-10T00:00` = 3.6, AQS GMT `00:00` = 3.0. In that period, truncated AirNow equals AQS on 994/994 hours, and no AQS value is fractional. From Jul 2 2023 they match exactly (3,869/3,869 hours, 90% fractional in both).
   - **Other sites:** in the 2-day windows checked (2020–2023 for Chico; Jan and Aug 2021 for the 88502 sites), Chico, Redding, Willows-Colusa, Gridley and Weaverville match AQS with no shift. AirData's "local" date/time columns are local *standard* time all year (GMT − local = 8 h even in summer), so always match on the GMT columns.
-- **AirNow's `null_counts` is missing station-hours, not column nulls.** Every nullable column AirNow fills is null by design: `pm25_cf1_a`, `pm25_cf1_b`, `rh_pct` and `qa_flag` are PurpleAir-only fields, and `/aq/data/` never sends elevation. Gaps show up as hours with no row instead. `pm25_missing_station_hours` counts, for each site that reported at least once, the hours in the window it has no reading for, whether AirNow never sent them or they were dropped (raw `-999`, or below −5). A site that sent nothing in the window isn't in the response, so it can't be counted. Same PE-002 window: 4 — Red Bluff Aug 5 16:00 UTC (raw `-999`), 17:00 and 18:00 (never sent), and Willows-Colusa Aug 5 21:00 (raw `-999`).
+  - **Seen but not encoded.** Lone Pine Paiute/Shoshone looked +1 h in the 2023-09 window (r 0.998), after matching at 0 in four earlier windows. Tahoe City looked probably +1 h in 2023-01 (r 0.963, with AirNow running a steady 4–5 µg/m³ above AQS). Neither is in the config, because neither has hour-by-hour evidence.
+- **AirNow time-offset config.** `backend/ingestion/connectors/airnow_time_offsets.py` holds `AIRNOW_TIME_OFFSETS`, a map from station id to a list of `OffsetPeriod(start_utc, end_utc, shift_hours, evidence)`. `normalize_airnow_row` adds the matching `shift_hours` to `valid_at` right after parsing it, so the stored `valid_at`, `source_timestamp` and everything downstream use the true hour. Stations and hours not covered are unchanged.
+  - **Key:** the `station_id` the connector already derives for monitor identity (`StationID`, then `AQSID`, then `FullAQSCode`, …). For `/aq/data/` rows that is `FullAQSCode`, which for Red Bluff is the 9-digit `061030007`, not `IntlAQSCode` `840061030007`. Some sites send a 12-digit `FullAQSCode` (CarpPM: `840060839001`), so key on exactly what the row sends.
+  - **Sign:** `shift_hours` is added to AirNow's UTC label to get the true hour. AirNow `2021-08-06T17:00` (204.0) is AQS GMT `16:00`, so true = label − 1 h and that period has `shift_hours = -1`.
+  - **Bounds:** `start_utc` inclusive, `end_utc` exclusive, both compared against the AirNow label, not the corrected hour. Periods for one station must not overlap (a test checks this).
+  - **Red Bluff, encoded** (AirNow label, UTC):
+
+    | From (inclusive) | To (exclusive) | `shift_hours` |
+    | --- | --- | --- |
+    | 2017-01-03 15:00 | 2017-02-10 22:00 | +1 |
+    | 2017-08-31 22:00 | 2021-09-14 16:00 | −1 |
+    | 2022-08-24 17:00 | 2022-09-26 14:00 | −1 |
+    | 2022-09-26 14:00 | 2022-10-01 07:00 | +1 |
+    | 2023-01-01 07:00 | 2023-04-01 07:00 | −1 |
+
+    Only 2021-09-14 has rows right on both sides of the switch (15:00 late, 16:00 correct). Every other switch falls where AirNow has no rows, or where values fit two shifts, so the exact hour is uncertain:
+
+    | Switch | Last hour clearly old | First hour clearly new | Boundary chosen |
+    | --- | --- | --- | --- |
+    | 0 → −1 (2017) | 08-31 21:00 | 08-31 23:00 | 08-31 22:00 (no row) |
+    | 0 → −1 (2022) | 08-24 16:00 | 08-24 20:00 | 08-24 17:00 (17:00–19:00 no rows) |
+    | −1 → +1 | 09-26 13:00 | 09-26 23:00 | 09-26 14:00 (14:00–22:00 no rows in AirNow or AQS) |
+    | +1 → 0 | 10-01 05:00 (04:00–05:00 rule out 0) | 10-01 08:00 | 10-01 07:00 (no row) |
+    | 0 → −1 (2023) | 01-01 06:00 | 01-04 01:00 | 01-01 07:00 (no rows until 01-04 00:00, which fits −1 or 0) |
+    | −1 → 0 | 04-01 06:00 | 04-01 09:00 | 04-01 07:00 (no row; 08:00 fits −1 or 0 and both give 6.0) |
+
+    Any boundary inside those intervals stores the same rows. Putting it on a missing label also keeps two readings from landing on the same true hour.
+  - **Red Bluff, not encoded:** anything before 2017-01-03 15:00 (the 8 rows on Jan 1–3 have no AQS match, and nothing before 2017 was checked); single hours that disagree with their period but aren't periods: 2021-08-16 19:00 (AirNow repeats 127.0 at 19:00 and 20:00), 2021-12-22 23:00 and 12-23 00:00 (late, right after a 9-hour AirNow gap, inside the correct period), 2022-06-23 02:00 (next to missing AQS hours).
+  - **Side effects.** A late → correct switch leaves a true hour with no reading (2021-09-14 15:00; AQS 38.0). Batch windows are fetched by AirNow label, so the batch pads each event's AirNow window by the largest `|shift_hours|` in the config (`max_abs_shift_hours()`, 1 h today) on both ends, then keeps only rows whose corrected `valid_at` is inside the event. A shifted site keeps the event's first and last hours, and unshifted sites store exactly what they did before. `rows_fetched` and `pm25_missing_station_hours` count only those in-window rows.
+  - **Adding a site:**
+    1. Pull the site's AirNow rows (`fetch_airnow_rows` on a small bbox around it, chunked with `split_airnow_range`) and the AirData hourly file for the same site (`hourly_88101_<year>` or `hourly_88502_<year>`), and match on the **GMT** columns.
+    2. For each AirNow hour, compare `RawConcentration` with AQS at the label hour, one hour before and one hour after. Keep only hours that match at exactly one shift. Runs of the same shift are the periods. Ignore isolated hours.
+    3. Put each boundary inside its uncertain interval, on a missing label where there is one. A 0 → −1 or +1 → 0 switch on two present labels would put two readings on the same true hour.
+    4. Add `OffsetPeriod`s under the station id the connector derives, with an `evidence` note (window, method, hour counts, date checked), and update the tables here.
+    5. Add tests with real rows on both sides of each boundary, asserting the true hour and that `RawConcentration` equals AQS there (`tests/test_airnow_time_offsets.py`).
+    6. Stored rows aren't rewritten: delete the affected AirNow observations and the `airnow` row in `batch_ingestion_progress` for those events, then rerun with `--resume`.
+- **AirNow's `null_counts` is missing station-hours, not column nulls.** Every nullable column AirNow fills is null by design: `pm25_cf1_a`, `pm25_cf1_b`, `rh_pct` and `qa_flag` are PurpleAir-only fields, and `/aq/data/` never sends elevation. Gaps show up as hours with no row instead. `pm25_missing_station_hours` counts, for each site that reported at least once, the hours in the window it has no reading for, whether AirNow never sent them or they were dropped (raw `-999`, or below −5). A site that sent nothing in the window isn't in the response, so it can't be counted. Same PE-002 window: 4 — Red Bluff (true hours, after its −1 h correction) Aug 5 15:00 (label 16:00, raw `-999`), 16:00 and 17:00 (labels 17:00 and 18:00, never sent), and Willows-Colusa Aug 5 21:00 (raw `-999`).
 - Regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally) — not enough label density on their own in fire-prone areas, which is why we add PurpleAir below.
 
 ### Terms & attribution — [EPA AirNow Data Exchange Guidelines](https://www.airnowapi.org/docs/DataUseGuidelines.pdf)
