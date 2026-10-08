@@ -10,8 +10,8 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import hourly, stage1
+from paths import OUT
 
-S2 = json.loads((HERE / "stage2.json").read_text())
 R = 100.0
 
 
@@ -22,9 +22,14 @@ def neighbours(code, s, start, end):
     return {c: w for c, w in W.items() if c != code and w["vals"] and stage1.hav(s["lat"], s["lon"], w["lat"], w["lon"]) <= R}
 
 
-def run():
-    out = []
+def run(only=None):
+    S2 = json.loads((OUT / "stage2.json").read_text())
+    outp = OUT / "item2.json"
+    # keep other events' records when re-running a subset
+    out = [x for x in json.loads(outp.read_text()) if only and x["event"] not in only] if outp.exists() else []
     for eid, r in S2.items():
+        if only and eid not in only:
+            continue
         S = hourly.site_hours(r["bbox"], r["start"], r["end"])
         D = hourly.days(r["start"], r["end"])
         for code, s in S.items():
@@ -60,7 +65,8 @@ def run():
             out.append(rec)
             print(f"{eid} {s['name']:<26} {rec['pct']}%  top-quartile ({q}d) missing {rec['top_share']}%  other missing {rec['other_share']}%"
                   f"  nbrs={len(N)} scale={k:.2f} dark top days={rec['dark_top_days']}")
-    (HERE / "item2.json").write_text(json.dumps(out, indent=1, default=str))
+    outp.write_text(json.dumps(out, indent=1, default=str))
 
 
-run()
+if __name__ == "__main__":
+    run(sys.argv[1:] or None)

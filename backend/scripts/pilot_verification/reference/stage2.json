@@ -1,0 +1,1279 @@
+{
+ "PE-009": {
+  "event_id": "PE-009",
+  "name": "Witch Fire",
+  "bbox": [
+   -117.38,
+   32.74,
+   -116.36,
+   33.62
+  ],
+  "start": "2007-10-21",
+  "end": "2007-11-09",
+  "width_km": 95,
+  "height_km": 98,
+  "firms_counts": {
+   "MODIS_SP": 1198
+  },
+  "fire_detections": 1089,
+  "other_detections": 109,
+  "other_frp_share": 0.066,
+  "other_clusters": [
+   {
+    "n": 105,
+    "frp": 13888,
+    "lat": 33.399,
+    "lon": -117.18,
+    "first": "2007-10-22",
+    "last": "2007-10-25"
+   }
+  ],
+  "centroid": [
+   33.179,
+   -116.872
+  ],
+  "total_hours": 480,
+  "airnow_raw_rows": 0,
+  "sites": [],
+  "wide_probe": {
+   "bbox": [
+    -118.48,
+    31.83,
+    -115.26,
+    34.53
+   ],
+   "date": "2007-10-30",
+   "sites": 0,
+   "nearest": []
+  }
+ },
+ "PE-014": {
+  "event_id": "PE-014",
+  "name": "River Fire",
+  "bbox": [
+   -121.29,
+   38.85,
+   -120.68,
+   39.37
+  ],
+  "start": "2021-08-04",
+  "end": "2021-08-08",
+  "width_km": 53,
+  "height_km": 58,
+  "firms_counts": {
+   "MODIS_SP": 14,
+   "VIIRS_SNPP_SP": 47,
+   "VIIRS_NOAA20_SP": 73
+  },
+  "fire_detections": 134,
+  "other_detections": 0,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   39.109,
+   -120.982
+  ],
+  "total_hours": 120,
+  "airnow_raw_rows": 237,
+  "sites": [
+   {
+    "aqs": "06-061-0004",
+    "name": "Colfax",
+    "lat": 39.1003,
+    "lon": -120.9528,
+    "agency": "Placer County APCD",
+    "hours": 113,
+    "pct_hours": 94.2,
+    "dist_centroid_km": 2.7,
+    "dist_fire_km": 1.5
+   },
+   {
+    "aqs": "06-061-0003",
+    "name": "Auburn",
+    "lat": 38.93568,
+    "lon": -121.09959,
+    "agency": "Placer County APCD",
+    "hours": 120,
+    "pct_hours": 100.0,
+    "dist_centroid_km": 21.8,
+    "dist_fire_km": 18.6
+   }
+  ]
+ },
+ "PE-015": {
+  "event_id": "PE-015",
+  "name": "Sheep Fire",
+  "bbox": [
+   -117.9,
+   34.13,
+   -117.32,
+   34.6
+  ],
+  "start": "2022-06-11",
+  "end": "2022-06-14",
+  "width_km": 53,
+  "height_km": 52,
+  "firms_counts": {
+   "MODIS_SP": 17,
+   "VIIRS_SNPP_SP": 42,
+   "VIIRS_NOAA20_SP": 59
+  },
+  "fire_detections": 114,
+  "other_detections": 4,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   34.365,
+   -117.613
+  ],
+  "total_hours": 96,
+  "airnow_raw_rows": 192,
+  "sites": [
+   {
+    "aqs": "06-071-0306",
+    "name": "Victorville - Park Avenue",
+    "lat": 34.510955,
+    "lon": -117.32555,
+    "agency": "Mojave Desert AQMD",
+    "hours": 96,
+    "pct_hours": 100.0,
+    "dist_centroid_km": 31.0,
+    "dist_fire_km": 29.1
+   },
+   {
+    "aqs": "06-037-0016",
+    "name": "Glendora - Laurel",
+    "lat": 34.1439,
+    "lon": -117.8508,
+    "agency": "South Coast AQMD",
+    "hours": 96,
+    "pct_hours": 100.0,
+    "dist_centroid_km": 32.9,
+    "dist_fire_km": 31.2
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -119.25,
+    33.02,
+    -115.98,
+    35.71
+   ],
+   "date": "2022-06-12",
+   "sites": 26,
+   "nearest": [
+    [
+     29.1,
+     "Victorville - Park Avenue",
+     "06-071-0306"
+    ],
+    [
+     31.2,
+     "Glendora - Laurel",
+     "06-037-0016"
+    ],
+    [
+     40.8,
+     "Mira Loma - Van Buren",
+     "06-065-8005"
+    ]
+   ]
+  }
+ },
+ "PE-017": {
+  "event_id": "PE-017",
+  "name": "Caldor Fire (early phase)",
+  "bbox": [
+   -120.84,
+   38.34,
+   -120.19,
+   38.82
+  ],
+  "start": "2021-08-14",
+  "end": "2021-08-16",
+  "width_km": 57,
+  "height_km": 53,
+  "firms_counts": {
+   "MODIS_SP": 43,
+   "VIIRS_SNPP_SP": 132,
+   "VIIRS_NOAA20_SP": 86
+  },
+  "fire_detections": 261,
+  "other_detections": 0,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   38.578,
+   -120.515
+  ],
+  "total_hours": 72,
+  "airnow_raw_rows": 0,
+  "sites": [],
+  "wide_probe": {
+   "bbox": [
+    -122.24,
+    37.23,
+    -118.79,
+    39.93
+   ],
+   "date": "2021-08-15",
+   "sites": 38,
+   "nearest": [
+    [
+     40.8,
+     "San Andreas",
+     "06-009-0001"
+    ],
+    [
+     52.3,
+     "Folsom",
+     "06-067-0012"
+    ],
+    [
+     55.4,
+     "Sloughhouse",
+     "06-067-5003"
+    ]
+   ]
+  }
+ },
+ "PE-019": {
+  "event_id": "PE-019",
+  "name": "LNU Lightning Complex (perimeter section only)",
+  "bbox": [
+   -122.66,
+   38.15,
+   -121.93,
+   38.94
+  ],
+  "start": "2020-08-17",
+  "end": "2020-08-18",
+  "width_km": 64,
+  "height_km": 88,
+  "firms_counts": {
+   "MODIS_SP": 33,
+   "VIIRS_SNPP_SP": 385,
+   "VIIRS_NOAA20_SP": 260
+  },
+  "fire_detections": 669,
+  "other_detections": 9,
+  "other_frp_share": 0.001,
+  "other_clusters": [],
+  "centroid": [
+   38.547,
+   -122.291
+  ],
+  "total_hours": 48,
+  "airnow_raw_rows": 48,
+  "sites": [
+   {
+    "aqs": "06-095-3003",
+    "name": "Vacaville",
+    "lat": 38.356556,
+    "lon": -121.949853,
+    "agency": "Yolo-Solano AQMD",
+    "hours": 48,
+    "pct_hours": 100.0,
+    "dist_centroid_km": 36.5,
+    "dist_fire_km": 28.6
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -124.01,
+    37.2,
+    -120.57,
+    39.89
+   ],
+   "date": "2020-08-17",
+   "sites": 34,
+   "nearest": [
+    [
+     28.6,
+     "Vacaville",
+     "06-095-3003"
+    ],
+    [
+     39.9,
+     "Davis - UCD Campus",
+     "06-113-0004"
+    ],
+    [
+     42.1,
+     "Vallejo",
+     "06-095-0004"
+    ]
+   ]
+  }
+ },
+ "PE-020": {
+  "event_id": "PE-020",
+  "name": "Shasta Fire (2017)",
+  "bbox": [
+   -122.6,
+   40.4,
+   -122.1,
+   40.8
+  ],
+  "start": "2017-07-06",
+  "end": "2017-07-12",
+  "width_km": 42,
+  "height_km": 45,
+  "firms_counts": {
+   "MODIS_SP": 0,
+   "VIIRS_SNPP_SP": 0
+  },
+  "total_hours": 168,
+  "airnow_raw_rows": 0,
+  "sites": [],
+  "wide_probe": {
+   "bbox": [
+    -124.12,
+    39.25,
+    -120.58,
+    41.95
+   ],
+   "date": "2017-07-09",
+   "sites": 4,
+   "nearest": [
+    [
+     102.8,
+     "Chico -  East",
+     "06-007-0008"
+    ],
+    [
+     119.3,
+     "Willows-Colusa",
+     "06-021-0003"
+    ],
+    [
+     140.1,
+     "Quincy",
+     "06-063-1006"
+    ]
+   ]
+  }
+ },
+ "PE-001": {
+  "event_id": "PE-001",
+  "name": "August Complex Fire",
+  "bbox": [
+   -123.86,
+   39.26,
+   -122.13,
+   40.59
+  ],
+  "start": "2020-08-17",
+  "end": "2020-11-12",
+  "width_km": 148,
+  "height_km": 148,
+  "firms_counts": {
+   "MODIS_SP": 14137,
+   "VIIRS_SNPP_SP": 66362,
+   "VIIRS_NOAA20_SP": 67593
+  },
+  "fire_detections": 144189,
+  "other_detections": 3903,
+  "other_frp_share": 0.023,
+  "other_clusters": [
+   {
+    "n": 3321,
+    "frp": 90547,
+    "lat": 40.485,
+    "lon": -122.618,
+    "first": "2020-09-27",
+    "last": "2020-11-06"
+   }
+  ],
+  "centroid": [
+   39.929,
+   -122.995
+  ],
+  "total_hours": 2112,
+  "airnow_raw_rows": 3922,
+  "sites": [
+   {
+    "aqs": "06-021-0003",
+    "name": "Willows-Colusa",
+    "lat": 39.53387,
+    "lon": -122.190834,
+    "agency": "California Air Resources Board",
+    "hours": 2099,
+    "pct_hours": 99.4,
+    "dist_centroid_km": 81.6,
+    "dist_fire_km": 18.9
+   },
+   {
+    "aqs": "06-103-0007",
+    "name": "Red Bluff - Walnut office",
+    "lat": 40.170917,
+    "lon": -122.255667,
+    "agency": "Tehama County Air Pollution Control District",
+    "hours": 1788,
+    "pct_hours": 84.7,
+    "dist_centroid_km": 68.4,
+    "dist_fire_km": 29.2
+   }
+  ]
+ },
+ "PE-002": {
+  "event_id": "PE-002",
+  "name": "Dixie Fire",
+  "bbox": [
+   -122.04,
+   39.59,
+   -120.0,
+   40.81
+  ],
+  "start": "2021-07-13",
+  "end": "2021-10-25",
+  "width_km": 173,
+  "height_km": 136,
+  "firms_counts": {
+   "MODIS_SP": 13870,
+   "VIIRS_SNPP_SP": 62382,
+   "VIIRS_NOAA20_SP": 66054
+  },
+  "fire_detections": 142169,
+  "other_detections": 137,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   40.202,
+   -121.023
+  ],
+  "total_hours": 2520,
+  "airnow_raw_rows": 2421,
+  "sites": [
+   {
+    "aqs": "06-007-0008",
+    "name": "Chico -  East",
+    "lat": 39.76168,
+    "lon": -121.84047,
+    "agency": "California Air Resources Board",
+    "hours": 2409,
+    "pct_hours": 95.6,
+    "dist_centroid_km": 85.1,
+    "dist_fire_km": 34.6
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -122.79,
+    38.85,
+    -119.26,
+    41.55
+   ],
+   "date": "2021-09-03",
+   "sites": 17,
+   "nearest": [
+    [
+     34.6,
+     "Chico -  East",
+     "06-007-0008"
+    ],
+    [
+     56.9,
+     "Spanish Springs",
+     "32-031-1007"
+    ],
+    [
+     58.0,
+     "Reno4",
+     "32-031-0031"
+    ]
+   ]
+  }
+ },
+ "PE-003": {
+  "event_id": "PE-003",
+  "name": "Mendocino Complex Fire",
+  "bbox": [
+   -123.37,
+   38.79,
+   -122.21,
+   39.75
+  ],
+  "start": "2018-07-27",
+  "end": "2018-09-18",
+  "width_km": 100,
+  "height_km": 107,
+  "firms_counts": {
+   "MODIS_SP": 4597,
+   "VIIRS_SNPP_SP": 16272,
+   "VIIRS_NOAA20_SP": 16310
+  },
+  "fire_detections": 37170,
+  "other_detections": 9,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   39.268,
+   -122.79
+  ],
+  "total_hours": 1296,
+  "airnow_raw_rows": 1271,
+  "sites": [
+   {
+    "aqs": "06-045-0006",
+    "name": "Ukiah Library",
+    "lat": 39.150478,
+    "lon": -123.206528,
+    "agency": "Mendocino County AQMD",
+    "hours": 1250,
+    "pct_hours": 96.5,
+    "dist_centroid_km": 38.2,
+    "dist_fire_km": 9.4
+   }
+  ]
+ },
+ "PE-004": {
+  "event_id": "PE-004",
+  "name": "Park Fire",
+  "bbox": [
+   -122.29,
+   39.59,
+   -121.19,
+   40.59
+  ],
+  "start": "2024-07-24",
+  "end": "2024-10-24",
+  "width_km": 94,
+  "height_km": 111,
+  "firms_counts": {
+   "MODIS_SP": 2839,
+   "VIIRS_SNPP_SP": 3685,
+   "VIIRS_NOAA20_SP": 9630
+  },
+  "fire_detections": 16144,
+  "other_detections": 10,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   40.091,
+   -121.741
+  ],
+  "total_hours": 2232,
+  "airnow_raw_rows": 6181,
+  "sites": [
+   {
+    "aqs": "06-007-0008",
+    "name": "Chico -  East",
+    "lat": 39.76168,
+    "lon": -121.84047,
+    "agency": "California Air Resources Board",
+    "hours": 2211,
+    "pct_hours": 99.1,
+    "dist_centroid_km": 37.6,
+    "dist_fire_km": 4.1
+   },
+   {
+    "aqs": "06-007-2003",
+    "name": "Paradise - Clark Road",
+    "lat": 39.757861,
+    "lon": -121.607908,
+    "agency": "California Air Resources Board",
+    "hours": 1664,
+    "pct_hours": 74.6,
+    "dist_centroid_km": 38.7,
+    "dist_fire_km": 9.2
+   },
+   {
+    "aqs": "06-103-0007",
+    "name": "Red Bluff - Walnut office",
+    "lat": 40.170917,
+    "lon": -122.255667,
+    "agency": "Tehama County Air Pollution Control District",
+    "hours": 2099,
+    "pct_hours": 94.0,
+    "dist_centroid_km": 44.6,
+    "dist_fire_km": 17.6
+   }
+  ]
+ },
+ "PE-005": {
+  "event_id": "PE-005",
+  "name": "SCU Lightning Complex Fire",
+  "bbox": [
+   -122.02,
+   36.89,
+   -120.93,
+   37.77
+  ],
+  "start": "2020-08-18",
+  "end": "2020-09-22",
+  "width_km": 96,
+  "height_km": 98,
+  "firms_counts": {
+   "MODIS_SP": 2206,
+   "VIIRS_SNPP_SP": 9294,
+   "VIIRS_NOAA20_SP": 9090
+  },
+  "fire_detections": 20499,
+  "other_detections": 91,
+  "other_frp_share": 0.001,
+  "other_clusters": [],
+  "centroid": [
+   37.33,
+   -121.474
+  ],
+  "total_hours": 864,
+  "airnow_raw_rows": 5177,
+  "sites": [
+   {
+    "aqs": "06-085-0006",
+    "name": "San Jose - Knox Ave",
+    "lat": 37.338202,
+    "lon": -121.849892,
+    "agency": "Bay Area Air District",
+    "hours": 856,
+    "pct_hours": 99.1,
+    "dist_centroid_km": 33.2,
+    "dist_fire_km": 5.8
+   },
+   {
+    "aqs": "06-077-3005",
+    "name": "TracyAP",
+    "lat": 37.6825,
+    "lon": -121.4406,
+    "agency": "San Joaquin Valley Unified APCD",
+    "hours": 860,
+    "pct_hours": 99.5,
+    "dist_centroid_km": 39.3,
+    "dist_fire_km": 9.2
+   },
+   {
+    "aqs": "06-085-0005",
+    "name": "San Jose - Jackson St.",
+    "lat": 37.3483,
+    "lon": -121.8947,
+    "agency": "Bay Area Air District",
+    "hours": 859,
+    "pct_hours": 99.4,
+    "dist_centroid_km": 37.2,
+    "dist_fire_km": 9.3
+   },
+   {
+    "aqs": "06-099-0005",
+    "name": "Modesto - 14th Street",
+    "lat": 37.642165,
+    "lon": -120.994212,
+    "agency": "California Air Resources Board",
+    "hours": 859,
+    "pct_hours": 99.4,
+    "dist_centroid_km": 54.7,
+    "dist_fire_km": 12.0
+   },
+   {
+    "aqs": "06-085-0002",
+    "name": "Gilroy - 9th Street",
+    "lat": 36.999571,
+    "lon": -121.574684,
+    "agency": "Bay Area Air District",
+    "hours": 855,
+    "pct_hours": 99.0,
+    "dist_centroid_km": 37.8,
+    "dist_fire_km": 17.1
+   },
+   {
+    "aqs": "06-087-0007",
+    "name": "Santa Cruz AMS",
+    "lat": 36.98332,
+    "lon": -121.98822,
+    "agency": "Monterey Bay Unified APCD",
+    "hours": 856,
+    "pct_hours": 99.1,
+    "dist_centroid_km": 59.7,
+    "dist_fire_km": 45.4
+   }
+  ]
+ },
+ "PE-006": {
+  "event_id": "PE-006",
+  "name": "Valley Fire",
+  "bbox": [
+   -123.05,
+   38.4,
+   -122.1,
+   39.1
+  ],
+  "start": "2015-09-12",
+  "end": "2015-09-22",
+  "width_km": 82,
+  "height_km": 78,
+  "firms_counts": {
+   "MODIS_SP": 63,
+   "VIIRS_SNPP_SP": 161
+  },
+  "fire_detections": 224,
+  "other_detections": 0,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   38.748,
+   -122.572
+  ],
+  "total_hours": 264,
+  "airnow_raw_rows": 260,
+  "sites": [
+   {
+    "aqs": "06-097-0004",
+    "name": "Sebastopol",
+    "lat": 38.403765,
+    "lon": -122.818294,
+    "agency": "Bay Area Air District",
+    "hours": 258,
+    "pct_hours": 97.7,
+    "dist_centroid_km": 43.9,
+    "dist_fire_km": 38.5
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -124.3,
+    37.4,
+    -120.84,
+    40.1
+   ],
+   "date": "2015-09-17",
+   "sites": 27,
+   "nearest": [
+    [
+     38.5,
+     "Sebastopol",
+     "06-097-0004"
+    ],
+    [
+     53.7,
+     "Ukiah Library",
+     "06-045-0006"
+    ],
+    [
+     57.1,
+     "Vacaville",
+     "06-095-3003"
+    ]
+   ]
+  }
+ },
+ "PE-007": {
+  "event_id": "PE-007",
+  "name": "Glass Fire",
+  "bbox": [
+   -122.93,
+   38.21,
+   -122.14,
+   38.88
+  ],
+  "start": "2020-09-27",
+  "end": "2020-10-20",
+  "width_km": 69,
+  "height_km": 75,
+  "firms_counts": {
+   "MODIS_SP": 659,
+   "VIIRS_SNPP_SP": 2431,
+   "VIIRS_NOAA20_SP": 2099
+  },
+  "fire_detections": 5182,
+  "other_detections": 7,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   38.545,
+   -122.533
+  ],
+  "total_hours": 576,
+  "airnow_raw_rows": 576,
+  "sites": [
+   {
+    "aqs": "06-097-0004",
+    "name": "Sebastopol",
+    "lat": 38.403765,
+    "lon": -122.818294,
+    "agency": "Bay Area Air District",
+    "hours": 571,
+    "pct_hours": 99.1,
+    "dist_centroid_km": 29.4,
+    "dist_fire_km": 15.5
+   }
+  ]
+ },
+ "PE-008": {
+  "event_id": "PE-008",
+  "name": "Carr Fire",
+  "bbox": [
+   -123.19,
+   40.21,
+   -121.96,
+   41.23
+  ],
+  "start": "2018-07-23",
+  "end": "2018-08-30",
+  "width_km": 104,
+  "height_km": 114,
+  "firms_counts": {
+   "MODIS_SP": 3747,
+   "VIIRS_SNPP_SP": 14154,
+   "VIIRS_NOAA20_SP": 13228
+  },
+  "fire_detections": 31125,
+  "other_detections": 4,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   40.721,
+   -122.573
+  ],
+  "total_hours": 936,
+  "airnow_raw_rows": 698,
+  "sites": [
+   {
+    "aqs": "06-105-0002",
+    "name": "Weaverville",
+    "lat": 40.734722,
+    "lon": -122.941109,
+    "agency": "North Coast Unified Air Quality Management District",
+    "hours": 693,
+    "pct_hours": 74.0,
+    "dist_centroid_km": 31.1,
+    "dist_fire_km": 11.9
+   }
+  ]
+ },
+ "PE-010": {
+  "event_id": "PE-010",
+  "name": "Woolsey Fire",
+  "bbox": [
+   -119.23,
+   33.78,
+   -118.37,
+   34.45
+  ],
+  "start": "2018-11-08",
+  "end": "2018-11-21",
+  "width_km": 79,
+  "height_km": 75,
+  "firms_counts": {
+   "MODIS_SP": 515,
+   "VIIRS_SNPP_SP": 1824,
+   "VIIRS_NOAA20_SP": 2291
+  },
+  "fire_detections": 4548,
+  "other_detections": 82,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   34.118,
+   -118.802
+  ],
+  "total_hours": 336,
+  "airnow_raw_rows": 2003,
+  "sites": [
+   {
+    "aqs": "06-111-0007",
+    "name": "Thousand Oaks - Moorpark Road",
+    "lat": 34.21017,
+    "lon": -118.87051,
+    "agency": "Ventura County APCD",
+    "hours": 334,
+    "pct_hours": 99.4,
+    "dist_centroid_km": 12.0,
+    "dist_fire_km": 2.2
+   },
+   {
+    "aqs": "06-111-2002",
+    "name": "Simi Valley - Cochran Street",
+    "lat": 34.27632,
+    "lon": -118.68369,
+    "agency": "Ventura County APCD",
+    "hours": 333,
+    "pct_hours": 99.1,
+    "dist_centroid_km": 20.7,
+    "dist_fire_km": 2.2
+   },
+   {
+    "aqs": "06-111-3001",
+    "name": "El Rio - Rio Mesa School #2",
+    "lat": 34.25239,
+    "lon": -119.14318,
+    "agency": "Ventura County APCD",
+    "hours": 335,
+    "pct_hours": 99.7,
+    "dist_centroid_km": 34.8,
+    "dist_fire_km": 7.2
+   },
+   {
+    "aqs": "06-037-1201",
+    "name": "Reseda",
+    "lat": 34.1992,
+    "lon": -118.5331,
+    "agency": "South Coast AQMD",
+    "hours": 331,
+    "pct_hours": 98.5,
+    "dist_centroid_km": 26.3,
+    "dist_fire_km": 10.1
+   },
+   {
+    "aqs": "06-111-0009",
+    "name": "Piru - Pacific",
+    "lat": 34.40428,
+    "lon": -118.80998,
+    "agency": "Ventura County APCD",
+    "hours": 328,
+    "pct_hours": 97.6,
+    "dist_centroid_km": 31.8,
+    "dist_fire_km": 12.7
+   },
+   {
+    "aqs": "06-037-6012",
+    "name": "Santa Clarita",
+    "lat": 34.3833,
+    "lon": -118.5283,
+    "agency": "South Coast AQMD",
+    "hours": 329,
+    "pct_hours": 97.9,
+    "dist_centroid_km": 38.8,
+    "dist_fire_km": 15.2
+   }
+  ]
+ },
+ "PE-011": {
+  "event_id": "PE-011",
+  "name": "Kincade Fire",
+  "bbox": [
+   -123.14,
+   38.35,
+   -122.38,
+   39.04
+  ],
+  "start": "2019-10-23",
+  "end": "2019-11-06",
+  "width_km": 66,
+  "height_km": 77,
+  "firms_counts": {
+   "MODIS_SP": 404,
+   "VIIRS_SNPP_SP": 1803,
+   "VIIRS_NOAA20_SP": 2020
+  },
+  "fire_detections": 4225,
+  "other_detections": 2,
+  "other_frp_share": 0.0,
+  "other_clusters": [],
+  "centroid": [
+   38.698,
+   -122.757
+  ],
+  "total_hours": 360,
+  "airnow_raw_rows": 265,
+  "sites": [
+   {
+    "aqs": "06-097-0004",
+    "name": "Sebastopol",
+    "lat": 38.403765,
+    "lon": -122.818294,
+    "agency": "Bay Area Air District",
+    "hours": 262,
+    "pct_hours": 72.8,
+    "dist_centroid_km": 33.1,
+    "dist_fire_km": 14.1
+   }
+  ]
+ },
+ "PE-012": {
+  "event_id": "PE-012",
+  "name": "Creek Fire",
+  "bbox": [
+   -119.8,
+   36.8,
+   -118.74,
+   37.85
+  ],
+  "start": "2020-09-04",
+  "end": "2020-12-24",
+  "width_km": 94,
+  "height_km": 117,
+  "firms_counts": {
+   "MODIS_SP": 7518,
+   "VIIRS_SNPP_SP": 40517,
+   "VIIRS_NOAA20_SP": 41094
+  },
+  "fire_detections": 86755,
+  "other_detections": 2374,
+  "other_frp_share": 0.015,
+  "other_clusters": [
+   {
+    "n": 1857,
+    "frp": 34239,
+    "lat": 37.836,
+    "lon": -119.615,
+    "first": "2020-09-04",
+    "last": "2020-11-03"
+   }
+  ],
+  "centroid": [
+   37.327,
+   -119.269
+  ],
+  "total_hours": 2688,
+  "airnow_raw_rows": 5366,
+  "sites": [
+   {
+    "aqs": "06-043-1001",
+    "name": "Yosemite Village - Visitor Center",
+    "lat": 37.748707,
+    "lon": -119.587094,
+    "agency": "California Air Resources Board",
+    "hours": 2655,
+    "pct_hours": 98.8,
+    "dist_centroid_km": 54.6,
+    "dist_fire_km": 28.1
+   },
+   {
+    "aqs": "06-019-5001",
+    "name": "Clovis - N. Villa Ave",
+    "lat": 36.819199,
+    "lon": -119.7164,
+    "agency": "San Joaquin Valley Unified APCD",
+    "hours": 2676,
+    "pct_hours": 99.6,
+    "dist_centroid_km": 69.0,
+    "dist_fire_km": 32.5
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -120.96,
+    35.98,
+    -117.57,
+    38.67
+   ],
+   "date": "2020-10-29",
+   "sites": 18,
+   "nearest": [
+    [
+     28.1,
+     "Yosemite Village - Visitor Center",
+     "06-043-1001"
+    ],
+    [
+     32.5,
+     "Clovis - N. Villa Ave",
+     "06-019-5001"
+    ],
+    [
+     35.6,
+     "Lee Vining",
+     "06-051-0005"
+    ]
+   ]
+  }
+ },
+ "PE-013": {
+  "event_id": "PE-013",
+  "name": "Zogg Fire",
+  "bbox": [
+   -123.0,
+   40.08,
+   -122.24,
+   40.89
+  ],
+  "start": "2020-09-27",
+  "end": "2020-10-15",
+  "width_km": 64,
+  "height_km": 90,
+  "firms_counts": {
+   "MODIS_SP": 374,
+   "VIIRS_SNPP_SP": 1681,
+   "VIIRS_NOAA20_SP": 1396
+  },
+  "fire_detections": 3305,
+  "other_detections": 146,
+  "other_frp_share": 0.006,
+  "other_clusters": [],
+  "centroid": [
+   40.485,
+   -122.618
+  ],
+  "total_hours": 456,
+  "airnow_raw_rows": 799,
+  "sites": [
+   {
+    "aqs": "06-105-0002",
+    "name": "Weaverville",
+    "lat": 40.734722,
+    "lon": -122.941109,
+    "agency": "North Coast Unified Air Quality Management District",
+    "hours": 399,
+    "pct_hours": 87.5,
+    "dist_centroid_km": 38.9,
+    "dist_fire_km": 31.7
+   },
+   {
+    "aqs": "06-103-0007",
+    "name": "Red Bluff - Walnut office",
+    "lat": 40.170917,
+    "lon": -122.255667,
+    "agency": "Tehama County Air Pollution Control District",
+    "hours": 376,
+    "pct_hours": 82.5,
+    "dist_centroid_km": 46.5,
+    "dist_fire_km": 33.3
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -124.39,
+    39.14,
+    -120.85,
+    41.83
+   ],
+   "date": "2020-10-06",
+   "sites": 10,
+   "nearest": [
+    [
+     31.7,
+     "Weaverville",
+     "06-105-0002"
+    ],
+    [
+     33.3,
+     "Red Bluff - Walnut office",
+     "06-103-0007"
+    ],
+    [
+     86.7,
+     "Mt Shasta",
+     "06-093-2002"
+    ]
+   ]
+  }
+ },
+ "PE-016": {
+  "event_id": "PE-016",
+  "name": "Antelope Fire (2021)",
+  "bbox": [
+   -122.35,
+   41.22,
+   -121.46,
+   41.85
+  ],
+  "start": "2021-08-01",
+  "end": "2021-08-31",
+  "width_km": 74,
+  "height_km": 70,
+  "firms_counts": {
+   "MODIS_SP": 1126,
+   "VIIRS_SNPP_SP": 5193,
+   "VIIRS_NOAA20_SP": 5196
+  },
+  "fire_detections": 11468,
+  "other_detections": 47,
+  "other_frp_share": 0.002,
+  "other_clusters": [],
+  "centroid": [
+   41.533,
+   -121.906
+  ],
+  "total_hours": 744,
+  "airnow_raw_rows": 737,
+  "sites": [
+   {
+    "aqs": "06-093-2002",
+    "name": "Mt Shasta",
+    "lat": 41.312688,
+    "lon": -122.318254,
+    "agency": "Siskiyou County APCD",
+    "hours": 704,
+    "pct_hours": 94.6,
+    "dist_centroid_km": 42.2,
+    "dist_fire_km": 25.2
+   }
+  ],
+  "wide_probe": {
+   "bbox": [
+    -123.71,
+    40.19,
+    -120.11,
+    42.88
+   ],
+   "date": "2021-08-16",
+   "sites": 12,
+   "nearest": [
+    [
+     25.2,
+     "Mt Shasta",
+     "06-093-2002"
+    ],
+    [
+     49.5,
+     "Yreka",
+     "06-093-2001"
+    ],
+    [
+     59.0,
+     "Klamath Falls - Peterson School",
+     "41-035-0004"
+    ]
+   ]
+  }
+ },
+ "PE-018": {
+  "event_id": "PE-018",
+  "name": "Monument Fire",
+  "bbox": [
+   -123.75,
+   40.28,
+   -122.73,
+   41.22
+  ],
+  "start": "2021-07-30",
+  "end": "2021-10-26",
+  "width_km": 86,
+  "height_km": 105,
+  "firms_counts": {
+   "MODIS_SP": 9847,
+   "VIIRS_SNPP_SP": 41648,
+   "VIIRS_NOAA20_SP": 41759
+  },
+  "fire_detections": 44970,
+  "other_detections": 48284,
+  "other_frp_share": 0.552,
+  "other_clusters": [
+   {
+    "n": 41111,
+    "frp": 789940,
+    "lat": 41.115,
+    "lon": -122.977,
+    "first": "2021-07-30",
+    "last": "2021-10-17"
+   },
+   {
+    "n": 6818,
+    "frp": 248083,
+    "lat": 40.332,
+    "lon": -123.014,
+    "first": "2021-07-30",
+    "last": "2021-10-09"
+   }
+  ],
+  "centroid": [
+   40.75,
+   -123.241
+  ],
+  "total_hours": 2136,
+  "airnow_raw_rows": 2078,
+  "sites": [
+   {
+    "aqs": "06-105-0002",
+    "name": "Weaverville",
+    "lat": 40.734722,
+    "lon": -122.941109,
+    "agency": "North Coast Unified Air Quality Management District",
+    "hours": 2072,
+    "pct_hours": 97.0,
+    "dist_centroid_km": 25.3,
+    "dist_fire_km": 8.4
+   }
+  ]
+ }
+}

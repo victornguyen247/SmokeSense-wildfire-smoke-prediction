@@ -5,6 +5,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
+from paths import OUT
 from events import EVENTS, products_for
 from firms_pull import pull
 
@@ -135,7 +136,7 @@ def main(only=None):
 if __name__ == "__main__":
     only = sys.argv[1:] or None
     res = main(only)
-    p = HERE / "stage1.json"
+    p = OUT / "stage1.json"
     prev = json.loads(p.read_text()) if p.exists() else {}
     prev.update(res)
     p.write_text(json.dumps(prev, indent=1))

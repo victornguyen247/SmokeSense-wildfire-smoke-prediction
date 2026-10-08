@@ -4,14 +4,14 @@ from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-sys.path.insert(0, "/Users/trungdinh30/SmokeSense-wildfire-smoke-prediction/backend")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/
+from paths import OFFLINE, CacheMiss, cache_dir
 from ingestion.connectors._common import load_env, redact
 from ingestion.connectors.firms import fetch_firms_rows
 
 load_env()
-KEY = os.environ["FIRMS_MAP_KEY"]
-CACHE = Path(__file__).parent / "firms_cache"
-CACHE.mkdir(exist_ok=True)
+KEY = os.environ.get("FIRMS_MAP_KEY")  # only needed on a cache miss
+CACHE = cache_dir("firms_cache")
 
 
 def chunks(start, end, n=5):
@@ -29,6 +29,10 @@ def _one(product, bbox, cstart, L):
     f = CACHE / f"{h}.json"
     if f.exists():
         return json.loads(f.read_text())
+    if OFFLINE:
+        raise CacheMiss(f"firms_cache/{f.name} ({product} {bbox} {cstart}+{L})")
+    if not KEY:
+        raise RuntimeError("FIRMS_MAP_KEY is not set")
     for attempt in range(20):
         try:
             rows = fetch_firms_rows(KEY, source=product, bbox=bbox, day_range=L, start_date=cstart)

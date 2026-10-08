@@ -6,18 +6,17 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, "/Users/trungdinh30/SmokeSense-wildfire-smoke-prediction/backend")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/
 import stage1
+from paths import OFFLINE, OUT, CacheMiss, cache_dir
 from events import EVENTS, products_for
 from firms_pull import pull
 from ingestion.connectors._common import load_env, redact
 from ingestion.connectors.airnow import fetch_airnow_rows, normalize_airnow_row, split_airnow_range
 
 load_env()
-AKEY = os.environ["AIRNOW_API_KEY"]
-ACACHE = HERE / "airnow_cache"
-ACACHE.mkdir(exist_ok=True)
-S1 = json.loads((HERE / "stage1.json").read_text())
+AKEY = os.environ.get("AIRNOW_API_KEY")  # only needed on a cache miss
+ACACHE = cache_dir("airnow_cache")
 
 # PE-020 has no fire to cluster on; verify the bbox already in backend/docs/pilot_events.json.
 DEV_BBOX = {"PE-020": [-122.6, 40.4, -122.1, 40.8]}
@@ -27,6 +26,10 @@ def airnow(bbox, start, end, sh="00", eh="23"):
     f = ACACHE / (f"{stage1.fmt(bbox)}_{start}{sh}_{end}{eh}.json".replace(",", "_"))
     if f.exists():
         return json.loads(f.read_text())
+    if OFFLINE:
+        raise CacheMiss(f"airnow_cache/{f.name}")
+    if not AKEY:
+        raise RuntimeError("AIRNOW_API_KEY is not set")
     try:
         rows = fetch_airnow_rows(AKEY, bbox=stage1.fmt(bbox), start_date=start, start_hour=sh, end_date=end, end_hour=eh)
     except Exception as exc:
@@ -40,7 +43,7 @@ def aqs(code):
     return f"{c[:2]}-{c[2:5]}-{c[5:]}"
 
 
-def verify(ev):
+def verify(ev, S1):
     eid, name, tier, start, end, counties, anchor = ev
     s1 = S1[eid]
     bbox = s1.get("bbox") or DEV_BBOX[eid]
@@ -130,12 +133,13 @@ def verify(ev):
 
 if __name__ == "__main__":
     only = sys.argv[1:]
-    out_p = HERE / "stage2.json"
+    S1 = json.loads((OUT / "stage1.json").read_text())
+    out_p = OUT / "stage2.json"
     out = json.loads(out_p.read_text()) if out_p.exists() else {}
     for ev in EVENTS:
         if only and ev[0] not in only:
             continue
-        r = verify(ev)
+        r = verify(ev, S1)
         out[ev[0]] = r
         out_p.write_text(json.dumps(out, indent=1, default=str))
         print(f"\n== {r['event_id']} {r['name']} bbox={stage1.fmt(r['bbox'])} {r['width_km']}x{r['height_km']} km")

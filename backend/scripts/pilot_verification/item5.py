@@ -8,9 +8,9 @@ sys.path.insert(0, str(HERE))
 import stage1
 from events import products_for
 from firms_pull import pull
+from build import verdict
+from paths import OUT
 
-S2 = json.loads((HERE / "stage2.json").read_text())
-V = {v["event_id"]: v["verdict"] for v in json.loads((HERE / "verdicts.json").read_text())}
 RAD = 200.0
 
 
@@ -21,10 +21,13 @@ def hav_np(lat, lon, la, lo):
 
 
 def run(only=None):
-    outp = HERE / "item5.json"
+    S2 = json.loads((OUT / "stage2.json").read_text())
+    V = {eid: verdict(eid, r)[0] for eid, r in S2.items()}
+    outp = OUT / "item5.json"
     out = json.loads(outp.read_text()) if outp.exists() else {}
     for eid, r in S2.items():
-        if V[eid] == "FAIL" or (only and eid not in only) or eid in out:
+        # an event named in `only` is recomputed; otherwise one already in out/ is kept (resume)
+        if V[eid] == "FAIL" or (only and eid not in only) or (not only and eid in out):
             continue
         sites = [s for s in r["sites"] if s["pct_hours"] > 0]
         boxes = []
@@ -65,4 +68,5 @@ def run(only=None):
         print(f"{eid} {V[eid]:<10} sites={len(per)} FRP-out med/min/max {rec['frp']}  det-out {rec['det']}  pulled={len(rows)}", flush=True)
 
 
-run(sys.argv[1:] or None)
+if __name__ == "__main__":
+    run(sys.argv[1:] or None)

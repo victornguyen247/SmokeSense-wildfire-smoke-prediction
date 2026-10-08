@@ -5,8 +5,8 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import hourly
 from events import EVENTS
+from paths import OUT
 
-S2 = json.loads((HERE / "stage2.json").read_text())
 TIER_RANGES = [("high", 125.45, 1e9), ("high-medium", 55.45, 125.45), ("medium-low", 35.45, 55.45), ("low", -1, 35.45)]
 
 
@@ -16,9 +16,13 @@ def tier_of(v):
             return t
 
 
-def run():
-    out = {}
+def run(only=None):
+    S2 = json.loads((OUT / "stage2.json").read_text())
+    outp = OUT / "item3.json"
+    out = json.loads(outp.read_text()) if outp.exists() else {}
     for eid, name, tier, start, end, *_ in EVENTS:
+        if only and eid not in only:
+            continue
         r = S2[eid]
         S = hourly.site_hours(r["bbox"], start, end)
         per = {}
@@ -43,7 +47,8 @@ def run():
                     "max_day": t["peak_day"], "max_tier": tier_of(t["peak"]), "sites": per}
         print(f"{eid} doc={tier:<12} best {b['name']} {b['peak']:.1f} ({b['peak_day']}) -> {tier_of(b['peak'])}"
               f" | max {t['name']} {t['peak']:.1f} ({t['peak_day']}) -> {tier_of(t['peak'])}")
-    (HERE / "item3.json").write_text(json.dumps(out, indent=1, default=str))
+    outp.write_text(json.dumps(out, indent=1, default=str))
 
 
-run()
+if __name__ == "__main__":
+    run(sys.argv[1:] or None)

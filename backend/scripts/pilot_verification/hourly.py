@@ -1,7 +1,8 @@
 """Hourly AirNow PM2.5 per site, true-hour corrected, grouped into local-standard-time days.
 
 Days are UTC-8 (Pacific standard time all year), the convention AQS daily means use.
-Red Bluff labels are corrected with PR #24's airnow_time_offsets table.
+Red Bluff labels arrive already corrected: normalize_airnow_row applies
+ingestion/connectors/airnow_time_offsets.py (on dev since PR #27).
 """
 import json, sys
 from collections import defaultdict
@@ -11,7 +12,6 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import stage2
-from airnow_time_offsets import airnow_time_shift
 from ingestion.connectors.airnow import normalize_airnow_row, split_airnow_range
 
 LST = timedelta(hours=-8)
@@ -33,8 +33,9 @@ def site_hours(bbox, start, end):
                                                      "lat": float(row["Latitude"]), "lon": float(row["Longitude"]), "vals": {}})
             if rec is None:
                 continue
-            # normalize_airnow_row on dev applies no shift; apply PR #24's correction here.
-            t = rec["observation"]["valid_at"] + airnow_time_shift(code, rec["observation"]["valid_at"])
+            # valid_at is already the true hour: normalize_airnow_row applies the
+            # offset table, so shifting again here would double-correct.
+            t = rec["observation"]["valid_at"]
             if lo <= t < hi:
                 site["vals"][t] = rec["observation"]["pm25"]
     return out

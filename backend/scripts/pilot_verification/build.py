@@ -1,10 +1,12 @@
-"""Turn stage1/stage2 results into verdicts, config entries and doc-table rows."""
+"""Turn stage1/stage2/item3/item5 results into verdicts, config entries and doc-table rows."""
 import json
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
-S1 = json.loads((HERE / "stage1.json").read_text())
-S2 = json.loads((HERE / "stage2.json").read_text())
+sys.path.insert(0, str(HERE))
+from paths import OUT
+
 SHORT = {"MODIS_SP": "MODIS", "VIIRS_SNPP_SP": "SNPP", "VIIRS_NOAA20_SP": "NOAA-20"}
 
 # From docs/pilot-events.md on dev (region, NWS grid, PurpleAir density)
@@ -74,7 +76,29 @@ def verdict(eid, r):
     return "PASS", ""
 
 
+def tier_label(t):
+    return "-".join(w.capitalize() for w in t.split("-"))
+
+
+def peak_cells(i3):
+    """Peak daily PM2.5 and Tier confirmed? cells, in the format of docs/pilot-events.md."""
+    if not i3 or i3.get("best") is None:
+        return "No AirNow data", "Pending (no AirNow data)"
+    peak = f"{i3['best_peak']:.1f} µg/m³ ({i3['best_name']}, {i3['best_day']}) — AirNow prelim."
+    if i3["max_site"] != i3["best"]:
+        peak += f" Max in bbox: {i3['max_peak']:.1f} ({i3['max_name']}, {i3['max_day']})"
+    bt, dt = i3["best_tier"], i3["tier"]
+    tier = f"Yes — {tier_label(bt)}" if bt == dt else f"No — measured {tier_label(bt)} (doc: {tier_label(dt)})"
+    if i3["max_tier"] != bt:
+        tier += f"; {tier_label(i3['max_tier'])} at {i3['max_name']}"
+    return peak, tier
+
+
 def main():
+    S1 = json.loads((OUT / "stage1.json").read_text())
+    S2 = json.loads((OUT / "stage2.json").read_text())
+    I3 = json.loads((OUT / "item3.json").read_text())
+    I5 = json.loads((OUT / "item5.json").read_text()) if (OUT / "item5.json").exists() else {}
     rows, entries = [], []
     for eid in sorted(S2):
         r = S2[eid]
@@ -116,10 +140,10 @@ def main():
             "verification_status": "firms_airnow_verified",
             "verification_note": "FIRMS and AirNow checked 2026-10-06. AirNow sites in bbox (AQS id, distance to nearest fire detection, % of window hours with a valid RawConcentration): "
                                  + "; ".join(f"{s['name'].replace('  ', ' ')} {s['aqs']} {s['dist_fire_km']} km {s['pct_hours']}%" for s in sites)
-                                 + ". Peak daily PM2.5 and tier still pending (AQS check).",
+                                 + ". Measured peak daily PM2.5 is in docs/pilot-events.md; the tier will be re-derived under the measured-peak thresholds.",
         })
-    (HERE / "verdicts.json").write_text(json.dumps(rows, indent=1))
-    (HERE / "entries.json").write_text(json.dumps(entries, indent=2, ensure_ascii=False))
+    (OUT / "verdicts.json").write_text(json.dumps(rows, indent=1))
+    (OUT / "entries.json").write_text(json.dumps(entries, indent=2, ensure_ascii=False))
 
     # doc table
     lines = []
@@ -137,10 +161,18 @@ def main():
             wp = (r.get("wide_probe") or {}).get("nearest") or []
             ids = "None in bbox" + (f" (nearest: {wp[0][2]} {wp[0][1]}, {wp[0][0]} km)" if wp else " (no AirNow data)")
             pct = "0%"
-        lines.append(f"| {eid} | {ids} | {pct} | Pending | Pending | {fc} | Pending |")
-    (HERE / "doc_table.md").write_text("\n".join(lines) + "\n")
+        peak, tier = peak_cells(I3.get(eid))
+        lines.append(f"| {eid} | {ids} | {pct} | {peak} | {tier} | {fc} | Pending |")
+    # item5: not a column of the doc's table, so it gets its own table below it
+    lines += ["", "| ID | Outside-bbox share of FIRMS FRP within 200 km of in-bbox sites: median (min–max) "
+                  "| Outside-bbox share of detections: median (min–max) |", "|---|---|---|"]
+    for eid in sorted(I5):
+        f, d = I5[eid]["frp"], I5[eid]["det"]
+        lines.append(f"| {eid} | {f[0]}% ({f[1]}–{f[2]}%) | {d[0]}% ({d[1]}–{d[2]}%) |")
+    (OUT / "doc_table.md").write_text("\n".join(lines) + "\n")
     for r in rows:
         print(r["event_id"], r["verdict"], r["width_km"], r["height_km"], r["why"][:150])
 
 
-main()
+if __name__ == "__main__":
+    main()
