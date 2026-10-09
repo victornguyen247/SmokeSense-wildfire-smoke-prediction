@@ -14,6 +14,7 @@ It does not write to PostgreSQL yet.
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -25,6 +26,7 @@ from ingestion.connectors._common import (
     load_env,
     require_env,
 )
+from ingestion.connectors.airnow_time_offsets import airnow_time_shift
 from ingestion.normalize import (
     parse_airnow_timestamp,
     point_wkt,
@@ -66,6 +68,12 @@ MAX_CHUNK_DAYS = 7
 
 RECORD_LIMIT_MARKER = "record query limit"
 
+# RawConcentration below this is dropped (this includes the -999 "no
+# reading" sentinel); values from here up to 0 are clamped to 0. Decided by
+# Vuong. A 48-hour California pull (2026-10-05) had 256 raw negatives other
+# than -999, all between -4.8 and -1.0.
+RAW_NEGATIVE_FLOOR = -5.0
+
 
 class AirNowRecordLimitError(RuntimeError):
     """The requested window/area returned more records than AirNow allows."""
@@ -103,6 +111,42 @@ def split_airnow_range(
         cursor = chunk_end + timedelta(days=1)
 
     return chunks
+
+
+def padded_airnow_windows(
+    start_date: str,
+    end_date: str,
+    pad_hours: int,
+    max_days: int = MAX_CHUNK_DAYS,
+) -> list[tuple[str, str, str, str]]:
+    """Hourly AirNow windows covering a date range plus pad_hours each side.
+
+    Returns (start_date, start_hour, end_date, end_hour) tuples for
+    fetch_airnow_rows. The range is chunked with split_airnow_range, then
+    only the first window's start and the last window's end are moved out
+    by pad_hours, so windows still tile with no gap or overlap.
+
+    Padding lets a site whose labels are shifted (airnow_time_offsets.py)
+    still supply the range's first and last true hours; callers drop rows
+    whose corrected valid_at falls outside the range.
+
+    e.g. padded_airnow_windows("2021-08-05", "2021-08-06", 1) ->
+        [("2021-08-04", "23", "2021-08-07", "00")]
+    """
+    if pad_hours < 0:
+        raise ValueError("pad_hours must not be negative")
+
+    windows = [
+        [chunk_start, "00", chunk_end, "23"]
+        for chunk_start, chunk_end in split_airnow_range(start_date, end_date, max_days)
+    ]
+
+    first_start = datetime.fromisoformat(start_date) - timedelta(hours=pad_hours)
+    last_end = datetime.fromisoformat(end_date) + timedelta(hours=23 + pad_hours)
+    windows[0][0:2] = [first_start.date().isoformat(), f"{first_start.hour:02d}"]
+    windows[-1][2:4] = [last_end.date().isoformat(), f"{last_end.hour:02d}"]
+
+    return [tuple(window) for window in windows]
 
 
 def _request_airnow_rows(
@@ -248,8 +292,10 @@ def normalize_airnow_row(
 ) -> dict[str, Any] | None:
     """Normalize one AirNow monitoring-site PM2.5 observation.
 
-    Returns None for rows to skip: non-PM2.5 parameters, and hours AirNow
-    reports with a negative "no reading" sentinel (-999).
+    pm25 is RawConcentration, the 1-hour average. Returns None for rows to
+    skip: non-PM2.5 parameters, the -999 "no reading" sentinel, and any
+    value below RAW_NEGATIVE_FLOOR. Values from the floor up to 0 are
+    clamped to 0.
     """
 
     parameter = str(
@@ -368,46 +414,38 @@ def normalize_airnow_row(
             timezone_name,
         )
 
+    # Some sites label readings under the wrong UTC hour for known periods
+    # (airnow_time_offsets.py); everything below uses the true hour.
+    valid_at += airnow_time_shift(station_id, valid_at)
+
     # ---------------------------------------------------------
     # PM2.5 concentration
     # ---------------------------------------------------------
 
-    pm25 = None
+    # pm25 is the 1-hour average: RawConcentration. "Value" is the NowCast
+    # (a 12-hour weighted average) and is never used, not even as a
+    # fallback -- recomputing NowCast from AQS hourly data reproduces Value
+    # exactly, while RawConcentration equals the AQS hourly measurement.
+    raw = row.get("RawConcentration", row.get("raw_concentration"))
+    pm25 = to_float(raw) if raw not in (None, "") else None
 
-    # Depending on AirNow output settings, concentration may
-    # appear under one of these fields.
-    concentration_fields = (
-        "Value",
-        "Concentration",
-        "ConcentrationValue",
-        "concentration",
-        "PM2.5",
-        "PM25",
-        "RawConcentration",
-        "raw_concentration",
-    )
-
-    for field in concentration_fields:
-        value = row.get(field)
-
-        if value not in (None, ""):
-            pm25 = to_float(value)
-
-            if pm25 is not None:
-                break
-
-    # AirNow reports -999 when it has no valid value for that hour. Drop the
-    # row rather than falling back to another field: the real case had
-    # Value=-999 with RawConcentration=12.0, and a raw reading is not the
-    # published regulatory value AirNow withheld.
-    if pm25 is not None and pm25 < 0:
-        return None
-
-    if pm25 is None:
+    # to_float accepts "nan"/"inf"; a non-finite reading is as unusable as a
+    # missing one (NaN would even pass CHECK (pm25 >= 0) in Postgres).
+    if pm25 is None or not math.isfinite(pm25):
+        # Present on every row when the request sets
+        # includerawconcentrations=1, so a missing value means the request
+        # is wrong -- fail loudly rather than store something else.
         raise ValueError(
-            f"AirNow PM2.5 record for {site_name or station_id} "
-            "has no usable concentration."
+            f"AirNow PM2.5 record for {site_name or station_id} has no "
+            "RawConcentration; request it with includerawconcentrations=1."
         )
+
+    # -999 is AirNow's "no reading for this hour". Small negatives are
+    # instrument noise around zero; observations.pm25 has CHECK (pm25 >= 0).
+    if pm25 < RAW_NEGATIVE_FLOOR:
+        return None
+    if pm25 < 0:
+        pm25 = 0.0
 
     if ingested_at is None:
         ingested_at = datetime.now(timezone.utc)

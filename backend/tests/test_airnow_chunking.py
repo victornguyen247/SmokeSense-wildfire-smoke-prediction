@@ -17,6 +17,7 @@ from ingestion.connectors import airnow
 from ingestion.connectors.airnow import (
     AirNowRecordLimitError,
     fetch_airnow_rows,
+    padded_airnow_windows,
     split_airnow_range,
 )
 
@@ -93,6 +94,71 @@ def test_split_rejects_end_before_start():
 def test_split_rejects_bad_max_days():
     with pytest.raises(ValueError):
         split_airnow_range("2026-09-01", "2026-09-02", max_days=0)
+
+
+# ---------------------------------------------------------------------------
+# padded_airnow_windows
+# ---------------------------------------------------------------------------
+
+def _hours(window):
+    start_date, start_hour, end_date, end_hour = window
+    start = datetime.fromisoformat(f"{start_date}T{start_hour}:00")
+    end = datetime.fromisoformat(f"{end_date}T{end_hour}:00")
+    return [start + timedelta(hours=h) for h in range(int((end - start).total_seconds() // 3600) + 1)]
+
+
+def test_padded_single_chunk():
+    assert padded_airnow_windows("2021-08-05", "2021-08-06", 1) == [
+        ("2021-08-04", "23", "2021-08-07", "00")
+    ]
+
+
+def test_zero_padding_matches_split_airnow_range():
+    windows = padded_airnow_windows("2026-09-01", "2026-09-10", 0, max_days=7)
+    assert windows == [
+        ("2026-09-01", "00", "2026-09-07", "23"),
+        ("2026-09-08", "00", "2026-09-10", "23"),
+    ]
+
+
+def test_padding_moves_only_outer_ends_and_tiles_hourly():
+    """Long range, 2 h pad crossing a year boundary: contiguous hours, no
+    gap or overlap, first and last padded."""
+    windows = padded_airnow_windows("2020-12-20", "2021-01-15", 2, max_days=7)
+
+    hours = [h for w in windows for h in _hours(w)]
+    assert hours[0] == datetime(2020, 12, 19, 22)
+    assert hours[-1] == datetime(2021, 1, 16, 1)
+    assert hours == [hours[0] + timedelta(hours=i) for i in range(len(hours))]
+    # inner boundaries are untouched
+    assert [w[1] for w in windows[1:]] == ["00"] * (len(windows) - 1)
+    assert [w[3] for w in windows[:-1]] == ["23"] * (len(windows) - 1)
+
+
+def test_padding_rejects_negative():
+    with pytest.raises(ValueError):
+        padded_airnow_windows("2021-08-05", "2021-08-06", -1)
+
+
+def test_bisection_of_padded_window_covers_every_hour_once():
+    """A padded 7-day chunk (170 h) hitting the cap repeatedly is bisected
+    down to <=24 h requests that still tile it exactly."""
+    window = padded_airnow_windows("2021-08-05", "2021-08-11", 1)[0]
+    assert window == ("2021-08-04", "23", "2021-08-12", "00")
+
+    def fake_request(api_key, bbox, start, end, verbose=False):
+        hours = int((end - start).total_seconds() // 3600) + 1
+        if hours > 24:
+            raise AirNowRecordLimitError("over cap")
+        return [start + timedelta(hours=h) for h in range(hours)]
+
+    with patch.object(airnow, "_request_airnow_rows", side_effect=fake_request):
+        rows = fetch_airnow_rows(
+            "key", start_date=window[0], start_hour=window[1],
+            end_date=window[2], end_hour=window[3],
+        )
+
+    assert rows == _hours(window)
 
 
 # ---------------------------------------------------------------------------
