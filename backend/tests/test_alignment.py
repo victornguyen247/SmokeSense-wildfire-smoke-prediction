@@ -603,6 +603,55 @@ def test_add_weather_alignment_features_excludes_future_observation():
     assert pd.isna(row["precip_1h_mm"])
     assert pd.isna(row["precip_prob_pct"])
 
+def test_add_weather_alignment_features_excludes_stale_observation():
+    forecast_points = pd.DataFrame(
+        [
+            {
+                "forecast_point_id": "FP-001",
+                "location_lat": 38.5,
+                "location_lon": -121.5,
+            }
+        ]
+    )
+    aligned = build_feature_times(
+        forecast_points,
+        pd.Series([pd.Timestamp("2024-08-01 12:00:00", tz="UTC")]),
+        horizons=(6,),
+    )
+    aligned["fire_bearing_deg"] = 90.0
+    weather_observations = pd.DataFrame(
+        [
+            {
+                "station_id": "WX-001",
+                "latitude": 38.5,
+                "longitude": -121.5,
+                # More than the configured three-hour limit before issue_time.
+                "valid_at": pd.Timestamp("2024-08-01 08:59:00", tz="UTC"),
+                "wind_speed_ms": 2.0,
+                "wind_dir_deg": 180.0,
+                "temp_c": 20.0,
+                "rh_pct": 50.0,
+                "pressure_hpa": 1000.0,
+                "precip_1h_mm": 1.0,
+            }
+        ]
+    )
+
+    row = add_weather_alignment_features(
+        aligned,
+        weather_observations,
+    ).iloc[0]
+
+    assert pd.isna(row["wind_speed_ms"])
+    assert pd.isna(row["wind_dir_sin"])
+    assert pd.isna(row["wind_dir_cos"])
+    assert pd.isna(row["wind_alignment"])
+    assert pd.isna(row["temp_c"])
+    assert pd.isna(row["rh_pct"])
+    assert pd.isna(row["pressure_hpa"])
+    assert pd.isna(row["precip_1h_mm"])
+    assert pd.isna(row["precip_prob_pct"])
+
 def test_add_weather_alignment_features_maps_nearest_station_and_latest_past_row():
     forecast_points = pd.DataFrame(
         [{"forecast_point_id": "FP-001", "location_lat": 0.0, "location_lon": 0.0}]

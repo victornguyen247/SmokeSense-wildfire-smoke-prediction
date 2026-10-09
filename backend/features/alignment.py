@@ -14,6 +14,7 @@ from features.temporal import (
 )
 
 ALLOWED_HORIZONS = (1, 3, 6, 12, 24)
+WEATHER_MAX_AGE_HOURS = 3
 
 
 def build_feature_times(
@@ -445,6 +446,7 @@ def add_weather_alignment_features(
                     by="station_id",
                     direction="backward",
                     allow_exact_matches=True,
+                    tolerance=pd.Timedelta(hours=WEATHER_MAX_AGE_HOURS),
                 ).set_index("_row_id")
                 row_ids = matched.index
                 wind_direction = pd.to_numeric(
