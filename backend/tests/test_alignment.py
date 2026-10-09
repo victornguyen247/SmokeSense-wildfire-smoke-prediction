@@ -230,7 +230,7 @@ def test_add_fire_alignment_features_accepts_custom_lookback():
         [{
             "latitude": 0.5,
             "longitude": 0.0,
-            "detected_at": pd.Timestamp("2024-07-31 00:00:00", tz="UTC"),
+            "detected_at": pd.Timestamp("2024-07-30 00:00:00", tz="UTC"),
             "frp_mw": 100.0,
         }]
     )
@@ -245,8 +245,8 @@ def test_add_fire_alignment_features_accepts_custom_lookback():
         lookback_hours=48.0,
     )
 
-    assert default_result["active_fire_count_200km"].iloc[0] == 0
-    assert result["active_fire_count_200km"].iloc[0] == 1
+    assert default_result["active_fire_count_200km"].iloc[0] == 1
+    assert result["active_fire_count_200km"].iloc[0] == 0
 
 
 def test_add_fire_alignment_features_excludes_future_fire():
@@ -496,40 +496,29 @@ def test_add_weather_alignment_features(
         abs=0.5,
     )
 
-    point_weather_map = pd.DataFrame(
+    weather_observations = pd.DataFrame(
         [
             {
-                "forecast_point_id": "FP-001",
-                "grid_id": "GRID-001",
-            }
-        ]
-    )
-
-    weather_forecasts = pd.DataFrame(
-        [
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
+                "station_id": "WX-001",
+                "latitude": 0.0,
+                "longitude": 0.0,
                 "valid_at": pd.Timestamp(
-                    "2024-08-01 18:00:00",
+                    "2024-08-01 12:00:00",
                     tz="UTC",
                 ),
                 "wind_speed_ms": 5.0,
                 "wind_dir_deg": wind_dir_deg,
                 "temp_c": 30.0,
                 "rh_pct": 40.0,
-                "precip_prob_pct": 10.0,
+                "pressure_hpa": 1005.0,
+                "precip_1h_mm": 2.5,
             }
         ]
     )
 
     result = add_weather_alignment_features(
         aligned,
-        weather_forecasts,
-        point_weather_map,
+        weather_observations,
     )
 
     row = result.iloc[0]
@@ -537,7 +526,9 @@ def test_add_weather_alignment_features(
     assert row["wind_speed_ms"] == 5.0
     assert row["temp_c"] == 30.0
     assert row["rh_pct"] == 40.0
-    assert row["precip_prob_pct"] == 10.0
+    assert row["pressure_hpa"] == 1005.0
+    assert row["precip_1h_mm"] == 2.5
+    assert pd.isna(row["precip_prob_pct"])
 
     assert row["wind_dir_sin"] == pytest.approx(expected_sin, abs=1e-6)
     assert row["wind_dir_cos"] == pytest.approx(expected_cos, abs=1e-6)
@@ -549,7 +540,7 @@ def test_add_weather_alignment_features(
         abs=1e-5,
     )
 
-def test_add_weather_alignment_features_excludes_future_forecast():
+def test_add_weather_alignment_features_excludes_future_observation():
     forecast_points = pd.DataFrame(
         [
             {
@@ -577,41 +568,30 @@ def test_add_weather_alignment_features_excludes_future_forecast():
 
     aligned["fire_bearing_deg"] = 90.0
 
-    point_weather_map = pd.DataFrame(
+    weather_observations = pd.DataFrame(
         [
             {
-                "forecast_point_id": "FP-001",
-                "grid_id": "GRID-001",
-            }
-        ]
-    )
-
-    weather_forecasts = pd.DataFrame(
-        [
-            {
-                "grid_id": "GRID-001",
-                # This forecast was issued AFTER the prediction.
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 13:00:00",
-                    tz="UTC",
-                ),
+                "station_id": "WX-001",
+                "latitude": 38.5,
+                "longitude": -121.5,
+                # This observation is after the prediction issue time.
                 "valid_at": pd.Timestamp(
-                    "2024-08-01 18:00:00",
+                    "2024-08-01 13:00:00",
                     tz="UTC",
                 ),
                 "wind_speed_ms": 999.0,
                 "wind_dir_deg": 90.0,
                 "temp_c": 999.0,
                 "rh_pct": 999.0,
-                "precip_prob_pct": 999.0,
+                "pressure_hpa": 999.0,
+                "precip_1h_mm": 999.0,
             }
         ]
     )
 
     result = add_weather_alignment_features(
         aligned,
-        weather_forecasts,
-        point_weather_map,
+        weather_observations,
     )
 
     row = result.iloc[0]
@@ -619,7 +599,79 @@ def test_add_weather_alignment_features_excludes_future_forecast():
     assert pd.isna(row["wind_speed_ms"])
     assert pd.isna(row["temp_c"])
     assert pd.isna(row["rh_pct"])
+    assert pd.isna(row["pressure_hpa"])
+    assert pd.isna(row["precip_1h_mm"])
     assert pd.isna(row["precip_prob_pct"])
+
+def test_add_weather_alignment_features_maps_nearest_station_and_latest_past_row():
+    forecast_points = pd.DataFrame(
+        [{"forecast_point_id": "FP-001", "location_lat": 0.0, "location_lon": 0.0}]
+    )
+    aligned = build_feature_times(
+        forecast_points,
+        pd.Series([pd.Timestamp("2024-08-01 12:00:00", tz="UTC")]),
+        horizons=(6,),
+    )
+    aligned["fire_bearing_deg"] = 90.0
+    weather_observations = pd.DataFrame(
+        [
+            {
+                "station_id": "WX-NEAR",
+                "latitude": 0.1,
+                "longitude": 0.0,
+                "valid_at": pd.Timestamp("2024-08-01 11:00:00", tz="UTC"),
+                "wind_speed_ms": 2.0,
+                "wind_dir_deg": 180.0,
+                "temp_c": 20.0,
+                "rh_pct": 50.0,
+                "pressure_hpa": 1000.0,
+                "precip_1h_mm": 1.0,
+            },
+            {
+                "station_id": "WX-NEAR",
+                "latitude": 0.1,
+                "longitude": 0.0,
+                "valid_at": pd.Timestamp("2024-08-01 12:00:00", tz="UTC"),
+                "wind_speed_ms": 3.0,
+                "wind_dir_deg": 270.0,
+                "temp_c": 21.0,
+                "rh_pct": 51.0,
+                "pressure_hpa": 1001.0,
+                "precip_1h_mm": 2.0,
+            },
+            {
+                "station_id": "WX-NEAR",
+                "latitude": 0.1,
+                "longitude": 0.0,
+                "valid_at": pd.Timestamp("2024-08-01 13:00:00", tz="UTC"),
+                "wind_speed_ms": 999.0,
+                "wind_dir_deg": 90.0,
+                "temp_c": 999.0,
+                "rh_pct": 99.0,
+                "pressure_hpa": 999.0,
+                "precip_1h_mm": 999.0,
+            },
+            {
+                "station_id": "WX-FAR",
+                "latitude": 1.0,
+                "longitude": 0.0,
+                "valid_at": pd.Timestamp("2024-08-01 12:00:00", tz="UTC"),
+                "wind_speed_ms": 8.0,
+                "wind_dir_deg": 90.0,
+                "temp_c": 30.0,
+                "rh_pct": 30.0,
+                "pressure_hpa": 990.0,
+                "precip_1h_mm": 8.0,
+            },
+        ]
+    )
+
+    row = add_weather_alignment_features(aligned, weather_observations).iloc[0]
+
+    assert row["wind_speed_ms"] == 3.0
+    assert row["temp_c"] == 21.0
+    assert row["pressure_hpa"] == 1001.0
+    assert row["precip_1h_mm"] == 2.0
 
 def test_add_pm25_target_selects_nearest_eligible_monitor():
     forecast_points = pd.DataFrame(
@@ -688,6 +740,44 @@ def test_add_pm25_target_selects_nearest_eligible_monitor():
     assert row["target_monitor_id"] == "MON-NEAR"
     assert row["target_monitor_dist_km"] < 25.0
 
+def test_add_pm25_target_accepts_regulatory_with_null_qa_flag():
+    forecast_points = pd.DataFrame(
+        [
+            {
+                "forecast_point_id": "FP-001",
+                "location_lat": 0.0,
+                "location_lon": 0.0,
+            }
+        ]
+    )
+    issue_times = pd.Series(
+        [pd.Timestamp("2024-08-01 12:00:00", tz="UTC")]
+    )
+    aligned = build_feature_times(
+        forecast_points,
+        issue_times,
+        horizons=(6,),
+    )
+    observations = pd.DataFrame(
+        [
+            {
+                "monitor_id": "MON-AIRNOW",
+                "valid_at": pd.Timestamp("2024-08-01 18:00:00", tz="UTC"),
+                "pm25": 35.0,
+                "correction": "regulatory",
+                "qa_flag": None,
+                "latitude": 0.1,
+                "longitude": 0.0,
+            }
+        ]
+    )
+
+    result = add_pm25_target(aligned, observations)
+
+    assert result.loc[0, "target_pm25"] == 35.0
+    assert result.loc[0, "target_source"] == "regulatory"
+    assert result.loc[0, "target_monitor_id"] == "MON-AIRNOW"
+
 def test_add_pm25_target_rejects_ineligible_observations():
     forecast_points = pd.DataFrame(
         [
@@ -735,7 +825,7 @@ def test_add_pm25_target_rejects_ineligible_observations():
                     tz="UTC",
                 ),
                 "pm25": 888.0,
-                "correction": "regulatory",
+                "correction": "purpleair_barkjohn",
                 "qa_flag": "bad",
                 "latitude": 0.01,
                 "longitude": 0.0,
@@ -863,96 +953,19 @@ def test_build_feature_dataset():
         ]
     )
 
-    point_weather_map = pd.DataFrame(
+    weather_observations = pd.DataFrame(
         [
             {
-                "forecast_point_id": "FP-001",
-                "grid_id": "GRID-001",
-            }
-        ]
-    )
-
-    weather_forecasts = pd.DataFrame(
-        [
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
-                "valid_at": pd.Timestamp(
-                    "2024-08-01 13:00:00",
-                    tz="UTC",
-                ),
-                "wind_speed_ms": 5.0,
-                "wind_dir_deg": 90.0,
-                "temp_c": 30.0,
-                "rh_pct": 40.0,
-                "precip_prob_pct": 10.0,
-            },
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
-                "valid_at": pd.Timestamp(
-                    "2024-08-01 15:00:00",
-                    tz="UTC",
-                ),
-                "wind_speed_ms": 6.0,
-                "wind_dir_deg": 90.0,
-                "temp_c": 31.0,
-                "rh_pct": 39.0,
-                "precip_prob_pct": 15.0,
-            },
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
-                "valid_at": pd.Timestamp(
-                    "2024-08-01 18:00:00",
-                    tz="UTC",
-                ),
-                "wind_speed_ms": 7.0,
-                "wind_dir_deg": 90.0,
-                "temp_c": 32.0,
-                "rh_pct": 38.0,
-                "precip_prob_pct": 20.0,
-            },
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
-                "valid_at": pd.Timestamp(
-                    "2024-08-01 00:00:00",
-                    tz="UTC",
-                ),
+                "station_id": "WX-001",
+                "latitude": 38.5,
+                "longitude": -121.5,
+                "valid_at": pd.Timestamp("2024-08-01 11:00:00", tz="UTC"),
                 "wind_speed_ms": 4.0,
                 "wind_dir_deg": 90.0,
                 "temp_c": 29.0,
                 "rh_pct": 41.0,
-                "precip_prob_pct": 5.0,
-            },
-            {
-                "grid_id": "GRID-001",
-                "issued_at": pd.Timestamp(
-                    "2024-08-01 10:00:00",
-                    tz="UTC",
-                ),
-                "valid_at": pd.Timestamp(
-                    "2024-08-02 12:00:00",
-                    tz="UTC",
-                ),
-                "wind_speed_ms": 8.0,
-                "wind_dir_deg": 90.0,
-                "temp_c": 33.0,
-                "rh_pct": 35.0,
-                "precip_prob_pct": 25.0,
+                "pressure_hpa": 1005.0,
+                "precip_1h_mm": 0.2,
             },
         ]
     )
@@ -979,8 +992,7 @@ def test_build_feature_dataset():
         issue_times=issue_times,
         fire_detections=fire_detections,
         pm25_history=pm25_history,
-        weather_forecasts=weather_forecasts,
-        point_weather_map=point_weather_map,
+        weather_observations=weather_observations,
         pm25_observations=pm25_observations,
         horizons=(6,),
         lookback_hours=48.0,
@@ -1011,6 +1023,7 @@ def test_build_feature_dataset():
         "wind_dir_cos",
         "temp_c",
         "rh_pct",
+        "precip_1h_mm",
         "precip_prob_pct",
         "target_pm25",
         "target_source",

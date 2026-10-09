@@ -123,7 +123,7 @@ def add_temporal_alignment_features(
 def add_fire_alignment_features(
     dataframe: pd.DataFrame,
     fire_detections: pd.DataFrame,
-    lookback_hours: float = 24.0,
+    lookback_hours: float = 72.0,
 ) -> pd.DataFrame:
     """
     Add spatial fire features to aligned prediction rows.
@@ -283,25 +283,26 @@ def add_pm25_alignment_features(
 
 def add_weather_alignment_features(
     dataframe: pd.DataFrame,
-    weather_forecasts: pd.DataFrame,
-    point_weather_map: pd.DataFrame,
+    weather_observations: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Add leakage-free NWS forecast features.
+    Add weather features from the nearest NCEI observation station.
 
-    For each prediction row, select the latest weather forecast
-    issued before issue_time whose valid_at matches target_time.
-
-    The point_weather_map connects each forecast point to its
-    corresponding NWS grid.
+    The nearest station is selected from station coordinates in
+    weather_observations. For each prediction row, use that station's latest
+    observation at or before issue_time; observations at issue_time are
+    eligible. This derives the point-to-station map from the supplied data,
+    so callers do not need populated point_weather_map rows.
     """
 
     result = dataframe.copy()
 
     required_feature_columns = {
         "forecast_point_id",
+        "location_lat",
+        "location_lon",
         "issue_time",
-        "target_time",
+        "fire_bearing_deg",
     }
 
     missing = (
@@ -315,130 +316,163 @@ def add_weather_alignment_features(
         )
 
     required_weather_columns = {
-        "grid_id",
-        "issued_at",
+        "station_id",
+        "latitude",
+        "longitude",
         "valid_at",
         "wind_speed_ms",
         "wind_dir_deg",
         "temp_c",
         "rh_pct",
-        "precip_prob_pct",
+        "pressure_hpa",
+        "precip_1h_mm",
     }
 
     missing = (
         required_weather_columns
-        - set(weather_forecasts.columns)
+        - set(weather_observations.columns)
     )
 
     if missing:
         raise ValueError(
-            f"Missing weather columns: {sorted(missing)}"
-        )
-
-    required_map_columns = {
-        "forecast_point_id",
-        "grid_id",
-    }
-
-    missing = (
-        required_map_columns
-        - set(point_weather_map.columns)
-    )
-
-    if missing:
-        raise ValueError(
-            f"Missing weather-map columns: {sorted(missing)}"
+            f"Missing weather-observation columns: {sorted(missing)}"
         )
 
     result["issue_time"] = pd.to_datetime(
         result["issue_time"],
         utc=True,
     )
-
-    result["target_time"] = pd.to_datetime(
-        result["target_time"],
-        utc=True,
-    )
-
-    weather = weather_forecasts.copy()
-
-    weather["issued_at"] = pd.to_datetime(
-        weather["issued_at"],
-        utc=True,
-    )
-
-    weather["valid_at"] = pd.to_datetime(
-        weather["valid_at"],
-        utc=True,
-    )
+    weather = weather_observations.copy()
+    weather["valid_at"] = pd.to_datetime(weather["valid_at"], utc=True)
 
     feature_columns = [
-        "wind_alignment", "wind_speed_ms", "wind_dir_sin", "wind_dir_cos",
-        "temp_c", "rh_pct", "precip_prob_pct",
+        "wind_alignment",
+        "wind_speed_ms",
+        "wind_dir_sin",
+        "wind_dir_cos",
+        "temp_c",
+        "rh_pct",
+        "pressure_hpa",
+        "precip_1h_mm",
+        # NCEI reports measured precipitation, not forecast probability.
+        "precip_prob_pct",
     ]
-    result = result.drop(
-        columns=[*feature_columns, "grid_id"],
-        errors="ignore",
-    )
-
-    # Match each row to the latest forecast issued strictly before issue_time.
-    # merge_asof avoids filtering the full weather table once per feature row.
-    map_columns = point_weather_map[
-        ["forecast_point_id", "grid_id"]
-    ].drop_duplicates("forecast_point_id")
     result = result.reset_index(drop=True).copy()
+    result = result.drop(columns=feature_columns, errors="ignore")
     result["_row_id"] = np.arange(len(result))
-    result = result.merge(map_columns, on="forecast_point_id", how="left")
-    result = result.set_index("_row_id", drop=False).sort_index()
-    candidates = result.dropna(
-        subset=["grid_id", "issue_time", "target_time"]
-    ).copy()
-    weather_columns = [
-        "grid_id", "issued_at", "wind_speed_ms",
-        "wind_dir_deg", "temp_c", "rh_pct", "precip_prob_pct",
-    ]
-    weather_for_join = weather[weather_columns].copy()
-    weather_for_join["target_time"] = weather["valid_at"]
-    weather_for_join = weather_for_join.dropna(
-        subset=["grid_id", "issued_at", "target_time"]
-    )
-    weather_for_join = weather_for_join.sort_values(
-        "issued_at", kind="mergesort"
-    ).drop_duplicates(
-        ["grid_id", "target_time", "issued_at"],
-        keep="first",
-    )
-    matched = pd.merge_asof(
-        candidates.sort_values("issue_time", kind="mergesort"),
-        weather_for_join,
-        left_on="issue_time",
-        right_on="issued_at",
-        by=["grid_id", "target_time"],
-        direction="backward",
-        allow_exact_matches=False,
-    )
-
     result[feature_columns] = pd.NA
-    matched = matched.set_index("_row_id")
-    row_ids = matched.index
-    wind_direction = pd.to_numeric(
-        matched["wind_dir_deg"], errors="coerce"
-    )
-    radians = np.radians(wind_direction)
-    result.loc[row_ids, "wind_dir_sin"] = np.sin(radians)
-    result.loc[row_ids, "wind_dir_cos"] = np.cos(radians)
-    for column in ("wind_speed_ms", "temp_c", "rh_pct", "precip_prob_pct"):
-        result.loc[row_ids, column] = matched[column]
-
-    # Wind direction uses the meteorological FROM convention. Converting
-    # both angles to their TO directions adds 180 degrees to each, which
-    # cancels in the cosine difference.
-    bearing = pd.to_numeric(result.loc[row_ids, "fire_bearing_deg"], errors="coerce")
-    result.loc[row_ids, "wind_alignment"] = np.cos(
-        np.radians(bearing - wind_direction)
+    station_locations = (
+        weather[["station_id", "latitude", "longitude"]]
+        .dropna()
+        .drop_duplicates("station_id", keep="first")
+        .reset_index(drop=True)
     )
 
-    return result.drop(columns="_row_id").reset_index(drop=True)
+    if not result.empty and not station_locations.empty:
+        point_locations = result[
+            ["forecast_point_id", "location_lat", "location_lon"]
+        ].drop_duplicates("forecast_point_id")
+        station_map_rows = []
+
+        for point in point_locations.itertuples(index=False):
+            point_lat = pd.to_numeric(point.location_lat, errors="coerce")
+            point_lon = pd.to_numeric(point.location_lon, errors="coerce")
+            if pd.isna(point_lat) or pd.isna(point_lon):
+                continue
+
+            station_lats = np.radians(
+                station_locations["latitude"].to_numpy(dtype=float)
+            )
+            station_lons = np.radians(
+                station_locations["longitude"].to_numpy(dtype=float)
+            )
+            latitude = np.radians(float(point_lat))
+            longitude = np.radians(float(point_lon))
+            delta_lat = station_lats - latitude
+            delta_lon = station_lons - longitude
+            haversine_a = (
+                np.sin(delta_lat / 2) ** 2
+                + np.cos(latitude)
+                * np.cos(station_lats)
+                * np.sin(delta_lon / 2) ** 2
+            )
+            distances = 2 * 6371.008 * np.arctan2(
+                np.sqrt(haversine_a), np.sqrt(1 - haversine_a)
+            )
+            nearest_position = int(np.argmin(distances))
+            station_map_rows.append(
+                {
+                    "forecast_point_id": point.forecast_point_id,
+                    "station_id": station_locations.iloc[
+                        nearest_position
+                    ]["station_id"],
+                }
+            )
+
+        station_map = pd.DataFrame(
+            station_map_rows,
+            columns=["forecast_point_id", "station_id"],
+        )
+        if not station_map.empty:
+            result = result.merge(
+                station_map,
+                on="forecast_point_id",
+                how="left",
+                validate="many_to_one",
+            )
+            candidates = result.dropna(
+                subset=["station_id", "issue_time"]
+            ).drop(columns=feature_columns).copy()
+            weather_for_join = weather[
+                [
+                    "station_id",
+                    "valid_at",
+                    "wind_speed_ms",
+                    "wind_dir_deg",
+                    "temp_c",
+                    "rh_pct",
+                    "pressure_hpa",
+                    "precip_1h_mm",
+                ]
+            ].dropna(subset=["station_id", "valid_at"])
+
+            if not candidates.empty and not weather_for_join.empty:
+                matched = pd.merge_asof(
+                    candidates.sort_values("issue_time", kind="mergesort"),
+                    weather_for_join.sort_values("valid_at", kind="mergesort"),
+                    left_on="issue_time",
+                    right_on="valid_at",
+                    by="station_id",
+                    direction="backward",
+                    allow_exact_matches=True,
+                ).set_index("_row_id")
+                row_ids = matched.index
+                wind_direction = pd.to_numeric(
+                    matched["wind_dir_deg"], errors="coerce"
+                )
+                radians = np.radians(wind_direction)
+                result.loc[row_ids, "wind_dir_sin"] = np.sin(radians)
+                result.loc[row_ids, "wind_dir_cos"] = np.cos(radians)
+                for column in (
+                    "wind_speed_ms",
+                    "temp_c",
+                    "rh_pct",
+                    "pressure_hpa",
+                    "precip_1h_mm",
+                ):
+                    result.loc[row_ids, column] = matched[column]
+
+                # Wind direction uses the meteorological FROM convention.
+                bearing = pd.to_numeric(
+                    matched["fire_bearing_deg"], errors="coerce"
+                )
+                result.loc[row_ids, "wind_alignment"] = np.cos(
+                    np.radians(bearing - wind_direction)
+                )
+
+    return result.drop(
+        columns=["_row_id", "station_id"], errors="ignore"
+    ).reset_index(drop=True)
 
 def add_pm25_target(
     dataframe: pd.DataFrame,
@@ -451,9 +485,8 @@ def add_pm25_target(
     Only observations matching target_time are eligible.
 
     Eligible observations:
-        - correction == regulatory
-        - correction == purpleair_barkjohn
-        - qa_flag == ok
+        - correction == regulatory, regardless of qa_flag
+        - correction == purpleair_barkjohn and qa_flag == ok
 
     The nearest eligible monitor within max_distance_km is used.
     """
@@ -509,16 +542,14 @@ def add_pm25_target(
         utc=True,
     )
 
-    # Only use target observations allowed by the
-    # Parquet training contract.
+    # AirNow regulatory observations have no qa_flag. PurpleAir labels
+    # require an explicit passing channel QA result.
     obs = obs[
-        obs["correction"].isin(
-            [
-                "regulatory",
-                "purpleair_barkjohn",
-            ]
+        (obs["correction"] == "regulatory")
+        | (
+            (obs["correction"] == "purpleair_barkjohn")
+            & (obs["qa_flag"] == "ok")
         )
-        & (obs["qa_flag"] == "ok")
     ].copy()
 
     result["target_pm25"] = pd.NA
@@ -581,12 +612,11 @@ def build_feature_dataset(
     issue_times: pd.Series,
     fire_detections: pd.DataFrame,
     pm25_history: pd.DataFrame,
-    weather_forecasts: pd.DataFrame,
-    point_weather_map: pd.DataFrame,
+    weather_observations: pd.DataFrame,
     pm25_observations: pd.DataFrame,
     pilot_event_id: str | None = None,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
-    lookback_hours: float = 24.0,
+    lookback_hours: float = 72.0,
 ) -> pd.DataFrame:
     """
     Build the complete GEO-01 feature dataset.
@@ -597,7 +627,7 @@ def build_feature_dataset(
         2. Add temporal features.
         3. Add fire features.
         4. Add PM2.5 lag features.
-        5. Add NWS forecast features.
+        5. Add NCEI observation features.
         6. Add PM2.5 target labels.
 
     Returns a DataFrame containing the feature columns required
@@ -629,13 +659,8 @@ def build_feature_dataset(
 
     result = add_weather_alignment_features(
         result,
-        weather_forecasts,
-        point_weather_map,
+        weather_observations,
     )
-
-    # Current NWS forecast input does not include pressure. Keep the
-    # documented Parquet field present and null until that source is added.
-    result["pressure_hpa"] = pd.NA
 
     result = add_pm25_target(
         result,
