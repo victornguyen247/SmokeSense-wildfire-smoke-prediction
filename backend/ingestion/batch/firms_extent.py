@@ -15,7 +15,7 @@ from datetime import date, timedelta
 # (features/spatial.py aggregate_fire_features_200km, radius_km=200).
 FIRMS_MARGIN_KM = 200.0
 
-# 72 h: covers a fire-feature lookback_hours of 72 (features/ defaults to 24 on dev).
+# 72 h: matches the features lookback_hours default of 72 (PR #31).
 FIRMS_LEAD_HOURS = 72
 
 KM_PER_DEG_LAT = 111.32
