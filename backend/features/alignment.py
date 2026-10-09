@@ -123,12 +123,15 @@ def add_temporal_alignment_features(
 def add_fire_alignment_features(
     dataframe: pd.DataFrame,
     fire_detections: pd.DataFrame,
+    lookback_hours: float = 24.0,
 ) -> pd.DataFrame:
     """
     Add spatial fire features to aligned prediction rows.
 
     Only fire detections available before issue_time are used.
     Fire features are calculated relative to each forecast point.
+
+    lookback_hours sets the maximum age of included fire detections.
     """
 
     result = dataframe.copy()
@@ -164,6 +167,7 @@ def add_fire_alignment_features(
             location_longitude=row[2],
             fire_detections=fire_detections,
             issue_time=row[3],
+            lookback_hours=lookback_hours,
         )
 
         fire_feature_rows.append(
@@ -426,12 +430,14 @@ def add_weather_alignment_features(
     for column in ("wind_speed_ms", "temp_c", "rh_pct", "precip_prob_pct"):
         result.loc[row_ids, column] = matched[column]
 
-    # Wind direction is stored using the meteorological FROM convention.
-    # GEO-01 defines wind_alignment relative to that wind direction.
+    # Wind direction uses the meteorological FROM convention. Converting
+    # both angles to their TO directions adds 180 degrees to each, which
+    # cancels in the cosine difference.
     bearing = pd.to_numeric(result.loc[row_ids, "fire_bearing_deg"], errors="coerce")
     result.loc[row_ids, "wind_alignment"] = np.cos(
         np.radians(bearing - wind_direction)
     )
+
     return result.drop(columns="_row_id").reset_index(drop=True)
 
 def add_pm25_target(
@@ -580,6 +586,7 @@ def build_feature_dataset(
     pm25_observations: pd.DataFrame,
     pilot_event_id: str | None = None,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
+    lookback_hours: float = 24.0,
 ) -> pd.DataFrame:
     """
     Build the complete GEO-01 feature dataset.
@@ -595,6 +602,8 @@ def build_feature_dataset(
 
     Returns a DataFrame containing the feature columns required
     by the GEO-01 Parquet contract.
+
+    lookback_hours controls how far back fire detections are included.
     """
 
     result = build_feature_times(
@@ -610,6 +619,7 @@ def build_feature_dataset(
     result = add_fire_alignment_features(
         result,
         fire_detections,
+        lookback_hours=lookback_hours,
     )
 
     result = add_pm25_alignment_features(
