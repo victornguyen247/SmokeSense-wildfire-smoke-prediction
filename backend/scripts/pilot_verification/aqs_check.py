@@ -1,12 +1,14 @@
 """AQS (AirData hourly 88101/88502) vs AirNow for the dark days at PE-008, PE-011, PE-004 Paradise."""
-import csv, json, sys
+import csv
+import json
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-import stage2, hourly
+import stage2
 from ingestion.connectors.airnow import split_airnow_range
 from paths import CACHE, OUT
 

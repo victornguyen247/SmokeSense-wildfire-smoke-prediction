@@ -36,15 +36,21 @@ calls an API in that mode.
 `--only`, `item5.py` keeps any event already in `out/item5.json`, so it can
 resume an interrupted run. Delete `out/` for a clean full run.
 
-## Known gap: PE-001 bbox
+## Per-event bbox overrides
 
-`reference/stage1.json` has PE-001's bbox widened east-west by hand
-(`bbox_adjust`: "widened E-W (symmetrically) to include Willows-Colusa, 18.9
-km from the fire"), giving -123.86..-122.13 (148 km wide). `stage1.py` does
-not do this widening, so it produces -123.71..-122.28 (122 km), which has no
-AirNow site inside. Offline, that narrower box misses the cache at
-`item2.py`, so PE-001 is not reproducible until the widening is encoded or
-dropped. That decision is still open.
+`stage1.py` normally derives each bbox from the fire's FIRMS cluster.
+`BBOX_OVERRIDE` replaces that bbox for listed events and records the reason
+in `stage1.json` as `bbox_adjust`. `build.py` copies the reason into the
+config's `bbox_note`. `width_km`/`height_km` in `stage1.json` stay those of
+the computed bbox. The override is documented in the same way as `EXCLUDE`
+and `LINK_OVERRIDE`.
+
+- PE-001: the computed box (-123.71..-122.28) holds no AirNow site, so it is
+  widened east-west, symmetrically, to -123.86..-122.13. That brings in
+  Willows-Colusa, 18.9 km from the fire. In the PR #26 run, `width_km`
+  147.3178520624843 was entered by hand along with the widening.
+  `reference/stage1.json` now holds the computed 121.63639718356923;
+  `stage2.json` and everything after it use the width of the widened bbox.
 
 ## Scripts: inputs and outputs
 

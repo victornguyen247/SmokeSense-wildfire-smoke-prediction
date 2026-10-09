@@ -1,5 +1,7 @@
 """Item 5: share of FIRMS FRP / detections within 200 km of each in-bbox AirNow site that is outside the event bbox."""
-import json, statistics, sys
+import json
+import statistics
+import sys
 from pathlib import Path
 import numpy as np
 
@@ -39,7 +41,8 @@ def run(only=None):
         rows = []
         for p in products_for(r["start"], r["end"]):
             rows += pull(p, stage1.fmt(big), r["start"], r["end"])
-        lat = np.array([float(x["latitude"]) for x in rows]); lon = np.array([float(x["longitude"]) for x in rows])
+        lat = np.array([float(x["latitude"]) for x in rows])
+        lon = np.array([float(x["longitude"]) for x in rows])
         frp = np.array([max(float(x["frp"] or 0), 0.0) for x in rows])
         b = r["bbox"]
         inside = (lon >= b[0]) & (lon <= b[2]) & (lat >= b[1]) & (lat <= b[3])

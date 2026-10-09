@@ -1,7 +1,9 @@
 """Stage 2: verify each final bbox against FIRMS (_SP) and AirNow. Read-only; no DB."""
-import json, math, os, sys
+import json
+import os
+import sys
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).parent

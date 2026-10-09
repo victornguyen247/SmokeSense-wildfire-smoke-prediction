@@ -1,5 +1,7 @@
 """Stage 1: county-union FIRMS pull -> FRP-weighted clusters -> fire-centred bbox."""
-import json, math, sys
+import json
+import math
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -21,6 +23,15 @@ LINK_OVERRIDE = {"PE-019": 2}
 EXCLUDE = {
     # River Complex: burning at >= 41.0N by day 1-5; Monument's front reached 40.9N only on day 24-29.
     "PE-018": lambda r: float(r["latitude"]) >= 41.0,
+}
+
+# Documented, per-event bbox replacements: (bbox, note recorded as bbox_adjust).
+# width_km/height_km stay those of the computed fire bbox.
+BBOX_OVERRIDE = {
+    # The computed box (-123.71..-122.28) holds no AirNow site; widening it E-W
+    # brings in the nearest monitor to the fire.
+    "PE-001": ([-123.86, 39.26, -122.13, 40.59],
+               "widened E-W (symmetrically) to include Willows-Colusa, 18.9 km from the fire"),
 }
 BUFFER_KM = 25.0     # buffer beyond the cluster's extent (matches the 25 km label rule)
 
@@ -123,6 +134,8 @@ def main(only=None):
                "top_cluster": None if not comps else {k: comps[0][k] for k in ("n", "frp", "lat", "lon")}}
         if chosen:
             b, wkm, hkm = fire_bbox(chosen)
+            if eid in BBOX_OVERRIDE:
+                b, rec["bbox_adjust"] = BBOX_OVERRIDE[eid]
             rec.update(cluster={k: chosen[k] for k in ("n", "frp", "lat", "lon")}, bbox=b, width_km=wkm, height_km=hkm,
                        top_is_chosen=chosen is comps[0])
             print(f"   CHOSEN n={chosen['n']} frp={chosen['frp']:.0f} centroid {chosen['lat']:.3f},{chosen['lon']:.3f} "

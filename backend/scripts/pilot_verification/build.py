@@ -52,7 +52,7 @@ def verdict(eid, r):
     if r["airnow_raw_rows"] == 0:
         wp = r.get("wide_probe", {})
         if not wp.get("nearest"):
-            return "FAIL", (f"AirNow /aq/data/ has no rows in the bbox for the window and none in a 300 km box around the fire "
+            return "FAIL", ("AirNow /aq/data/ has no rows in the bbox for the window and none in a 300 km box around the fire "
                             "(statewide California returns 0 rows for 2007 and 2008; AirNow coverage starts later). "
                             "Labels would need AQS/AirData instead.")
         n = wp["nearest"][0]

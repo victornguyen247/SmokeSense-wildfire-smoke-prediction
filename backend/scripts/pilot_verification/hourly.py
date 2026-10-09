@@ -4,7 +4,7 @@ Days are UTC-8 (Pacific standard time all year), the convention AQS daily means 
 Red Bluff labels arrive already corrected: normalize_airnow_row applies
 ingestion/connectors/airnow_time_offsets.py (on dev since PR #27).
 """
-import json, sys
+import sys
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path

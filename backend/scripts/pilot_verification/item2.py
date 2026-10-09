@@ -5,11 +5,15 @@ day the site is dark, the mean of its AirNow neighbours (other sites within
 100 km), scaled by the median site/neighbour ratio over days both report.
 Top quartile = the ceil(n/4) highest-valued days of the event window.
 """
-import json, math, statistics, sys
+import json
+import math
+import statistics
+import sys
 from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-import hourly, stage1
+import hourly
+import stage1
 from paths import OUT
 
 R = 100.0
@@ -54,7 +58,8 @@ def run(only=None):
             top = {x["day"] for x in ranked[:q]}
             for x in rows:
                 x["top"] = x["day"] in top
-            miss = lambda xs: (sum(24 - x["hours"] for x in xs), 24 * len(xs))
+            def miss(xs):
+                return sum(24 - x["hours"] for x in xs), 24 * len(xs)
             mt, ht = miss([x for x in rows if x["top"]])
             mo, ho = miss([x for x in rows if not x["top"]])
             rec = {"event": eid, "aqs": code, "name": s["name"], "pct": round(100 * len(s["vals"]) / (24 * len(D)), 1),

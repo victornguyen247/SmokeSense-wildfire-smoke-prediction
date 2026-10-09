@@ -1,5 +1,9 @@
 """Pull FIRMS _SP rows for a bbox + window, cached on disk. Never prints the key."""
-import json, os, sys, time, hashlib
+import json
+import os
+import sys
+import time
+import hashlib
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path

@@ -1,5 +1,6 @@
 """Item 3: peak daily mean PM2.5 (AirNow RawConcentration, LST days, >=18 h) per event."""
-import json, sys
+import json
+import sys
 from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
