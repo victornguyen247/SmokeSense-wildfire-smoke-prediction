@@ -12,7 +12,7 @@ Events were selected to satisfy the PM-01 acceptance criteria:
 - **Data availability** for all four sources (FIRMS, AirNow/EPA AQS, NWS, PurpleAir where density allows) across each event's date window — tracked per event in the [Data-availability verification](#data-availability-verification) table below
 - **Event-level proximity check**: at least one regulatory PM2.5 monitor within 150 km of the fire perimeter, so the event produces any labels at all
 - **Label-level proximity rule**: individual training rows still follow `docs/schema.md` — a label is only used when its monitor is **≤ 25 km** from the forecast point (`target_monitor_dist_km ≤ 25`). Forecast points for each event must therefore be placed near the listed monitors, not at the fire.
-- **Product type note**: training Parquet uses FIRMS archive (SP) data; live inference sees NRT/URT. All events below have SP archive coverage.
+- **Product type note**: training Parquet uses FIRMS archive (SP) data; live inference sees NRT/URT. All events below have SP archive coverage. Exception: VIIRS-NOAA21 has no SP product, so for events after 2024-01-17 (PE-004, PE-018) its detections come from the `VIIRS_NOAA21_NRT` archive.
 - **PurpleAir note**: PurpleAir density in California increased significantly from ~2020 onward. Events before 2019 rely primarily on regulatory AirNow monitors for PM2.5 labels.
 - **NWS offices** below are the Weather Forecast Office (WFO) IDs whose grids cover the affected counties: EKA = Eureka, STO = Sacramento, REV = Reno, MFR = Medford, MTR = San Francisco Bay Area/Monterey, HNX = Hanford/San Joaquin Valley, LOX = Los Angeles/Oxnard, SGX = San Diego.
 
@@ -33,18 +33,18 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 
 ---
 
-## Tier 1 — High Impact (6 events)
+## Tier 1 — High Impact (5 events)
 
 ### PE-001 · August Complex Fire
 | Field | Value |
 |---|---|
 | **pilot_event_id** | `PE-001` |
 | **Region** | Northern California (Trinity, Tehama, Glenn, Lake, Mendocino counties) |
-| **Start date** | 2020-08-17 |
+| **Start date** | 2020-08-16 (CAL FIRE alarm date; was 2020-08-17) |
 | **End date** | 2020-11-12 |
 | **Acres burned** | ~1,032,648 (California's first gigafire) |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP coverage confirmed |
-| **AirNow monitors nearby** | Redding, Red Bluff, Chico, Ukiah — all within 120 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Willits, AQS `06-045-2002` — 22.9 km from the final perimeter, hourly PM2.5 for 97% of window hours. Also Red Bluff (`06-103-0007`, 29.7 km), Willows (`06-021-0003`, 32.3 km); 5 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Moderate (2020 — density growing in NorCal) |
 | **NWS grid** | EKA (Eureka — Trinity, Mendocino, Lake), STO (Sacramento — Tehama, Glenn) |
 | **NWS station** | KRDD (Redding) |
@@ -60,27 +60,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2021-07-13 |
 | **End date** | 2021-10-25 |
 | **Acres burned** | ~963,309 (California's largest single-ignition fire) |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 + MODIS SP confirmed |
-| **AirNow monitors nearby** | Chico, Paradise, Quincy, Redding — within 80 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Chester, AQS `06-063-1007` — 1.5 km from the final perimeter, hourly PM2.5 for 93% of window hours. Also Quincy (`06-063-1006`, 5.6 km), Portola (`06-063-1010`, 12.6 km); 5 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Good (2021 — dense coverage in Chico / Sacramento corridor) |
 | **NWS grid** | STO (Sacramento — Butte, Shasta, Tehama, western Plumas), REV (Reno — Lassen, eastern Plumas) |
 | **Why chosen** | California's largest single-ignition fire. Smoke plume reached the East Coast. Strong HRRR-Smoke benchmark data available for this period. Good for testing the model against the operational benchmark (proposal §6.3). |
-
----
-
-### PE-005 · SCU Lightning Complex Fire
-| Field | Value |
-|---|---|
-| **pilot_event_id** | `PE-005` |
-| **Region** | Bay Area / Diablo Range (Santa Clara, Alameda, Contra Costa, San Joaquin, Stanislaus counties) |
-| **Start date** | 2020-08-18 |
-| **End date** | 2020-09-22 |
-| **Acres burned** | ~396,624 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Livermore, San Jose, Tracy, Modesto — within 60 km; densest urban AirNow network in the dataset |
-| **PurpleAir density** | Excellent (Bay Area has highest PurpleAir density in California) |
-| **NWS grid** | MTR (Bay Area — Santa Clara, Alameda, Contra Costa), STO (Sacramento — San Joaquin, Stanislaus) |
-| **Why chosen** | Urban interface fire directly adjacent to the Bay Area. Highest monitor density of any event (Bay Area has ~400 AirNow + PurpleAir sensors). Provides the richest label set and tests urban dispersion patterns. Concurrent with August Complex — tests multi-fire interaction features. |
 
 ---
 
@@ -92,8 +76,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2020-09-27 |
 | **End date** | 2020-10-20 |
 | **Acres burned** | ~67,484 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Napa, Santa Rosa, Vallejo — within 40 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Sebastopol, AQS `06-097-0004` — 15.8 km from the final perimeter, hourly PM2.5 for 99% of window hours. Also Napa Valley College (`06-055-0004`, 26.4 km), Vallejo (`06-095-0004`, 43.7 km); 4 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Good (Wine Country has moderate PurpleAir density by 2020) |
 | **NWS grid** | MTR (Bay Area) |
 | **Why chosen** | Autumn fire in wine country during extreme dry/wind conditions. Concurrent with other 2020 fires — tests multi-fire feature aggregation. North Bay urban interface impact. *(Re-tiered from High-Medium to High on 2026-10-09: peak daily PM2.5 reached 148.6 µg/m³ at Napa Valley College `06-055-0004` on 2020-10-02, AQS.)* |
@@ -108,8 +92,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2018-07-23 |
 | **End date** | 2018-08-30 |
 | **Acres burned** | ~229,651 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Redding, Red Bluff — within 30 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Weaverville, AQS `06-105-0002` — 13.6 km from the final perimeter, hourly PM2.5 for 75% of window hours. Also Red Bluff (`06-103-0007`, 41.6 km); 2 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Sparse (2018) |
 | **NWS grid** | STO (Sacramento — Shasta), EKA (Eureka — Trinity) |
 | **Why chosen** | Generated a rare fire tornado (pyrotornado). Extreme fire behaviour makes FRP readings unusually high — tests model robustness to outlier fire intensity values. Also concurrent with Mendocino Complex, providing another multi-fire test case. *(Re-tiered from High-Medium to High on 2026-10-09: peak daily PM2.5 reached 134.0 µg/m³ at Weaverville `06-105-0002` on 2018-08-08, AQS.)* |
@@ -124,15 +108,15 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2020-09-04 |
 | **End date** | 2020-12-24 |
 | **Acres burned** | ~379,895 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Fresno, Madera, Clovis — within 60 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Mammoth Lakes, AQS `06-051-0001` — 14.2 km from the final perimeter, hourly PM2.5 for 99% of window hours. Also Table Mountain (`06-019-0500`, 23.2 km), Lee Vining (`06-051-0005`, 36.3 km); 7 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Moderate (Central Valley growing by 2020) |
 | **NWS grid** | HNX (Hanford/Central Valley) |
 | **Why chosen** | Sierra Nevada fire — different terrain and smoke channelling than valley or coastal fires. Smoke funnelled into the San Joaquin Valley, producing sustained Unhealthy-or-worse concentrations in Fresno rather than a single acute peak. Tests the model on valley-trapped smoke scenarios. *(Moved from Medium-Low during review, then re-tiered from High-Medium to High on 2026-10-09: peak daily PM2.5 reached 824.1 µg/m³ at Lee Vining `06-051-0005` on 2020-09-17, AQS.)* |
 
 ---
 
-## Tier 2 — High-Medium Impact (4 events)
+## Tier 2 — High-Medium Impact (5 events)
 
 ### PE-003 · Mendocino Complex Fire
 | Field | Value |
@@ -142,8 +126,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2018-07-27 |
 | **End date** | 2018-09-18 |
 | **Acres burned** | ~459,123 (largest CA fire at the time) |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Ukiah, Lakeport, Willows — within 70 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Ukiah, AQS `06-045-0006` — 10.2 km from the final perimeter, hourly PM2.5 for 97% of window hours. Also Cortina (`06-011-0007`, 19.7 km), Willits (`06-045-2002`, 26.1 km); 5 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Sparse (2018 — limited NorCal density, rely on AirNow) |
 | **NWS grid** | EKA (Eureka — Mendocino, Lake), STO (Sacramento — Colusa, Glenn), MTR (Bay Area — downwind impact) |
 | **Why chosen** | Pre-PurpleAir-density era (2018) — tests model performance with regulatory-only labels. Smoke heavily impacted the Bay Area, providing urban downwind impact case. *(Re-tiered from High to High-Medium on 2026-10-09: the highest daily mean at any hourly AQS site within 50 km was 118.2 µg/m³ at Cortina Indian Rancheria `06-011-0007` on 2018-08-04, just under the 125.4 High threshold. Bay Area sites farther downwind were not checked.)* |
@@ -158,11 +142,27 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2024-07-24 |
 | **End date** | 2024-10-24 |
 | **Acres burned** | ~429,603 (4th largest CA fire on record) |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 + VIIRS-NOAA21 SP confirmed |
-| **AirNow monitors nearby** | Chico, Red Bluff, Paradise — within 50 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled. VIIRS-NOAA21 has no SP product; its detections come from the `VIIRS_NOAA21_NRT` archive (2024-01-17 onward) |
+| **AirNow monitors nearby** | Chico-East Avenue, AQS `06-007-0008` — 4.1 km from the final perimeter, hourly PM2.5 for 99% of window hours. Also Red Bluff (`06-103-0007`, 17.7 km), Redding (`06-089-0004`, 37.5 km); 5 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Excellent (2024 — dense coverage) |
 | **NWS grid** | STO (Sacramento) |
-| **Why chosen** | Most recent major fire in the dataset. Tests the model with all three VIIRS sensors active (NOAA-21 launched November 2022). Best PurpleAir label density. Validates that the pipeline handles the newest FIRMS satellite products. *(Re-tiered from High to High-Medium on 2026-10-09: the highest daily mean at any hourly AQS site within 50 km was 85.2 µg/m³ at Chico-East Avenue `06-007-0008` on 2024-08-02.)* |
+| **Why chosen** | Most recent major fire in the dataset. Tests the model with all three VIIRS sensors active (NOAA-21 launched November 2022). NOAA-21 has no SP product, so its detections come from the `VIIRS_NOAA21_NRT` archive — together with PE-018, the only non-SP FIRMS data in the training set. Best PurpleAir label density. Validates that the pipeline handles the newest FIRMS satellite products. *(Re-tiered from High to High-Medium on 2026-10-09: the highest daily mean at any hourly AQS site within 50 km was 85.2 µg/m³ at Chico-East Avenue `06-007-0008` on 2024-08-02.)* |
+
+---
+
+### PE-005 · SCU Lightning Complex Fire
+| Field | Value |
+|---|---|
+| **pilot_event_id** | `PE-005` |
+| **Region** | Bay Area / Diablo Range (Santa Clara, Alameda, Contra Costa, San Joaquin, Stanislaus counties) |
+| **Start date** | 2020-08-16 (CAL FIRE alarm date; was 2020-08-18) |
+| **End date** | 2020-08-31 (shortened from 2020-09-22; see below) |
+| **Acres burned** | ~396,624 |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Livermore, AQS `06-001-0007` — 5.8 km from the final perimeter, hourly PM2.5 for 99% of window hours. Also Pleasanton (`06-001-0015`, 7.8 km), Tracy (`06-077-3005`, 8.8 km); 22 hourly sites within 50 km in total — the most of any event (AQS, 2026-10-09) |
+| **PurpleAir density** | Excellent (Bay Area has highest PurpleAir density in California) |
+| **NWS grid** | MTR (Bay Area — Santa Clara, Alameda, Contra Costa), STO (Sacramento — San Joaquin, Stanislaus) |
+| **Why chosen** | Urban interface fire directly adjacent to the Bay Area. Highest monitor density of any event (Bay Area has ~400 AirNow + PurpleAir sensors). Provides the richest label set and tests urban dispersion patterns. Concurrent with August Complex — tests multi-fire interaction features. *(Window shortened to 08-16–08-31 and re-tiered from High to High-Medium on 2026-10-09. SCU's own peak, at hourly AQS sites within 50 km that are closer to SCU than to the CZU or LNU complexes, was 117.5 µg/m³ at Tracy-Airport `06-077-3005` on 2020-08-24. The High readings in the old window came from other fires: CZU smoke at San Lorenzo Valley (387.8 µg/m³, 1.3 km from CZU) and Bay Area–wide regional smoke on 2020-09-11 (Oakland 167.7), when SCU was largely burned out.)* |
 
 ---
 
@@ -174,7 +174,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2016-07-22 |
 | **End date** | 2016-08-04 (training window; the fire burned until 2016-10-13) |
 | **Acres burned** | ~132,104 (final perimeter, CAL FIRE FRAP) |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP expected — detection count not yet pulled |
+| **FIRMS archive** | MODIS and VIIRS-SNPP SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Carmel Valley, AQS `06-053-0002` — 6.0 km from the final perimeter, hourly PM2.5 for 100% of window hours. Next nearest: Salinas 3 (`06-053-1003`, 30.5 km), King City 2 (`06-053-0008`, 31.5 km) |
 | **PurpleAir density** | Sparse (2016 — pre-density era; regulatory labels only) |
 | **NWS grid** | MTR (Bay Area / Monterey) |
@@ -190,7 +190,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2023-07-14 |
 | **End date** | 2023-07-23 (contained) |
 | **Acres burned** | ~8,355 (final perimeter, CAL FIRE FRAP) |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 + MODIS SP expected — detection count not yet pulled (VIIRS-NOAA21 has no SP product yet; see `docs/data-sources.md`) |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Banning Airport, AQS `06-065-0012` — 11.3 km from the final perimeter, hourly PM2.5 for 100% of window hours. Morongo (`06-065-1016`, 14.4 km, 99%) is the second site within 25 km |
 | **PurpleAir density** | Not yet checked (Inland Empire, 2023) |
 | **NWS grid** | SGX (San Diego — covers western Riverside County) |
@@ -208,8 +208,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2018-11-08 |
 | **End date** | 2018-11-21 |
 | **Acres burned** | ~96,949 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Thousand Oaks, Malibu, Santa Monica — within 30 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Thousand Oaks, AQS `06-111-0007` — 2.9 km from the final perimeter, hourly PM2.5 for 99% of window hours. Also Simi Valley (`06-111-2002`, 4.4 km), Reseda (`06-037-1201`, 10.8 km); 8 hourly sites within 50 km in total. Malibu and Santa Monica have no AQS PM2.5 site (AQS, 2026-10-09) |
 | **PurpleAir density** | Moderate (LA metro beginning to densify by 2018) |
 | **NWS grid** | LOX (Los Angeles) |
 | **Why chosen** | LA metro fire during Santa Ana wind event. Tests the model on Southern California's wind-driven fire regime and dense urban downwind monitoring. Concurrent with the Camp Fire in NorCal — two major simultaneous fires testing feature isolation. *(Re-tiered from High-Medium to Medium-Low on 2026-10-09: the highest daily mean at any hourly AQS site within 50 km was 44.2 µg/m³ (Los Angeles-North Main Street, 2018-11-11); Thousand Oaks `06-111-0007`, 2.9 km from the perimeter, peaked at 41.5.)* |
@@ -224,7 +224,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2018-07-05 |
 | **End date** | 2018-07-18 (training window; contained 2018-07-21) |
 | **Acres burned** | ~38,009 (final perimeter, CAL FIRE FRAP) |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 + MODIS SP expected — detection count not yet pulled |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Yreka, AQS `06-093-2001` — 17.7 km from the final perimeter, hourly PM2.5 for 100% of window hours. Only hourly site within 80 km |
 | **PurpleAir density** | Very sparse (rural Siskiyou, 2018) |
 | **NWS grid** | MFR (Medford) |
@@ -240,11 +240,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2020-09-27 |
 | **End date** | 2020-10-15 |
 | **Acres burned** | ~56,338 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP confirmed |
-| **AirNow monitors nearby** | Redding, Red Bluff — within 40 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Weaverville, AQS `06-105-0002` — 32.4 km from the final perimeter, hourly PM2.5 for 90% of window hours. Also Red Bluff (`06-103-0007`, 33.8 km); 2 hourly sites within 50 km in total (AQS, 2026-10-09) |
 | **PurpleAir density** | Sparse (rural Shasta area) |
 | **NWS grid** | STO (Sacramento) |
-| **Why chosen** | Moderate-intensity fire occurring simultaneously with the Glass and August Complex fires — a three-fire concurrent case. Important for testing `total_frp_200km` (the weighted multi-fire feature) as the model must attribute smoke to the correct source. |
+| **Why chosen** | Moderate-intensity fire occurring simultaneously with the Glass and August Complex fires — a three-fire concurrent case. Important for testing `total_frp_200km` (the weighted multi-fire feature) as the model must attribute smoke to the correct source. *(Tier kept at Medium-Low on 2026-10-09 although the measured peak, 125.8 µg/m³ at Weaverville `06-105-0002` on 2020-10-02, is High. On 09-27–09-28, while Zogg grew fastest, its nearest monitors read 2–23 µg/m³; the High readings from 09-29 to 10-05 came with a regional smoke rise that hit sites 100–150 km away in every direction at the same time (Ukiah 118, Willows 115, Yreka 105). For this event the tier describes Zogg's expected contribution, not what monitors measured; untangling the overlap is the point of the event.)* |
 
 ---
 
@@ -258,8 +258,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2021-08-04 |
 | **End date** | 2021-08-05 (shortened from 2021-08-08; see below) |
 | **Acres burned** | ~2,600 (short duration, localised) |
-| **FIRMS archive** | VIIRS-SNPP SP confirmed |
-| **AirNow monitors nearby** | Auburn, Lincoln, Roseville — within 25 km |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
+| **AirNow monitors nearby** | Colfax, AQS `06-061-0004` — 1.7 km from the final perimeter, hourly PM2.5 for 92% of window hours. Also Grass Valley (`06-057-0005`, 11.9 km), Auburn (`06-061-0003`, 19.0 km); 6 hourly sites within 50 km in total. Closest is Colfax, not Auburn/Lincoln/Roseville as first listed (AQS, 2026-10-09) |
 | **PurpleAir density** | Good (Sacramento metro area has strong coverage) |
 | **NWS grid** | STO (Sacramento) |
 | **Why chosen** | Small fire right next to a monitor that barely registered it: Colfax `06-061-0004`, 1.7 km from the perimeter, read 5.4 and 4.2 µg/m³ daily means on 2021-08-04 and 08-05 (AQS). Tests the near-zero case at very short distance. *(Window shortened from 08-04–08-08 to 08-04–08-05 on 2026-10-09: on 08-06 regional smoke from the Dixie Fire arrived — Colfax 186.9, Grass Valley 176.4 and Sacramento-T Street 32.2 µg/m³ the same day — so later days would carry High labels from a different fire.)* |
@@ -271,10 +271,10 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 |---|---|
 | **pilot_event_id** | `PE-015` |
 | **Region** | Southern California (San Bernardino County — near Wrightwood, San Gabriel Mountains) |
-| **Start date** | 2022-06-11 |
+| **Start date** | 2022-06-12 (CAL FIRE alarm date; was 2022-06-11, a day before the fire) |
 | **End date** | 2022-06-14 |
 | **Acres burned** | ~990 |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 SP confirmed |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Upland, AQS `06-071-1004` — 28.1 km from the final perimeter, 100% of window hours; Victorville-Park Avenue, AQS `06-071-0306` — 29.3 km, 100%. Crestline has no AQS PM2.5 data for this window |
 | **PurpleAir density** | Moderate (Victor Valley / Wrightwood) |
 | **NWS grid** | SGX (San Diego — its warning area covers the San Bernardino County mountains and Victor Valley; verified via `api.weather.gov/points`: Wrightwood → SGX zone CAZ055, Victorville → SGX zone CAZ060) |
@@ -290,7 +290,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2013-08-17 |
 | **End date** | 2013-08-30 (training window; contained 2013-10-24) |
 | **Acres burned** | ~256,176 (final perimeter, CAL FIRE FRAP) |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP expected — detection count not yet pulled |
+| **FIRMS archive** | MODIS and VIIRS-SNPP SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Yosemite Village, AQS `06-043-1001` — 12.9 km from the final perimeter, hourly PM2.5 for 99% of window hours. Only hourly site within 50 km: Yosemite NP `06-043-0003` (7.9 km) reported no hourly data. San Andreas `06-009-0001` is 50.1 km out (82%) |
 | **PurpleAir density** | None (2013 — pre-PurpleAir era; regulatory labels only) |
 | **NWS grid** | STO (Sacramento — verified via `api.weather.gov/points`: fire centroid → STO zone CAZ138) |
@@ -306,11 +306,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2021-08-14 |
 | **End date** | 2021-08-16 (window deliberately ends before the 2021-08-17 blow-up that destroyed Grizzly Flats) |
 | **Acres burned** | Small (low thousands) during this window — confirm daily acreage from CAL FIRE/NIFC incident reports |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 SP confirmed |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | San Andreas-Gold Strike Road, AQS `06-009-0001` — 44.3 km from the ignition point (38.5845, −120.5360; NIFC WFIGS, IRWIN `E6C053C8…`), 100% of window hours. Distance is measured from ignition, not the final perimeter, because the window covers only the first three days. South Lake Tahoe (`06-017-9001`) reported 1 of 3 days with no hourly data; Placerville has no AQS PM2.5 site |
 | **PurpleAir density** | Moderate (Lake Tahoe corridor) |
 | **NWS grid** | STO (Sacramento — western El Dorado), REV (Reno — Lake Tahoe basin) |
-| **Why chosen** | The first three days of the Caldor Fire, before it escalated into a major event, provide a low-impact window that captures a fire's pre-escalation signature. Teaches the model what "fire detected but smoke not yet impacting monitors" looks like — important for the 12h and 24h horizons. **Caveat:** the Dixie Fire was burning ~150 km north at the same time; confirm during the AQS check that background PM2.5 at the listed monitors stayed in the Low tier, otherwise re-tier or swap this event. |
+| **Why chosen** | The first three days of the Caldor Fire, before it escalated into a major event, provide a low-impact window that captures a fire's pre-escalation signature. Teaches the model what "fire detected but smoke not yet impacting monitors" looks like — important for the 12h and 24h horizons. The Dixie Fire was burning ~150 km north at the same time; background PM2.5 stayed in the Low tier (peak daily 30.0 µg/m³ at San Andreas `06-009-0001` on 2021-08-16, AQS). |
 
 ---
 
@@ -322,7 +322,7 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2024-07-05 |
 | **End date** | 2024-07-18 (training window; contained 2024-08-04) |
 | **Acres burned** | ~38,610 (final perimeter, CAL FIRE FRAP) |
-| **FIRMS archive** | VIIRS-SNPP + VIIRS-NOAA20 + MODIS SP expected — detection count not yet pulled (VIIRS-NOAA21 has no SP product yet) |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled. VIIRS-NOAA21 has no SP product; its detections come from the `VIIRS_NOAA21_NRT` archive (2024-01-17 onward) |
 | **AirNow monitors nearby** | Santa Ynez, AQS `06-083-3001` — 10.3 km from the final perimeter, hourly PM2.5 for 100% of window hours. Also Santa Maria `06-083-1009` (26.4 km), Goleta `06-083-2011` (27.8 km); 8 hourly sites within 50 km in total |
 | **PurpleAir density** | Not yet checked (2024) |
 | **NWS grid** | LOX (Los Angeles — verified via `api.weather.gov/points`: fire centroid → LOX zone CAZ353, Los Olivos) |
@@ -338,11 +338,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2020-08-17 |
 | **End date** | 2020-08-18 |
 | **Acres burned** | ~8,200 (first 48 hours, before major escalation) |
-| **FIRMS archive** | VIIRS-SNPP SP confirmed |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Napa Valley College, AQS `06-055-0004` — 25.6 km from the Hennessey ignition point (38.5039, −122.3373), 98% of window hours; Sebastopol, AQS `06-097-0004` — 26.6 km from the Walbridge ignition point (38.5975, −122.9979), 100%. Ignition points from NIFC WFIGS; distances are from ignition, not the final perimeter, because the window covers only the first 48 hours |
 | **PurpleAir density** | Good (Bay Area) |
 | **NWS grid** | MTR (Bay Area — Napa, Sonoma), EKA (Eureka — Lake), STO (Sacramento — Yolo, Colusa) |
-| **Why chosen** | The first 48 hours of the LNU Complex, before it became a major event. Marine layer suppressed daytime PM2.5 at coastal monitors even as the fire grew. Nighttime detections show high FRP but low observed PM2.5. Tests diurnal patterns and the `local_solar_hour` feature. |
+| **Why chosen** | The first 48 hours of the LNU Complex, before it became a major event. Marine layer suppressed daytime PM2.5 at coastal monitors even as the fire grew. Nighttime detections show high FRP but low observed PM2.5. Tests diurnal patterns and the `local_solar_hour` feature. *(Measured Low: peak daily PM2.5 35.3 µg/m³ at Davis-UCD Campus `06-113-0004` on 2020-08-18, AQS — just under the 35.4 limit.)* |
 
 ---
 
@@ -355,11 +355,11 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | **Start date** | 2020-07-05 |
 | **End date** | 2020-07-13 |
 | **Acres burned** | ~5,513 |
-| **FIRMS archive** | VIIRS-SNPP + MODIS SP expected — detection count not yet pulled |
+| **FIRMS archive** | MODIS, VIIRS-SNPP and VIIRS-NOAA20 SP products cover this window (`docs/data-sources.md` availability table) — detection count not yet pulled |
 | **AirNow monitors nearby** | Gilroy (9th Street), AQS `06-085-0002` — 6.9 km from the final perimeter, hourly PM2.5 for 99% of window hours (213/216). Next nearest: Hollister (`06-069-0002`, 18.3 km) |
 | **PurpleAir density** | Not yet checked (South Bay, 2020) |
 | **NWS grid** | MTR (Bay Area — Santa Clara) |
-| **Why chosen** | Small, short-duration grass-and-oak fire expected to have limited smoke impact. It burned before the August 2020 lightning siege (SCU, LNU, August Complex), so background PM2.5 should be clean — the peak daily PM2.5 at Gilroy still has to confirm the Low tier. *(Replaces the original PE-020, a 2017 "Shasta Fire" that does not exist and was never checked against FIRMS or AQS data.)* |
+| **Why chosen** | Small, short-duration grass-and-oak fire expected to have limited smoke impact. It burned before the August 2020 lightning siege (SCU, LNU, August Complex), so background PM2.5 was clean: Gilroy peaked at 12.8 µg/m³, and the highest daily mean at any hourly site within 50 km was 23.7 (San Jose-Knox Avenue, 2020-07-05, likely July 4 fireworks), both Low (AQS). *(Replaces the original PE-020, a 2017 "Shasta Fire" that does not exist and was never checked against FIRMS or AQS data.)* |
 
 ---
 
@@ -370,8 +370,8 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | PE-001 | August Complex | 2020 | NorCal | 1,032,648 | High | California's first gigafire |
 | PE-002 | Dixie | 2021 | NorCal | 963,309 | High | Largest single-ignition fire |
 | PE-003 | Mendocino Complex | 2018 | NorCal | 459,123 | High-Medium | Pre-PurpleAir era |
-| PE-004 | Park | 2024 | NorCal | 429,603 | High-Medium | All three VIIRS sensors |
-| PE-005 | SCU Lightning Complex | 2020 | Bay Area | 396,624 | High | Densest urban monitor network |
+| PE-004 | Park | 2024 | NorCal | 429,603 | High-Medium | All three VIIRS sensors (NOAA-21 via NRT) |
+| PE-005 | SCU Lightning Complex (to 08-31) | 2020 | Bay Area | 396,624 | High-Medium | Densest urban monitor network |
 | PE-006 | Soberanes (first 2 weeks) | 2016 | Central Coast | 132,104 | High-Medium | Single downwind valley monitor, pre-PurpleAir |
 | PE-007 | Glass | 2020 | NorCal | 67,484 | High | Autumn wine country winds |
 | PE-008 | Carr | 2018 | NorCal | 229,651 | High | Pyrotornado, outlier FRP |
@@ -388,13 +388,13 @@ The peak PM2.5 value for each event must be confirmed from AQS during the data-a
 | PE-019 | LNU Complex (48h) | 2020 | Bay Area | 8,200 | Low | Marine layer, diurnal pattern |
 | PE-020 | Crews | 2020 | Bay Area | 5,513 | Low | Cleanest near-zero baseline |
 
-**Tier counts:** High 6, High-Medium 4, Medium-Low 3, Low 7.
+**Tier counts:** High 5, High-Medium 5, Medium-Low 3, Low 7.
 
 **Geographic coverage:** Northern California (8), Sierra Nevada / Foothills (4), Southern California (3), Bay Area / Central Coast (5) — satisfies the ≥3 region requirement. Project scope is **California only**; regions are California sub-regions.
 
 **Date range:** 2013–2024 — 12 years of FIRMS and AQS archival data.
 
-**FIRMS sensors represented:** MODIS Terra/Aqua, VIIRS-SNPP, VIIRS-NOAA20, VIIRS-NOAA21.
+**FIRMS sensors represented:** MODIS Terra/Aqua, VIIRS-SNPP, VIIRS-NOAA20 (all SP); VIIRS-NOAA21 (NRT archive, PE-004 and PE-018 only).
 
 ---
 
@@ -410,15 +410,15 @@ PM-01 requires each event to have a recorded check confirming nearby monitor cov
 - **Peak daily PM2.5**: highest daily mean (µg/m³) in the window at any hourly AQS site with ≥ 75% coverage within 50 km — confirms the tier. It can come from a different site than the one in the second column; the event card names the site.
 - **FIRMS SP**: detection count in the event window's bounding box from the FIRMS archive download.
 
-Distance to the fire is not the label rule: `docs/schema.md` only requires a monitor ≤ 25 km from the **forecast point**, and forecast points are placed near the monitors. Peak PM2.5 is the highest daily mean at any hourly AQS site with ≥ 75% coverage within 50 km of the fire (ignition point for PE-017/PE-019), so it can come from a site other than the one listed. Peak PM2.5, tier and FIRMS columns are still open except where noted; they come from the DATA-03 run for each event.
+Distance to the fire is not the label rule: `docs/schema.md` only requires a monitor ≤ 25 km from the **forecast point**, and forecast points are placed near the monitors. Peak PM2.5 is the highest daily mean at any hourly AQS site with ≥ 75% coverage within 50 km of the fire (ignition point for PE-017/PE-019), so it can come from a site other than the one listed. For PE-005, sites closer to the CZU or LNU complexes than to SCU are left out, since those fires were burning alongside it. Peak PM2.5, tier and FIRMS columns are still open except where noted; they come from the DATA-03 run for each event.
 
 | ID | Closest hourly AQS site | Distance to fire | % hours | Peak daily PM2.5 | Tier confirmed? | FIRMS SP detections | Checked by / date |
 |---|---|---|---|---|---|---|---|
-| PE-001 | `06-045-2002` Willits | 22.9 km | 96% |  |  | |  |
-| PE-002 | `06-063-1007` Chester | 1.5 km | 93% |  |  | |  |
+| PE-001 | `06-045-2002` Willits | 22.9 km | 97% | 433.9 | Yes — High | |  |
+| PE-002 | `06-063-1007` Chester | 1.5 km | 93% | 568.1 | Yes — High | |  |
 | PE-003 | `06-045-0006` Ukiah-Library | 10.2 km | 97% | 118.2 | Yes — High-Medium (re-tiered) | |  |
 | PE-004 | `06-007-0008` Chico-East Ave | 4.1 km | 99% | 85.2 | Yes — High-Medium (re-tiered) | |  |
-| PE-005 | `06-001-0007` Livermore | 5.8 km | 99% |  |  | |  |
+| PE-005 | `06-001-0007` Livermore | 5.8 km | 99% | 117.5 | Yes — High-Medium (re-tiered) | |  |
 | PE-006 | `06-053-0002` Carmel Valley | 6.0 km | 100% | 63.8 | Yes — High-Medium | |  |
 | PE-007 | `06-097-0004` Sebastopol | 15.8 km | 99% | 148.6 | Yes — High (re-tiered) | |  |
 | PE-008 | `06-105-0002` Weaverville | 13.6 km | 75% | 134.0 | Yes — High (re-tiered) | |  |
@@ -426,18 +426,22 @@ Distance to the fire is not the label rule: `docs/schema.md` only requires a mon
 | PE-010 | `06-111-0007` Thousand Oaks | 2.9 km | 99% | 44.2 | Yes — Medium-Low (re-tiered) | |  |
 | PE-011 | `06-093-2001` Yreka | 17.7 km | 100% | 47.5 | Yes — Medium-Low | | |
 | PE-012 | `06-051-0001` Mammoth Lakes | 14.2 km | 99% | 824.1 | Yes — High (re-tiered) | | |
-| PE-013 | `06-105-0002` Weaverville | 32.4 km | 90% |  |  | |  |
-| PE-014 | `06-061-0004` Colfax | 1.7 km | 92% | 5.4 | Yes — Low | |  |
+| PE-013 | `06-105-0002` Weaverville | 32.4 km | 90% | 125.8 | No — measured High from regional smoke; kept Medium-Low (see card) | |  |
+| PE-014 | `06-061-0004` Colfax | 1.7 km | 92% | 10.9 | Yes — Low | |  |
 | PE-015 | `06-071-1004` Upland | 28.1 km | 100% | 19.7 | Yes — Low (re-tiered) | |  |
 | PE-016 | `06-043-1001` Yosemite Village | 12.9 km | 99% | 25.0 | Yes — Low | |  |
-| PE-017 | `06-009-0001` San Andreas | 44.3 km (ignition) | 100% |  |  | |  |
+| PE-017 | `06-009-0001` San Andreas | 44.3 km (ignition) | 100% | 30.0 | Yes — Low | |  |
 | PE-018 | `06-083-3001` Santa Ynez | 10.3 km | 100% | 10.3 | Yes — Low | |  |
-| PE-019 | `06-055-0004` Napa Valley College | 25.6 km (ignition) | 98% |  |  | |  |
-| PE-020 | `06-085-0002` Gilroy | 6.9 km | 99% |  |  | |  |
+| PE-019 | `06-055-0004` Napa Valley College | 25.6 km (ignition) | 98% | 35.3 | Yes — Low | |  |
+| PE-020 | `06-085-0002` Gilroy | 6.9 km | 99% | 23.7 | Yes — Low | |  |
 
 An event is replaced when it fails the check (no hourly site, or < 75% hours), or when its measured peak falls outside its tier and re-tiering would leave a tier with fewer than 3 events, or would defeat the reason it was chosen. Every replacement is listed under **Replacements** below.
 
-**Re-tiered (2026-10-09), from measured peak daily PM2.5:** PE-007 Glass, PE-008 Carr and PE-012 Creek High-Medium → High; PE-003 Mendocino Complex and PE-004 Park High → High-Medium; PE-010 Woolsey High-Medium → Medium-Low; PE-015 Sheep Medium-Low → Low. **Window changed:** PE-014 River shortened to 2021-08-04–08-05 because Dixie Fire smoke reached its monitors from 08-06.
+**Re-tiered (2026-10-09), from measured peak daily PM2.5:** PE-007 Glass, PE-008 Carr and PE-012 Creek High-Medium → High; PE-003 Mendocino Complex, PE-004 Park and PE-005 SCU High → High-Medium; PE-010 Woolsey High-Medium → Medium-Low; PE-015 Sheep Medium-Low → Low. **Kept despite a mismatch:** PE-013 Zogg stays Medium-Low; its High reading comes from regional smoke (see its card).
+
+**Windows changed (2026-10-09):** PE-014 River shortened to 2021-08-04–08-05 because Dixie Fire smoke reached its monitors from 08-06; PE-005 SCU set to 2020-08-16–08-31, its active period, because later High readings came from other fires. Start dates moved to CAL FIRE alarm dates: PE-001 2020-08-17 → 08-16, PE-005 2020-08-18 → 08-16, PE-015 2022-06-11 → 06-12.
+
+**Monitors and FIRMS lines (2026-10-09):** every card's monitor list now comes from AQS (closest hourly sites, with IDs and distances), replacing names written from memory; monitor names that have no AQS PM2.5 site (Malibu, Santa Monica, Healdsburg, Placerville, Crestline) are gone. Every card's FIRMS line now states which SP products cover the window, from the availability table in `docs/data-sources.md`, in place of unverified "SP confirmed" claims. Detection counts are still pending.
 
 **Replacements:**
 
