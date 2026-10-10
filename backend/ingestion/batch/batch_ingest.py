@@ -28,6 +28,7 @@ from typing import Callable
 
 from datetime import date, datetime, timedelta, timezone
 
+from ingestion.batch.firms_extent import expand_bbox_km, lead_start_date
 from ingestion.connectors.firms import get_firms_records
 from ingestion.connectors.airnow import get_airnow_pm25_records, padded_airnow_windows
 from ingestion.connectors.airnow_time_offsets import max_abs_shift_hours
@@ -76,6 +77,14 @@ class PilotEvent:
     purpleair_density: str = ""
     verification_status: str = "pending"
     verification_note: str = ""
+    # Derived, never read from the config: FIRMS pulls the bbox grown by
+    # FIRMS_MARGIN_KM over [firms_start_date, end_date] (firms_extent.py).
+    firms_bbox: str = field(init=False)
+    firms_start_date: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.firms_bbox = expand_bbox_km(self.bbox)
+        self.firms_start_date = lead_start_date(self.start_date)
 
 
 def load_pilot_events(path: Path = PILOT_EVENTS_PATH) -> list[PilotEvent]:
@@ -95,7 +104,9 @@ def load_pilot_events(path: Path = PILOT_EVENTS_PATH) -> list[PilotEvent]:
     with path.open() as f:
         raw = json.load(f)
 
-    known_fields = {f.name for f in dataclasses.fields(PilotEvent)}
+    # Derived fields (init=False) are not config fields: a config that sets
+    # them gets the same unrecognized-field warning as any other.
+    known_fields = {f.name for f in dataclasses.fields(PilotEvent) if f.init}
     events = []
 
     for raw_event in raw["events"]:
@@ -547,15 +558,18 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
 
                 # One source at a time (VIIRS-SNPP, MODIS, etc. are separate
                 # API sources) x one date-chunk at a time (5-day cap).
+                # FIRMS alone uses the widened box and the lead window, so
+                # fire features near the bbox edge and on day one have their
+                # fires; the other sources keep the tight bbox and window.
                 for fire_source in event.firms_products:
                     for chunk_start, chunk_days in split_date_range(
-                        event.start_date, event.end_date
+                        event.firms_start_date, event.end_date
                     ):
                         chunk_records = with_retries(
                             lambda fs=fire_source, cs=chunk_start, cd=chunk_days: get_firms_records(
                                 map_key=settings.firms_map_key,
                                 source=fs,
-                                bbox=event.bbox,
+                                bbox=event.firms_bbox,
                                 day_range=cd,
                                 start_date=cs,
                             ),
