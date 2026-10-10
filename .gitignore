@@ -35,3 +35,6 @@ backend/data/*
 .idea/
 .vscode/
 *.swp
+# pilot verification scripts: local caches and generated outputs
+backend/scripts/pilot_verification/.cache/
+backend/scripts/pilot_verification/out/
