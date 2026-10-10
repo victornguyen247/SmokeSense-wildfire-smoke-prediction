@@ -5,7 +5,7 @@ from pathlib import Path
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import hourly
-from events import EVENTS
+from paths import EVENTS
 from paths import OUT
 
 TIER_RANGES = [("high", 125.45, 1e9), ("high-medium", 55.45, 125.45), ("medium-low", 35.45, 55.45), ("low", -1, 35.45)]

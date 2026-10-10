@@ -20,7 +20,7 @@ DOC = {
     "PE-014": ("Sierra Nevada Foothills (Nevada, Placer counties)", ["STO"], "good"),
 }
 TIER = {"high": "high", "high-medium": "high-medium", "medium-low": "medium-low", "low": "low"}
-from events import EVENTS
+from paths import EVENTS
 EV = {e[0]: e for e in EVENTS}
 
 CONTAM = {

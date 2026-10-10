@@ -38,3 +38,4 @@ backend/data/*
 # pilot verification scripts: local caches and generated outputs
 backend/scripts/pilot_verification/.cache/
 backend/scripts/pilot_verification/out/
+backend/scripts/pilot_verification/out_pr21/
