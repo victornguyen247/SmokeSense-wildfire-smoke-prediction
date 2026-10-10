@@ -11,7 +11,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/
 import stage1
 from paths import OFFLINE, OUT, CacheMiss, cache_dir
-from events import EVENTS, products_for
+from paths import EVENTS, products_for
 from firms_pull import pull
 from ingestion.connectors._common import load_env, redact
 from ingestion.connectors.airnow import fetch_airnow_rows, normalize_airnow_row, split_airnow_range

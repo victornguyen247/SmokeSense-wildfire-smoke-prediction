@@ -8,7 +8,7 @@ import numpy as np
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 import stage1
-from events import products_for
+from paths import products_for
 from firms_pull import pull
 from build import verdict
 from paths import OUT
