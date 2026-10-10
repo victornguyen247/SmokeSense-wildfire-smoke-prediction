@@ -8,8 +8,9 @@ KINDS = ("city", "zip", "grid_cell", "adhoc")
 MONITOR_SOURCES = ("airnow", "purpleair")
 LOCATION_TYPES = ("outdoor", "indoor")
 
-# PM2.5 correction. Only LABEL_CORRECTIONS (with qa_flag = 'ok') may be used
-# as ML labels or for verification.
+# PM2.5 corrections eligible for ML labels or verification. Regulatory
+# observations are eligible regardless of qa_flag; PurpleAir Barkjohn rows
+# also require qa_flag = 'ok'.
 CORRECTIONS = ("regulatory", "purpleair_raw", "purpleair_barkjohn")
 LABEL_CORRECTIONS = ("regulatory", "purpleair_barkjohn")
 DATA_STATUSES = ("preliminary", "validated")
