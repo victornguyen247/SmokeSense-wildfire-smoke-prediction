@@ -302,4 +302,6 @@ def test_aggregate_fire_features_uses_recent_fire_window():
         issue_time=issue_time,
     )
 
-    assert result["active_fire_count_200km"] == 2
+    # The default lookback is 72 hours, so the fire from 25 hours earlier
+    # remains inside the active-fire window.
+    assert result["active_fire_count_200km"] == 3
