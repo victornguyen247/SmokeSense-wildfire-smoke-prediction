@@ -156,7 +156,7 @@ def aggregate_fire_features_200km(
     fire_detections,
     issue_time,
     radius_km: float = 200.0,
-    lookback_hours: float = 24.0,
+    lookback_hours: float = 72.0,
 ) -> dict:
     """ 
     Aggregate recent fire detections before issue_time within radius_km.

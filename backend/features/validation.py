@@ -31,6 +31,7 @@ REQUIRED_COLUMNS = {
     "temp_c",
     "rh_pct",
     "pressure_hpa",
+    "precip_1h_mm",
     "precip_prob_pct",
     "pm25_lag_1h",
     "pm25_lag_3h",

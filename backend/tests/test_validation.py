@@ -37,6 +37,7 @@ def make_valid_dataset():
                 "temp_c": 30.0,
                 "rh_pct": 40.0,
                 "pressure_hpa": 1013.0,
+                "precip_1h_mm": 0.0,
                 "precip_prob_pct": 10.0,
                 "pm25_lag_1h": 20.0,
                 "pm25_lag_3h": 18.0,
