@@ -58,6 +58,7 @@ PILOT_EVENTS=candidates PILOT_VERIFY_OUT=out_candidates python scripts/pilot_ver
 PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/run_all.py
 PILOT_EVENTS=candidates PILOT_VERIFY_OUT=out_candidates python scripts/pilot_verification/screen_candidates.py
 PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/report_final.py
+PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/build_final.py
 ```
 
 Under `final` and `candidates`, `run_all.py` runs `stage1 -> stage2 -> item3 -> item6`. The final rules apply:
@@ -107,6 +108,7 @@ and `LINK_OVERRIDE`.
 | `rules_final.py` | `stage2`, `item3`, `item6` records | (none; pass rules and tier) |
 | `screen_candidates.py` | `out_candidates/`, `out_final/stage1.json` | `reports/candidates_check.md`, `out_candidates/screen.json` |
 | `report_final.py` | `out/` of a `PILOT_EVENTS=final` run | `reports/final_check.md` |
+| `build_final.py` | `out/` of a `PILOT_EVENTS=final` run | `backend/docs/pilot_events.json` (the 20 final events; refuses to write if any fails the rules) |
 | `run_all.py` | (runs the chain) | |
 
 `doc_table.md` has two parts:
