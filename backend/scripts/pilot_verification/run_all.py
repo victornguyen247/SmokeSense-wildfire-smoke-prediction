@@ -2,6 +2,7 @@
 
 With PILOT_EVENTS=pr21 the chain ends with item6 instead of build: build.py
 writes the PR #26 config entries and doc table, which are specific to that set.
+With PILOT_EVENTS=final or candidates it runs stage1 -> stage2 -> item3 -> item6.
 
     python run_all.py                      # all events
     python run_all.py --only PE-001 PE-004 # a subset (merged into existing out/ files)
@@ -18,6 +19,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 STEPS = ["stage1.py", "stage2.py", "item2.py", "item3.py", "item5.py", "build.py"]
 STEPS_PR21 = ["stage1.py", "stage2.py", "item2.py", "item3.py", "item5.py", "item6.py"]
+# Final rules need only stage2 (bbox, sites, other-fire share), item3 (tier) and item6 (elevation).
+STEPS_FINAL = ["stage1.py", "stage2.py", "item3.py", "item6.py"]
 
 
 def main():
@@ -34,7 +37,8 @@ def main():
     env = dict(os.environ)
     if args.offline:
         env["PILOT_VERIFY_OFFLINE"] = "1"
-    for step in STEPS_PR21 if EVENT_SET == "pr21" else STEPS:
+    steps = {"pr21": STEPS_PR21, "final": STEPS_FINAL, "candidates": STEPS_FINAL}.get(EVENT_SET, STEPS)
+    for step in steps:
         cmd = [sys.executable, str(HERE / step)]
         if step != "build.py":  # build always rebuilds from whatever is in out/
             cmd += args.only or []

@@ -46,7 +46,7 @@ def run(only=None):
         out[eid] = {"tier": tier, "best": best, "best_name": b["name"], "best_peak": round(b["peak"], 1), "best_day": b["peak_day"],
                     "best_tier": tier_of(b["peak"]), "max_site": top, "max_name": t["name"], "max_peak": round(t["peak"], 1),
                     "max_day": t["peak_day"], "max_tier": tier_of(t["peak"]), "sites": per}
-        print(f"{eid} doc={tier:<12} best {b['name']} {b['peak']:.1f} ({b['peak_day']}) -> {tier_of(b['peak'])}"
+        print(f"{eid} doc={str(tier):<12} best {b['name']} {b['peak']:.1f} ({b['peak_day']}) -> {tier_of(b['peak'])}"
               f" | max {t['name']} {t['peak']:.1f} ({t['peak_day']}) -> {tier_of(t['peak'])}")
     outp.write_text(json.dumps(out, indent=1, default=str))
 
