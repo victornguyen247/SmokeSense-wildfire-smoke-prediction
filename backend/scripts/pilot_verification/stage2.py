@@ -1,7 +1,9 @@
 """Stage 2: verify each final bbox against FIRMS (_SP) and AirNow. Read-only; no DB."""
 import json
+import math
 import os
 import sys
+import time
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -10,8 +12,8 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # backend/
 import stage1
-from paths import OFFLINE, OUT, CacheMiss, cache_dir
-from events import EVENTS, products_for
+from paths import FINAL_RULES, OFFLINE, OUT, CacheMiss, cache_dir
+from paths import EVENTS, products_for
 from firms_pull import pull
 from ingestion.connectors._common import load_env, redact
 from ingestion.connectors.airnow import fetch_airnow_rows, normalize_airnow_row, split_airnow_range
@@ -23,6 +25,11 @@ ACACHE = cache_dir("airnow_cache")
 # PE-020 has no fire to cluster on; verify the bbox already in backend/docs/pilot_events.json.
 DEV_BBOX = {"PE-020": [-122.6, 40.4, -122.1, 40.8]}
 
+# Final rules: the nearest AirNow site within WIDEN_KM of the fire detections must
+# be in the bbox; if it is outside, the bbox grows to include it plus WIDEN_MARGIN.
+WIDEN_KM = 40.0
+WIDEN_MARGIN = 0.05  # deg
+
 
 def airnow(bbox, start, end, sh="00", eh="23"):
     f = ACACHE / (f"{stage1.fmt(bbox)}_{start}{sh}_{end}{eh}.json".replace(",", "_"))
@@ -32,10 +39,16 @@ def airnow(bbox, start, end, sh="00", eh="23"):
         raise CacheMiss(f"airnow_cache/{f.name}")
     if not AKEY:
         raise RuntimeError("AIRNOW_API_KEY is not set")
-    try:
-        rows = fetch_airnow_rows(AKEY, bbox=stage1.fmt(bbox), start_date=start, start_hour=sh, end_date=end, end_hour=eh)
-    except Exception as exc:
-        raise RuntimeError(redact(str(exc), AKEY)[:300]) from None
+    for attempt in range(4):  # read timeouts are transient; back off and retry
+        try:
+            rows = fetch_airnow_rows(AKEY, bbox=stage1.fmt(bbox), start_date=start, start_hour=sh, end_date=end, end_hour=eh)
+            break
+        except Exception as exc:
+            msg = redact(str(exc), AKEY)[:300]
+            if attempt == 3:
+                raise RuntimeError(msg) from None
+            print(f"  [airnow] {f.name} attempt {attempt + 1}: {type(exc).__name__}: {msg}", file=sys.stderr)
+            time.sleep(10 * (attempt + 1))
     f.write_text(json.dumps(rows))
     return rows
 
@@ -45,10 +58,10 @@ def aqs(code):
     return f"{c[:2]}-{c[2:5]}-{c[5:]}"
 
 
-def verify(ev, S1):
+def verify(ev, S1, bbox=None):
     eid, name, tier, start, end, counties, anchor = ev
     s1 = S1[eid]
-    bbox = s1.get("bbox") or DEV_BBOX[eid]
+    bbox = bbox or s1.get("bbox") or DEV_BBOX[eid]
     res = {"event_id": eid, "name": name, "bbox": bbox, "start": start, "end": end}
     lat0 = (bbox[1] + bbox[3]) / 2
     res["width_km"] = round((bbox[2] - bbox[0]) * stage1.km_per_deg_lon(lat0))
@@ -116,21 +129,62 @@ def verify(ev, S1):
     res["sites"] = sites
 
     # ---- nearest monitor outside the bbox, only when none inside reports near the fire
-    if (not any(s["pct_hours"] > 0 for s in sites)) or min((s["dist_fire_km"] or 1e9) for s in sites) > 25:
+    # (always under the final rules, which widen the bbox from what the probe finds)
+    if FINAL_RULES or (not any(s["pct_hours"] > 0 for s in sites)) or min((s["dist_fire_km"] or 1e9) for s in sites) > 25:
         c = res.get("centroid") or [lat0, (bbox[0] + bbox[2]) / 2]
         kx = stage1.km_per_deg_lon(c[0])
         wide = [round(c[1] - 150 / kx, 2), round(c[0] - 150 / 111.32, 2), round(c[1] + 150 / kx, 2), round(c[0] + 150 / 111.32, 2)]
         mid = (date.fromisoformat(start) + (date.fromisoformat(end) - date.fromisoformat(start)) / 2).isoformat()
         wr = airnow(wide, mid, mid)
-        seen = {}
+        seen, where = {}, {}
         for row in wr:
             code = row.get("FullAQSCode")
             la, lo = float(row["Latitude"]), float(row["Longitude"])
             d = min((stage1.hav(la, lo, a, b) for a, b in thin), default=stage1.hav(la, lo, c[0], c[1]))
             seen[code] = (round(d, 1), row.get("SiteName"), aqs(code))
+            where[code] = (la, lo)
         res["wide_probe"] = {"bbox": wide, "date": mid, "sites": len(seen),
                              "nearest": sorted(seen.values())[:3]}
+        if FINAL_RULES:
+            res["wide_probe"]["near_sites"] = sorted(
+                ({"dist_fire_km": d, "name": n, "aqs": a, "lat": where[k][0], "lon": where[k][1]}
+                 for k, (d, n, a) in seen.items() if d <= WIDEN_KM),
+                key=lambda s: s["dist_fire_km"])
     return res
+
+
+def _floor2(x):
+    return math.floor(round(x * 100, 6)) / 100
+
+
+def _ceil2(x):
+    return math.ceil(round(x * 100, 6)) / 100
+
+
+def widen_to(bbox, lat, lon, margin=WIDEN_MARGIN):
+    """Grow bbox symmetrically along each axis that needs it, just enough to hold (lat, lon) plus margin."""
+    w, s, e, n = bbox
+    dx = max(w - (lon - margin), (lon + margin) - e, 0.0)
+    dy = max(s - (lat - margin), (lat + margin) - n, 0.0)
+    return [_floor2(w - dx), _floor2(s - dy), _ceil2(e + dx), _ceil2(n + dy)]
+
+
+def verify_final(ev, S1):
+    """verify(), then widen the bbox if the nearest site within WIDEN_KM of the fire is outside it."""
+    r = verify(ev, S1)
+    near = (r.get("wide_probe") or {}).get("near_sites") or []
+    if not near:
+        return r
+    site = near[0]
+    w, s, e, n = r["bbox"]
+    if w <= site["lon"] <= e and s <= site["lat"] <= n:
+        return r
+    wide = widen_to(r["bbox"], site["lat"], site["lon"])
+    r2 = verify(ev, S1, bbox=wide)
+    r2["bbox_computed"] = r["bbox"]
+    r2["bbox_adjust"] = (f"widened symmetrically to include {site['name']} ({site['aqs']}), "
+                         f"{site['dist_fire_km']} km from the fire detections, plus a {WIDEN_MARGIN} deg margin")
+    return r2
 
 
 if __name__ == "__main__":
@@ -141,7 +195,7 @@ if __name__ == "__main__":
     for ev in EVENTS:
         if only and ev[0] not in only:
             continue
-        r = verify(ev, S1)
+        r = verify_final(ev, S1) if FINAL_RULES else verify(ev, S1)
         out[ev[0]] = r
         out_p.write_text(json.dumps(out, indent=1, default=str))
         print(f"\n== {r['event_id']} {r['name']} bbox={stage1.fmt(r['bbox'])} {r['width_km']}x{r['height_km']} km")
