@@ -80,11 +80,15 @@ def get_or_create_monitor(
     )
 
     if monitor:
+        # Monitors created before monitors.aqs_code existed get it on their next upsert.
+        if monitor.aqs_code is None and monitor_data.get("aqs_code"):
+            monitor.aqs_code = monitor_data["aqs_code"]
         return monitor
 
     monitor = Monitor(
         source=monitor_data["source"],
         external_id=monitor_data["external_id"],
+        aqs_code=monitor_data.get("aqs_code"),
         name=monitor_data["name"],
         geom=point_wkt(
             monitor_data["latitude"],

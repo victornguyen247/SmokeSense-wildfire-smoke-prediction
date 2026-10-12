@@ -474,6 +474,7 @@ def normalize_airnow_row(
         "monitor": {
             "source": "airnow",
             "external_id": monitor_external_id,
+            "aqs_code": station_id if len(station_id) == 9 else None,
             "name": site_name or station_id,
             "location_type": "outdoor",
             "geom_wkt": geom_wkt,

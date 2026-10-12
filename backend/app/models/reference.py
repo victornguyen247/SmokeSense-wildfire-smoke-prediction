@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from geoalchemy2 import WKBElement
-from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, func, true
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint, func, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.ids import uuid7
@@ -86,6 +86,8 @@ class Monitor(Base):
     id: Mapped[str] = mapped_column(primary_key=True, default=uuid7)
     source: Mapped[str]
     external_id: Mapped[str]  # AQS site code or PurpleAir sensor_index
+    # AirNow: the normalized 9-character AQS code ("061030007", "TT5821016"); external_id is a hash of it
+    aqs_code: Mapped[str | None] = mapped_column(String(9), index=True)
     name: Mapped[str | None]
     city_id: Mapped[str | None] = mapped_column(ForeignKey("cities.id"))
     location_type: Mapped[str] = mapped_column(server_default="outdoor")

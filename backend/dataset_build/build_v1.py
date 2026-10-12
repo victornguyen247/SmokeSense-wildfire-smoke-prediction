@@ -98,21 +98,34 @@ def _box(b: str) -> dict:
 ENV = "ST_MakeEnvelope(:w, :s, :e, :n, 4326)"
 
 
+def resolve_aqs(rows: pd.DataFrame, registry: dict, event_id: str = "") -> pd.Series:
+    """AQS code per row: monitors.aqs_code (#32), else the airnow_sites.csv registry (with a warning)."""
+    codes = rows["aqs_code"].astype("object").where(rows["aqs_code"].notna(), None)
+    missing = rows.loc[codes.isna(), "forecast_point_id"]
+    if len(missing):
+        from_csv = {m: registry[m]["aqs_code"] for m in missing if m in registry}
+        unknown = sorted(set(missing) - set(from_csv))
+        if unknown:
+            raise SystemExit(f"{event_id}: no AQS code in monitors.aqs_code or airnow_sites.csv for {unknown}; "
+                             "run scripts/backfill_monitor_aqs_code.py")
+        print(f"warning: {event_id}: monitors.aqs_code is null for {len(from_csv)} monitor(s); using "
+              "airnow_sites.csv (run scripts/backfill_monitor_aqs_code.py)", file=sys.stderr)
+        codes = codes.where(codes.notna(), rows["forecast_point_id"].map(from_csv))
+    return codes.map(lambda c: c.replace("-", ""))
+
+
 def forecast_points(c, ev: PilotEvent, registry: dict) -> tuple[pd.DataFrame, list[dict]]:
     """Entry 18: in-box AirNow monitors with valid pm25 during the event, in California scope."""
     rows = pd.read_sql(text(f"""
-        select distinct m.external_id as forecast_point_id, m.name,
+        select distinct m.external_id as forecast_point_id, m.name, m.aqs_code,
                ST_Y(m.geom::geometry) as location_lat, ST_X(m.geom::geometry) as location_lon
         from observations o join monitors m on m.id = o.monitor_id
         where m.source = 'airnow' and o.correction = 'regulatory' and o.pm25 is not null
           and o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
         c, params=dict(lo=utc_day(ev.start_date), hi=utc_day(ev.end_date) + timedelta(days=1), **_box(ev.bbox)))
-    unknown = sorted(set(rows["forecast_point_id"]) - set(registry))
-    if unknown:
-        raise SystemExit(f"{ev.event_id}: monitors missing from airnow_sites.csv: {unknown}; "
-                         "rerun python -m dataset_build.site_registry")
-    keep = rows["forecast_point_id"].map(lambda m: in_california_scope(registry[m]["aqs_code"]))
-    dropped = [{"event": ev.event_id, "name": r.name, "aqs": registry[r.forecast_point_id]["aqs_code"]}
+    rows["aqs_code"] = resolve_aqs(rows, registry, ev.event_id)
+    keep = rows["aqs_code"].map(in_california_scope)
+    dropped = [{"event": ev.event_id, "name": r.name, "aqs": f"{r.aqs_code[:2]}-{r.aqs_code[2:5]}-{r.aqs_code[5:]}"}
                for r in rows[~keep].itertuples()]
     return rows[keep].drop(columns="name").reset_index(drop=True), dropped
 
@@ -150,13 +163,15 @@ def load_inputs(c, ev: PilotEvent) -> dict[str, pd.DataFrame]:
 def build_event(c, ev: PilotEvent, registry: dict) -> tuple[pd.DataFrame, dict]:
     points, dropped = forecast_points(c, ev, registry)
     frames = load_inputs(c, ev)
+    info_codes = dict(zip(points["forecast_point_id"], points["aqs_code"]))
+    points = points.drop(columns="aqs_code")
     rows = build_feature_dataset(
         forecast_points=points, issue_times=issue_times(ev.start_date, ev.end_date),
         fire_detections=frames["fires"], pm25_history=frames["pm25_history"],
         weather_observations=frames["weather"], pm25_observations=frames["pm25_observations"],
         pilot_event_id=ev.event_id, horizons=ALLOWED_HORIZONS, lookback_hours=LOOKBACK_HOURS)
     checked = check_event(rows, frames)
-    info = {"forecast_points": len(points), "out_of_scope": dropped, "rows": len(rows),
+    info = {"forecast_points": len(points), "out_of_scope": dropped, "rows": len(rows), "_aqs": info_codes,
             "inputs": {k: len(v) for k, v in frames.items()}, "leakage_rows_checked": checked}
     return rows, info
 
@@ -258,7 +273,8 @@ def main() -> int:
     validate_feature_dataset(df)
     if df.duplicated(KEY).any():
         raise SystemExit("duplicate (forecast_point_id, issue_time, horizon_hours) rows after dedupe")
-    out_of_scope = [m for m in df["forecast_point_id"].unique() if not in_california_scope(registry[m]["aqs_code"])]
+    aqs = {m: code for i in info.values() for m, code in i.pop("_aqs").items()}
+    out_of_scope = [m for m in df["forecast_point_id"].unique() if not in_california_scope(aqs[m])]
     if out_of_scope:
         raise SystemExit(f"forecast points outside California scope: {out_of_scope}")
 

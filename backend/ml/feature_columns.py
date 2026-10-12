@@ -32,3 +32,8 @@ EXCLUDED = {
 }
 
 TARGET = "target_pm25"
+
+# Baseline v2 (docs/data-decisions.md #29): v1 features plus persistence-derived features,
+# computed by ml.features.add_derived in both training and inference.
+DERIVED = ["persistence", "trend_1_3", "trend_1_6", "ratio_1_24"]
+FEATURES_V2 = [*FEATURES, *DERIVED]

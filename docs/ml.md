@@ -27,7 +27,7 @@ ml/
   training/       training scripts + experiment configs
   evaluation/     metrics: MAE/RMSE, threshold detection, calibration
   inference/      load_model() + predict() — imported by app/services
-  artifacts/      trained model binaries + manifest (git-ignored)
+  (artifacts)     trained models live outside the package, in backend/data/models/<name>/ (git-ignored)
   notebooks/      exploratory only
 ```
 
@@ -86,7 +86,7 @@ Persistence is very hard to beat at the 1-hour horizon. The realistic, winnable 
 
 ## 7. Model artifacts and the registry
 
-- Trained binaries go in `ml/artifacts/` and are **git-ignored** — never commit large model files.
+- Trained binaries go in `backend/data/models/<name>/` (e.g. `baseline_v1/`, `baseline_v2/`) and are **git-ignored** (`backend/data/*`) — never commit large model files.
 - Alongside each artifact, record a small **manifest**: model version, training date range, feature set, split used, and headline metrics.
 - `ml/inference/load_model()` loads a specified version. The API always loads an explicit version, never "whatever's newest," so we know exactly what's serving predictions.
 

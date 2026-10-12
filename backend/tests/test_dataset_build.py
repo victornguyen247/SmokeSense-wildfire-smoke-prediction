@@ -115,3 +115,30 @@ def test_cast_applies_contract_dtypes(built):
     assert str(out["active_fire_count_200km"].dtype) == "int16"
     assert str(out["target_pm25"].dtype) == "float32"
     assert str(out["issue_time"].dtype) == "datetime64[ns, UTC]"
+
+
+# ---------------------------------------------------------------------------
+# AQS code source (#32): monitors.aqs_code first, airnow_sites.csv only as fallback
+# ---------------------------------------------------------------------------
+
+def test_resolve_aqs_prefers_the_db_column(capsys):
+    from dataset_build.build_v1 import resolve_aqs
+    rows = pd.DataFrame({"forecast_point_id": ["airnow:a", "airnow:b"], "aqs_code": ["061030007", "TT5821016"]})
+    registry = {"airnow:a": {"aqs_code": "99-999-9999"}}  # would be wrong if used
+    assert resolve_aqs(rows, registry, "PE-T").tolist() == ["061030007", "TT5821016"]
+    assert "warning" not in capsys.readouterr().err
+
+
+def test_resolve_aqs_falls_back_to_the_csv_with_a_warning(capsys):
+    from dataset_build.build_v1 import resolve_aqs
+    rows = pd.DataFrame({"forecast_point_id": ["airnow:a", "airnow:b"], "aqs_code": ["061030007", None]})
+    registry = {"airnow:b": {"aqs_code": "41-029-0203"}}
+    assert resolve_aqs(rows, registry, "PE-T").tolist() == ["061030007", "410290203"]
+    assert "monitors.aqs_code is null for 1 monitor" in capsys.readouterr().err
+
+
+def test_resolve_aqs_fails_when_neither_has_the_code():
+    from dataset_build.build_v1 import resolve_aqs
+    rows = pd.DataFrame({"forecast_point_id": ["airnow:x"], "aqs_code": [None]})
+    with pytest.raises(SystemExit, match="no AQS code"):
+        resolve_aqs(rows, {}, "PE-T")

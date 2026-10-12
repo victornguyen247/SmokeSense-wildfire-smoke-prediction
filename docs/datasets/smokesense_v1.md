@@ -6,7 +6,9 @@
 | Built | 2026-10-12, by `python -m dataset_build.build_v1` (backend/) |
 | Files | `backend/data/datasets/smokesense_v1/data.parquet` and `manifest.json` (not in git; the manifest holds the git commit and SHA-256 of the data and of `backend/docs/pilot_events.json`) |
 | Rows | 141,954 |
-| Rules | `docs/data-decisions.md` #11–#22 |
+| Rules | `docs/data-decisions.md` #11–#22, #32 |
+| Models | [baseline_v1](../models/baseline_v1.md) (direct XGBoost) and [baseline_v2](../models/baseline_v2.md) (persistence-anchored; the released model) |
+| Reproduce | `backend/scripts/reproduce_data04.sh` rebuilds the dataset, checks its sha256, retrains v1 and v2, and compares metrics ([DATA-04 acceptance](DATA-04-acceptance.md)) |
 
 ## Purpose
 
@@ -20,7 +22,7 @@ The columns follow the Parquet contract in `docs/schema.md` and `backend/feature
 
 ## How it is built
 
-- **Forecast points (#18):** per event, AirNow monitors with valid regulatory PM2.5 inside the tight bbox during the event, and in California scope (#17). Ashland Fire Dept (Oregon, PE-011) is excluded. Morongo School (tribal, California) is kept. AQS codes come from `backend/dataset_build/airnow_sites.csv`, because the DB stores only a hash of the code.
+- **Forecast points (#18):** per event, AirNow monitors with valid regulatory PM2.5 inside the tight bbox during the event, and in California scope (#17). Ashland Fire Dept (Oregon, PE-011) is excluded. Morongo School (tribal, California) is kept. AQS codes come from `monitors.aqs_code` (#32, migration 0003). Older rows were filled by `scripts/backfill_monitor_aqs_code.py`. `backend/dataset_build/airnow_sites.csv` is only a fallback, used with a warning. Rebuilding from the DB column gave a byte-identical file (sha256 `6799c405…`).
 - **Issue times (#19):** every UTC hour from the event's start 00:00 to its end 23:00.
 - **Inputs (#20):**
   - VIIRS SNPP fire detections over bbox + 200 km, from 72 h before the start.
@@ -118,5 +120,5 @@ Rows built are short of points × hours × 5 wherever the label is missing: no r
 - **PE-008 starts without lags.** Weaverville has no AirNow values on 2018-07-30, so the first 24 h of PE-008 have null `pm25_lag_*`.
 - **The 2020 group dominates.** G-PE-001 holds 44% of rows. Weight or stratify accordingly.
 - **Intended CV.** Use leave-one-group-out on `group_id` (#22). Events in one group share hours and smoke.
-- **Observed weather, not forecasts.** Weather features are observed NCEI weather at or before the issue time, from the nearest station (DATA-04, #31). They are not NWS forecasts valid at the target time, as the older `docs/schema.md` text describes.
-- **File location.** The Parquet file lives in `backend/data/datasets/smokesense_v1/`, not `data/processed/` as `docs/schema.md` says.
+- **Observed weather, not forecasts.** Weather features are observed NCEI weather at or before the issue time, from the nearest station (DATA-04, #31). They are not NWS forecasts valid at the target time. `docs/schema.md` now says so (#33).
+- **File location.** The Parquet file lives in `backend/data/datasets/smokesense_v1/`, as `docs/schema.md` now documents (#33).
