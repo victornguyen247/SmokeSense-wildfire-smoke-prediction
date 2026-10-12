@@ -30,11 +30,43 @@ calls an API in that mode.
 |---|---|
 | `PILOT_VERIFY_CACHE` | Cache root holding `firms_cache/`, `airnow_cache/` and `airdata/`. Default: `.cache/` in this folder (gitignored). |
 | `PILOT_VERIFY_OFFLINE=1` | Set by `--offline`. |
-| `out/` | Generated outputs (gitignored). |
+| `PILOT_EVENTS` | Event set. Unset: `events.py`, the PR #26 set (reproduces `reference/`). `pr21`: `events_pr21.py`, PR #21's set. `final`: `events_final.py`, the final set under the final rules. `candidates`: `events_candidates.py`, the PE-016/PE-017 replacement candidates under the final rules. |
+| `PILOT_VERIFY_OUT` | Output folder in this folder. Default `out/`; `out_pr21/`, `out_final/` and `out_candidates/` are also gitignored. |
 
 `--only` merges the named events into the files already in `out/`. Without
 `--only`, `item5.py` keeps any event already in `out/item5.json`, so it can
 resume an interrupted run. Delete `out/` for a clean full run.
+
+### PR #21's event set
+
+```
+PILOT_EVENTS=pr21 PILOT_VERIFY_OUT=out_pr21 python scripts/pilot_verification/anchors_pr21.py
+PILOT_EVENTS=pr21 PILOT_VERIFY_OUT=out_pr21 python scripts/pilot_verification/run_all.py
+PILOT_EVENTS=pr21 PILOT_VERIFY_OUT=out_pr21 python scripts/pilot_verification/report_pr21.py
+```
+
+With `PILOT_EVENTS=pr21`, `run_all.py` runs `item6` instead of `build`.
+`build.py` writes the PR #26 config entries and doc table, so it applies only
+to that set. `stage1.py` takes `EXCLUDE`, `LINK_OVERRIDE` and `BBOX_OVERRIDE`
+from the event module when the module defines them, because PR #21 reuses
+event ids for different fires.
+
+### Final event set
+
+```
+PILOT_EVENTS=candidates PILOT_VERIFY_OUT=out_candidates python scripts/pilot_verification/run_all.py
+PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/run_all.py
+PILOT_EVENTS=candidates PILOT_VERIFY_OUT=out_candidates python scripts/pilot_verification/screen_candidates.py
+PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/report_final.py
+PILOT_EVENTS=final      PILOT_VERIFY_OUT=out_final      python scripts/pilot_verification/build_final.py
+```
+
+Under `final` and `candidates`, `run_all.py` runs `stage1 -> stage2 -> item3 -> item6`. The final rules apply:
+- **`stage2`** always runs its wide AirNow probe. If the nearest site within 40 km of the fire is outside the bbox, it widens the bbox to include that site and records `bbox_adjust`.
+- **`item6`** falls back to the 20th percentile of in-window daily means when fewer than 3 pre-start days qualify.
+- **`rules_final.py`** evaluates the pass rules.
+
+`screen_candidates.py` writes `reports/candidates_check.md`. `report_final.py` writes `reports/final_check.md` and exits non-zero if any event fails. The decisions behind the rules are logged in `docs/data-decisions.md`.
 
 ## Per-event bbox overrides
 
@@ -67,6 +99,16 @@ and `LINK_OVERRIDE`.
 | `item5.py` | `out/stage2.json`, `build.verdict()`, FIRMS | `out/item5.json` (share of FRP within 200 km of each in-bbox site that is outside the bbox) |
 | `build.py` | `out/stage1.json`, `out/stage2.json`, `out/item3.json`, `out/item5.json` | `out/verdicts.json`, `out/entries.json`, `out/doc_table.md` |
 | `aqs_check.py` | `out/stage2.json`, `out/item2.json`, `airdata/ca_hourly_<param>_<year>.csv` | (prints; AQS vs AirNow side check for PE-004 Paradise; not in `run_all`) |
+| `item6.py` | `out/stage2.json`, `out/item3.json`, AirNow (7 days before the start, tight bbox) | `out/item6.json` (per-site pre-event baseline; peak − baseline and peak / baseline at the best and max sites) |
+| `events_pr21.py` | (none; PR #21's events, its own stage1 overrides, and its doc's AQS check as `DOC_CHECK`) | (none) |
+| `anchors_pr21.py` | FIRMS on each new PR #21 fire's county union | `out/anchors.json` (top 3 clusters; the anchors in `events_pr21.py` are the top cluster centroids) |
+| `report_pr21.py` | `out/` of a `PILOT_EVENTS=pr21` run | `reports/pr21_check.md` |
+| `events_final.py` | (none; the final set: PR #21's events with computed tiers, PE-008 from 2018-07-31, PE-016/PE-017 replacements) | (none) |
+| `events_candidates.py` | (none; replacement candidates, each with its CAL FIRE incident URL) | (none) |
+| `rules_final.py` | `stage2`, `item3`, `item6` records | (none; pass rules and tier) |
+| `screen_candidates.py` | `out_candidates/`, `out_final/stage1.json` | `reports/candidates_check.md`, `out_candidates/screen.json` |
+| `report_final.py` | `out/` of a `PILOT_EVENTS=final` run | `reports/final_check.md` |
+| `build_final.py` | `out/` of a `PILOT_EVENTS=final` run | `backend/docs/pilot_events.json` (the 20 final events; refuses to write if any fails the rules) |
 | `run_all.py` | (runs the chain) | |
 
 `doc_table.md` has two parts:

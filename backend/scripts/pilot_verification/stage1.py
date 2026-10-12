@@ -7,8 +7,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-from paths import OUT
-from events import EVENTS, products_for
+from paths import EVENTS, EVENTS_MODULE, OUT, products_for
 from firms_pull import pull
 
 COUNTIES = json.loads((HERE / "ca_counties.json").read_text())
@@ -33,6 +32,12 @@ BBOX_OVERRIDE = {
     "PE-001": ([-123.86, 39.26, -122.13, 40.59],
                "widened E-W (symmetrically) to include Willows-Colusa, 18.9 km from the fire"),
 }
+
+# The overrides above are keyed by event id and describe the PR #26 fires. An
+# event set that reuses ids for other fires (events_pr21.py) supplies its own.
+EXCLUDE = getattr(EVENTS_MODULE, "EXCLUDE", EXCLUDE)
+LINK_OVERRIDE = getattr(EVENTS_MODULE, "LINK_OVERRIDE", LINK_OVERRIDE)
+BBOX_OVERRIDE = getattr(EVENTS_MODULE, "BBOX_OVERRIDE", BBOX_OVERRIDE)
 BUFFER_KM = 25.0     # buffer beyond the cluster's extent (matches the 25 km label rule)
 
 
