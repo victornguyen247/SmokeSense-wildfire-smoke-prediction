@@ -23,6 +23,11 @@ Checks per event:
   h  AirNow rows shared by events with overlapping windows: (monitor, hour) rows inside
      both tight bboxes and both windows, per event pair (DATA-04 dedupes these and keeps
      the pair in the same fold)
+  i  AirNow lead / tail coverage at the tier site: % of hours with a value in
+     [start - lead, start) and after the last event hour up to end + tail
+  j  monitor identity: every AirNow external_id is the hash of a normalized 9-character AQS code, and no
+     AQS code maps to two monitors (codes are recovered from the raw AirNow cache)
+Also listed: in-box AirNow sites whose AQS state code is not 06 (outside California).
 
 --no-airnow runs only e, f and g (for a DB with FIRMS + NCEI but no AirNow yet).
 """
@@ -42,7 +47,7 @@ BACKEND = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BACKEND))
 from app.core.config import settings  # noqa: E402
 from ingestion.batch.batch_ingest import load_pilot_events  # noqa: E402
-from ingestion.connectors.airnow import RAW_NEGATIVE_FLOOR  # noqa: E402
+from ingestion.connectors.airnow import RAW_NEGATIVE_FLOOR, normalize_aqs_code  # noqa: E402
 from ingestion.connectors.airnow_time_offsets import airnow_time_shift  # noqa: E402
 from ingestion.normalize import stable_external_id  # noqa: E402
 
@@ -162,6 +167,42 @@ def shared_airnow(c, events) -> list[dict]:
     return out
 
 
+def monitor_identity(c, events) -> dict:
+    """(j) Map AirNow monitors back to AQS codes; list in-box sites outside California."""
+    raw_codes = set()
+    if CACHE.exists():
+        for f in CACHE.glob("*.json"):
+            for r in json.loads(f.read_text()):
+                if r.get("FullAQSCode"):
+                    raw_codes.add(str(r["FullAQSCode"]).strip())
+    canon = {x: normalize_aqs_code(x) for x in raw_codes}
+    by_hash9 = {stable_external_id("airnow", c9): c9 for c9 in set(canon.values())}
+    by_hash_long = {stable_external_id("airnow", x): x for x, c9 in canon.items() if c9 != x}
+    mons = c.execute(text("""select external_id, name, ST_X(geom::geometry) lon, ST_Y(geom::geometry) lat
+                             from monitors where source = 'airnow'""")).mappings().all()
+    out = {"monitors": len(mons), "nine_digit": 0, "prefixed": [], "unmapped": [], "split_codes": [],
+           "out_of_state": []}
+    codes = {}
+    for m in mons:
+        if m["external_id"] in by_hash9:
+            out["nine_digit"] += 1
+            codes.setdefault(by_hash9[m["external_id"]], []).append(m["name"])
+        elif m["external_id"] in by_hash_long:
+            out["prefixed"].append(f"{nm(m['name'])} ({by_hash_long[m['external_id']]})")
+        else:
+            out["unmapped"].append(nm(m["name"]))
+    out["split_codes"] = [f"{c9}: {', '.join(n)}" for c9, n in codes.items() if len(n) > 1]
+    code_of = {k: v for k, v in by_hash9.items()}
+    for ev in events:
+        b = box(ev.bbox)
+        for m in mons:
+            c9 = code_of.get(m["external_id"])
+            if c9 and c9[:2] != "06" and b["w"] <= m["lon"] <= b["e"] and b["s"] <= m["lat"] <= b["n"]:
+                out["out_of_state"].append({"event": ev.event_id, "name": nm(m["name"]),
+                                            "aqs": f"{c9[:2]}-{c9[2:5]}-{c9[5:]}", "state_code": c9[:2]})
+    return out
+
+
 def qa_event(c, ev, cov, airnow=True) -> dict:
     lo, hi = window(ev.start_date, ev.end_date)
     tight, wide = box(ev.bbox), box(ev.firms_bbox, FIRMS_EDGE_EPS)
@@ -235,16 +276,32 @@ def qa_event(c, ev, cov, airnow=True) -> dict:
         elif shifted < 0.95 * len(raw):
             flag(f"c: only {shifted}/{len(raw)} raw Red Bluff rows stored at the corrected hour")
 
-    # ---- (d) pm25 values
+    # ---- (d) pm25 values, over the whole AirNow window (event + lead + tail)
+    alo, ahi = window(ev.airnow_start_date, ev.airnow_end_date)
     bad = c.execute(text(f"""
         select count(*) filter (where o.pm25 = -999), count(*) filter (where o.pm25 < 0),
                count(*) filter (where o.pm25 < -5), count(*) filter (where o.pm25 is null)
         from observations o join monitors m on m.id = o.monitor_id
         where o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
-        dict(lo=lo, hi=hi, **tight)).one()
+        dict(lo=alo, hi=ahi, **tight)).one()
     res["d"] = dict(zip(("minus999", "below0", "below_minus5", "null"), bad))
     if bad[0] or bad[1]:
         flag(f"d: pm25 -999 rows {bad[0]}, rows < 0 {bad[1]} (< -5: {bad[2]})")
+
+    # ---- (i) AirNow lead / tail coverage at the tier site
+    res["i"] = None
+    if note.get("tier_aqs"):
+        def cover(t0, t1):
+            n = c.execute(text("""
+                select count(distinct o.valid_at) from observations o join monitors m on m.id = o.monitor_id
+                where m.external_id in (:m9, :m12) and o.valid_at >= :lo and o.valid_at < :hi
+                  and o.pm25 is not null"""),
+                dict(zip(("m9", "m12"), monitor_ids_of(aqs_code(note["tier_aqs"]))), lo=t0, hi=t1)).scalar()
+            return round(100 * n / ((t1 - t0).total_seconds() / 3600), 1)
+        res["i"] = {"aqs": note["tier_aqs"], "lead_pct": cover(alo, lo), "tail_pct": cover(hi, ahi)}
+        if res["i"]["lead_pct"] == 0 or res["i"]["tail_pct"] == 0:
+            flag(f"i: tier site {note['tier_aqs']} has no AirNow values in the "
+                 f"{'lead' if res['i']['lead_pct'] == 0 else 'tail'} window")
 
     return qa_firms_ncei(c, ev, cov, res, lo, hi, tight, wide, flo, total_h)
 
@@ -272,21 +329,24 @@ def qa_firms_ncei(c, ev, cov, res, lo, hi, tight, wide, flo, total_h) -> dict:
     if fetched is not None and sum(sat.values()) < fetched:
         flag(f"e: {sum(sat.values())} rows in firms_bbox x window < {fetched} fetched")
 
-    # ---- (f) NCEI
+    # ---- (f) NCEI: stations in ncei_bbox (bbox + 50 km) over [ncei_start_date, end_date];
+    # valid hours are counted over the event window only
+    nlo, _ = window(ev.ncei_start_date, ev.end_date)
     st = c.execute(text(f"""
         select station_id,
                count(distinct date_trunc('hour', valid_at)) filter (
-                   where wind_speed_ms is not null and temp_c is not null and rh_pct is not null) as valid_h,
+                   where valid_at >= :lo and wind_speed_ms is not null and temp_c is not null
+                     and rh_pct is not null) as valid_h,
                count(*) as n
         from weather_observations
-        where valid_at >= :lo and valid_at < :hi and ST_Intersects(geom::geometry, {ENV})
-        group by station_id order by valid_h desc"""), dict(lo=lo, hi=hi, **tight)).mappings().all()
+        where valid_at >= :nlo and valid_at < :hi and ST_Intersects(geom::geometry, {ENV})
+        group by station_id order by valid_h desc"""), dict(lo=lo, nlo=nlo, hi=hi, **box(ev.ncei_bbox))).mappings().all()
     best = st[0] if st else None
     best_pct = round(100 * best["valid_h"] / total_h, 1) if best else 0.0
     res["f"] = {"stations": len(st), "rows": sum(r["n"] for r in st),
                 "best_station": best["station_id"] if best else None, "best_valid_pct": best_pct}
     if not st:
-        flag("f: no NCEI station in the tight bbox")
+        flag("f: no NCEI station in the bbox + 50 km")
     elif best_pct < NCEI_MIN_VALID:
         flag(f"f: best NCEI station {best['station_id']} has {best_pct}% valid hours (< {NCEI_MIN_VALID:.0f}%)")
     return res
@@ -317,6 +377,7 @@ def main() -> int:
             for e in events)
         stray = c.execute(text(f"select count(*) from fire_detections where not ({windows})")).scalar()
         shared = [] if args.no_airnow else shared_airnow(c, events)
+        ident = None if args.no_airnow else monitor_identity(c, events)
 
     runs = BACKEND / "data/ingest_runs"
     summaries = [json.loads(f.read_text()) for f in sorted(runs.glob("summary_*.json"))]
@@ -351,8 +412,8 @@ def main() -> int:
     lines += ["", "## Checks", "",
               "| Event | (a) AirNow sites missing / extra | (b) tier site % h DB / verif. | (b) best site % h DB / verif. "
               "| (c) Red Bluff offset | (d) pm25 -999 / <0 / <-5 | (e) FIRMS dates, lead rows, margin rows "
-              "| (f) NCEI stations, best % valid | Flags |",
-              "|---|---|---|---|---|---|---|---|---|"]
+              "| (f) NCEI stations (bbox + 50 km), best % valid | (i) tier site lead / tail % | Flags |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         b = r.get("b") or {}
 
@@ -366,9 +427,12 @@ def main() -> int:
         cc = na or (f"{c_['match_corrected']}/{c_['raw_rows']} at corrected hour" if c_ else "n/a")
         aa = na or f"{len(r['a_missing'])} / {len(r['a_extra'])}"
         dd = na or f"{r['d']['minus999']} / {r['d']['below0']} / {r['d']['below_minus5']}"
+        i_ = r.get("i")
+        ii = na or (f"{i_['lead_pct']} / {i_['tail_pct']}" if i_ else "—")
         lines.append(f"| {r['event_id']} | {aa} | {pct('tier')} | {pct('best')} | {cc} | {dd} "
                      f"| {r['e']['first']} → {r['e']['last']}, {r['e']['lead_rows']:,}, {r['e']['margin_rows']:,} "
                      f"| {r['f']['stations']}, {r['f']['best_valid_pct']}% ({r['f']['best_station'] or '—'}) "
+                     f"| {ii} "
                      f"| {len(r['flags']) or '—'} |")
     lines += ["", f"**(g) PurpleAir:** {pa[0]} observation rows, {pa[1]} monitors (expected 0)."
               + ("" if pa == (0, 0) else " **FLAG**"),
@@ -379,6 +443,11 @@ def main() -> int:
         flags.append(f"- g: {pa[0]} PurpleAir observation rows, {pa[1]} PurpleAir monitors")
     if stray:
         flags.append(f"- e: {stray} FIRMS rows outside every event's firms_bbox × window")
+    if ident:
+        if ident["prefixed"]:
+            flags.append(f"- j: monitor id(s) built from a prefixed code: {', '.join(ident['prefixed'])}")
+        if ident["split_codes"]:
+            flags.append(f"- j: AQS code(s) on more than one monitor: {'; '.join(ident['split_codes'])}")
     lines += flags or ["None."]
     if not args.no_airnow:
         lines += ["", "## (h) AirNow rows shared by events with overlapping windows", "",
@@ -386,6 +455,15 @@ def main() -> int:
                   "and keeps each pair in the same fold.", "",
                   "| Pair | Window overlap | Shared rows | Shared sites |", "|---|---|---|---|"]
         lines += [f"| {x['a']} × {x['b']} | {x['overlap']} | {x['rows']:,} | {x['sites']} |" for x in shared] or ["| — | — | 0 | 0 |"]
+        lines += ["", "## (j) Monitor identity", "",
+                  f"{ident['monitors']} AirNow monitors: {ident['nine_digit']} built from a 9-digit code, "
+                  f"{len(ident['prefixed'])} from a prefixed code, {len(ident['unmapped'])} not found in the raw "
+                  f"AirNow cache{(' (' + ', '.join(ident['unmapped']) + ')') if ident['unmapped'] else ''}; "
+                  f"{len(ident['split_codes'])} AQS code(s) on more than one monitor.", "",
+                  "## In-box AirNow sites outside California (AQS state code not 06)", "",
+                  "| Event | Site | AQS id | State code |", "|---|---|---|---|"]
+        lines += [f"| {o['event']} | {o['name']} | {o['aqs']} | {o['state_code']} |" for o in ident["out_of_state"]] \
+            or ["| — | — | — | — |"]
         lines += ["", "## (c) Red Bluff (061030007) samples", ""]
         for r in results:
             if r.get("c"):

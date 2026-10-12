@@ -295,7 +295,7 @@
       ],
       "firms_products_note": "Archive (_SP) products with detections in the event bbox and window: MODIS_SP 222, VIIRS_SNPP_SP 954, VIIRS_NOAA20_SP 746. VIIRS_NOAA21 has no _SP product. Fire features use VIIRS_SNPP only (docs/data-decisions.md #13).",
       "verification_status": "firms_airnow_verified",
-      "verification_note": "Checked 2026-10-10 under docs/data-decisions.md: tier site Yreka (06-093-2001), peak daily PM2.5 47.5 µg/m³ on 2018-07-07; baseline 3.5 µg/m³ (pre-start 7-day median); nearest in-box AirNow site Yreka (06-093-2001) 17.4 km from the fire; best site Yreka (06-093-2001) 99.7% of hours. AirNow preliminary data."
+      "verification_note": "Checked 2026-10-10 under docs/data-decisions.md: tier site Yreka (06-093-2001), peak daily PM2.5 47.5 µg/m³ on 2018-07-07; baseline 3.5 µg/m³ (pre-start 7-day median); nearest in-box AirNow site Yreka (06-093-2001) 17.4 km from the fire; best site Yreka (06-093-2001) 99.7% of hours. AirNow preliminary data. Ashland Fire Dept (41-029-0203) is in Oregon: inside the bbox but outside the California scope, so it is not used as a forecast point."
     },
     {
       "event_id": "PE-012",

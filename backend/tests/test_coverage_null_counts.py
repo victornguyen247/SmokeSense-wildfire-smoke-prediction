@@ -39,6 +39,21 @@ from ingestion.connectors.airnow_time_offsets import (
 from ingestion.connectors.firms import normalize_firms_row
 
 
+def _event_window_only(event_id: str) -> PilotEvent:
+    """2021-08-05..06 with AirNow's lead/tail set to 0.
+
+    These tests check null counting and offset edge hours against a fixture
+    of the event's own 48 hours; the lead/tail windows are tested in
+    test_firms_extent.py.
+    """
+    with patch.multiple("ingestion.batch.batch_ingest", AIRNOW_LEAD_HOURS=0, AIRNOW_TAIL_HOURS=0):
+        return PilotEvent(
+            event_id=event_id, name="t", bbox="-123.1,39.3,-120.0,41.2",
+            start_date="2021-08-05", end_date="2021-08-06",
+            firms_products=["VIIRS_SNPP_SP"],
+        )
+
+
 # ---------------------------------------------------------------------------
 # FIRMS
 # ---------------------------------------------------------------------------
@@ -250,11 +265,7 @@ def test_ingest_event_reports_firms_and_airnow_null_counts(
     ]
     get_airnow.return_value = _records(_real_window_raw_rows())
 
-    event = PilotEvent(
-        event_id="TEST-PE002-DIXIE", name="t", bbox="-123.1,39.3,-120.0,41.2",
-        start_date="2021-08-05", end_date="2021-08-06",
-        firms_products=["VIIRS_SNPP_SP"],
-    )
+    event = _event_window_only("TEST-PE002-DIXIE")
     sources = ingest_event(event).to_dict()["sources"]
 
     assert sources["firms"]["null_counts"] == {
@@ -311,11 +322,7 @@ def test_shifted_sites_keep_first_and_last_event_hours(
     )
     insert_airnow.side_effect = lambda session, rows: len(rows)
 
-    event = PilotEvent(
-        event_id="TEST-SHIFT", name="t", bbox="-123.1,39.3,-120.0,41.2",
-        start_date="2021-08-05", end_date="2021-08-06",
-        firms_products=["VIIRS_SNPP_SP"],
-    )
+    event = _event_window_only("TEST-SHIFT")
     with patch.dict(AIRNOW_TIME_OFFSETS, {redding[3]: [plus_one]}), patch(
         "ingestion.connectors.airnow.fetch_airnow_rows",
         side_effect=_fetch_by_label([redding, red_bluff, chico]),

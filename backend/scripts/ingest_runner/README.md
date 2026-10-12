@@ -38,18 +38,23 @@ python scripts/ingest_runner/ingest_qa.py --no-airnow  # e, f, g only (DB withou
 ```
 
 No table carries an event id, so each event's rows are selected by space and time:
-- **AirNow and NCEI:** the tight bbox, over the event's UTC days.
+- **AirNow:** the tight bbox, over the event's UTC days. (d) and (i) also cover the 24 h lead and tail.
+- **NCEI:** `ncei_bbox` (bbox + 50 km), over `[ncei_start_date, end_date]`.
 - **FIRMS:** `firms_bbox`, over `[firms_start_date, end_date]`.
 
 The checks:
 - **(a)** AirNow sites in the DB vs `airnow_monitors_nearby`.
 - **(b)** Valid hours at the tier and best sites vs the verification note.
 - **(c)** Red Bluff `061030007`: rows are stored at the label plus its time offset. This is checked against the raw rows cached by `scripts/pilot_verification`.
-- **(d)** No `pm25` of −999 or below 0.
+- **(d)** No `pm25` of −999 or below 0, over the whole AirNow window.
 - **(e)** FIRMS rows sit inside `firms_bbox` × window, and every event has SNPP rows.
-- **(f)** At least one NCEI station in the tight bbox, and the best station has ≥ 50% valid hours.
+- **(f)** At least one NCEI station in bbox + 50 km, and the best station has ≥ 50% valid hours over the event window.
 - **(g)** No PurpleAir rows.
 - **(h)** AirNow rows shared by events with overlapping windows, per event pair.
+- **(i)** AirNow lead and tail coverage at the tier site: % of hours with a value in the 24 h before the start and the 24 h after the end.
+- **(j)** Monitor identity: every AirNow monitor id is the hash of a normalized 9-character AQS code, and no code maps to two monitors.
+
+The report also lists in-box AirNow sites whose AQS state code is not 06.
 
 The script makes no API calls.
 

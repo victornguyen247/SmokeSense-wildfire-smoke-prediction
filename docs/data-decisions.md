@@ -21,3 +21,13 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 | 11 | **NOAA-21 and MODIS are excluded from fire features.** | The only live FIRMS path, `ingestion.firms_poc` (`backend/ingestion/tasks.py:96-99`), requests `VIIRS_SNPP_NRT` only, so training must use the same sensor. |
 | 12 | **PurpleAir is deferred to v1.1.** v1 uses regulatory labels only. | PurpleAir point balance is unknown and an event listing costs ~5k points; v1 ships on regulatory labels and PurpleAir Barkjohn labels come in v1.1. |
 | 13 | **Fire features use VIIRS SNPP only:** `_SP` archive in training, NRT in live inference. Ingestion keeps storing every `_SP` product tagged by satellite; the DATA-04 loader filters to SNPP. | Train/serve parity; SNPP is the only VIIRS sensor covering every event (SP from 2012); adding NOAA-20 later needs no re-ingest. |
+
+## 2026-10-12 — ingestion windows, AQS codes and forecast-point scope (owner: Tin, data)
+
+| # | Decision | Reason |
+|---|---|---|
+| 14 | **AirNow pulls the tight bbox over [start − 24 h, end + 24 h]** (`AIRNOW_LEAD_HOURS`, `AIRNOW_TAIL_HOURS`), with the existing time-offset padding. | The first hours of an event need PM2.5 lags back to `pm25_lag_24h`, and the last hours need labels up to the 24 h horizon (`max(ALLOWED_HORIZONS)`). |
+| 15 | **NCEI pulls bbox + 50 km over [start − 24 h, end]** (`NCEI_MARGIN_KM`, `NCEI_LEAD_HOURS`). | Live inference uses the nearest station wherever it is, so training must see stations just outside the box. The weather join needs reports from before the first issue time. |
+| 16 | **AirNow AQS codes are normalized to 9 digits** (`normalize_aqs_code`) before the monitor id and the time-offset lookup. | AirNow sends some sites with an `840` country prefix (Paradise, Auburn). Without normalization, a site could split into two monitors, and Red Bluff's offset would not apply to a prefixed code. |
+| 17 | **DATA-04 forecast points are California AirNow monitors only (AQS state code 06).** Out-of-state in-box sites stay in the DB but are not forecast points. | The project scope is California, and live inference serves California points. |
+

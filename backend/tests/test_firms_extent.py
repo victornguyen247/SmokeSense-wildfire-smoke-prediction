@@ -1,5 +1,7 @@
-"""FIRMS reaches FIRMS_MARGIN_KM beyond the event bbox and FIRMS_LEAD_HOURS before
-its start; AirNow, NCEI and PurpleAir keep the tight bbox and window.
+"""Per-source boxes and windows: FIRMS reaches FIRMS_MARGIN_KM beyond the event bbox
+and FIRMS_LEAD_HOURS before its start; AirNow keeps the tight bbox over the event
+plus AIRNOW_LEAD_HOURS / AIRNOW_TAIL_HOURS; NCEI takes bbox + NCEI_MARGIN_KM from
+NCEI_LEAD_HOURS before the start; PurpleAir keeps the tight bbox and window.
 
 No network or DB: the connectors, inserts and session are mocked.
 """
@@ -13,15 +15,24 @@ from unittest.mock import patch
 
 from ingestion.batch.batch_ingest import PilotEvent, load_pilot_events
 from ingestion.batch.firms_extent import (
+    AIRNOW_LEAD_HOURS,
+    AIRNOW_TAIL_HOURS,
     FIRMS_LEAD_HOURS,
     FIRMS_MARGIN_KM,
+    NCEI_LEAD_HOURS,
+    NCEI_MARGIN_KM,
     expand_bbox_km,
     lead_start_date,
+    tail_end_date,
 )
 from ingestion.connectors.airnow import padded_airnow_windows
 from ingestion.connectors.airnow_time_offsets import max_abs_shift_hours
 
 TIGHT = "-122.00,39.50,-121.00,40.50"
+
+# TIGHT + 50 km, by hand: dlat = 50 / 111.32 = 0.44916 -> 39.05 / 40.95;
+# at 40.5 N, dlon = 50 / 84.6484 = 0.59068 -> -122.60 / -120.40.
+NCEI_BOX = "-122.60,39.05,-120.40,40.95"
 
 # Worked by hand for TIGHT (about 40 N), 200 km margin:
 #   dlat = 200 / 111.32                         = 1.79662 deg
@@ -76,6 +87,31 @@ def test_expand_clamps_latitude():
     assert south == "-90.00"
 
 
+def test_airnow_and_ncei_constants_match_features():
+    from features.alignment import ALLOWED_HORIZONS
+    from features.validation import REQUIRED_COLUMNS
+
+    lags = [int(c[len("pm25_lag_"):-1]) for c in REQUIRED_COLUMNS if c.startswith("pm25_lag_")]
+    assert AIRNOW_LEAD_HOURS == max(24, *lags)
+    assert AIRNOW_TAIL_HOURS == max(ALLOWED_HORIZONS) == 24
+    assert (NCEI_MARGIN_KM, NCEI_LEAD_HOURS) == (50.0, 24)
+
+
+def test_ncei_box_is_50_km_wider():
+    assert expand_bbox_km(TIGHT, NCEI_MARGIN_KM) == NCEI_BOX
+
+
+def test_tail_end_date():
+    assert tail_end_date("2020-09-02", 24) == "2020-09-03"
+    assert tail_end_date("2020-12-31", 36) == "2021-01-02"  # partial days round up
+
+
+def test_pilot_event_derives_airnow_and_ncei_fields():
+    ev = PilotEvent(event_id="E", name="n", bbox=TIGHT, start_date="2020-09-01", end_date="2020-09-02")
+    assert (ev.airnow_start_date, ev.airnow_end_date) == ("2020-08-31", "2020-09-03")
+    assert (ev.ncei_bbox, ev.ncei_start_date) == (NCEI_BOX, "2020-08-31")
+
+
 def test_lead_start_date_is_three_days_earlier():
     assert lead_start_date("2020-09-01") == "2020-08-29"
     assert lead_start_date("2021-01-02", 36) == "2020-12-31"  # partial days round up
@@ -120,7 +156,7 @@ def test_real_config_does_not_carry_derived_fields():
 @patch("ingestion.batch.batch_ingest.get_ncei_weather_records", return_value=[])
 @patch("ingestion.batch.batch_ingest.get_airnow_pm25_records", return_value=[])
 @patch("ingestion.batch.batch_ingest.get_firms_records", return_value=[])
-def test_firms_gets_wide_box_and_lead_others_get_tight(
+def test_per_source_boxes_and_windows(
     firms, airnow, ncei, purpleair, *_mocks,
 ):
     from ingestion.batch.batch_ingest import ingest_event
@@ -140,13 +176,16 @@ def test_firms_gets_wide_box_and_lead_others_get_tight(
     ]
     assert {c["bbox"] for c in calls} == {WIDE}
 
-    # AirNow: tight box, the same padded windows as before this change
+    # AirNow: tight box over 2020-08-31 (24 h lead) .. 2020-09-03 (24 h tail), offset-padded
     windows = [(c.kwargs["start_date"], c.kwargs["start_hour"], c.kwargs["end_date"], c.kwargs["end_hour"])
                for c in airnow.call_args_list]
-    assert windows == padded_airnow_windows("2020-09-01", "2020-09-02", max_abs_shift_hours())
+    assert windows == padded_airnow_windows("2020-08-31", "2020-09-03", max_abs_shift_hours())
     assert {c.kwargs["bbox"] for c in airnow.call_args_list} == {TIGHT}
 
-    # NCEI and PurpleAir: tight box and window
-    for mock in (ncei, purpleair):
-        kw = mock.call_args.kwargs
-        assert (kw["bbox"], kw["start_date"], kw["end_date"]) == (TIGHT, "2020-09-01", "2020-09-02")
+    # NCEI: bbox + 50 km from 2020-08-31 (24 h lead) to the event end
+    kw = ncei.call_args.kwargs
+    assert (kw["bbox"], kw["start_date"], kw["end_date"]) == (NCEI_BOX, "2020-08-31", "2020-09-02")
+
+    # PurpleAir: tight box and window, unchanged
+    kw = purpleair.call_args.kwargs
+    assert (kw["bbox"], kw["start_date"], kw["end_date"]) == (TIGHT, "2020-09-01", "2020-09-02")
