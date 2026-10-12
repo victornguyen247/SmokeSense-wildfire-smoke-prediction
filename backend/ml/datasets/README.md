@@ -42,9 +42,9 @@ python -m ml.datasets.cli --from-parquet path/to/geo01.parquet --version v1-draf
 2. GEO-01 `target_source=regulatory` does not distinguish AirNow preliminary
    RawConcentration vs AQS backfill. Ask #22 owner for verified row-level source.
 3. Confirm final event IDs and ensure timestamp corrections + site gaps are audited.
-4. Agree on complete-event holdouts with the ML owner. Current implementation
-   gives chronological time splits with target-time embargo only.
-5. `event_id=<id>/part-00000.parquet` is a **partitioned dataset directory**.
+4. Grouped train/val/test splits now keep each complete event in a single split,
+   ordered by first issue time. ML owner must approve selection and check overlaps.
+5. `data/event_id=<id>/part-00000.parquet` is a **partitioned dataset directory**.
    Issue #7 originally gave a single physical `training_v1.parquet` example, but
    the lead later explicitly requested event partitions. Agree which physical
    representation is required before publishing.
@@ -52,8 +52,19 @@ python -m ml.datasets.cli --from-parquet path/to/geo01.parquet --version v1-draf
    storage credentials/path are needed for the final publication step.
 
 All data files go under `backend/data/processed/`, already ignored by `.gitignore`.
-The version directory contains `manifest.json`, `DATASET_CARD.md`, and event
-partitions; the script never overwrites an existing version.
+The version directory contains `manifest.json`, `DATASET_CARD.md`, and a
+`data/` subfolder containing event partitions. Only read the `data/` subfolder
+as Parquet; the version root also has non-Parquet metadata files.
+
+For example, from Python:
+
+```python
+import pandas as pd
+
+df = pd.read_parquet("data/processed/training_v1-draft/data")
+```
+
+The script never overwrites an existing version.
 
 The markdown document `DATASET_CARD_TEMPLATE.md` is the reviewable template;
 the generated `DATASET_CARD.md` inside each dataset version is populated with

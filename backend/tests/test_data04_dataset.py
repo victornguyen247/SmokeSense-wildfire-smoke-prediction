@@ -26,7 +26,7 @@ def example_frame(hours: int = 90) -> pd.DataFrame:
         elif col == "forecast_point_id":
             result[col] = ["point-1"] * hours
         elif col == "pilot_event_id":
-            result[col] = ["PE-001"] * hours
+            result[col] = [f"PE-{1 + min(2, (i * 3 // hours)):03d}" for i in range(hours)]
         elif col == "target_source":
             result[col] = ["regulatory"] * hours
         elif col in ("issue_time", "target_time"):
@@ -43,6 +43,7 @@ def example_frame(hours: int = 90) -> pd.DataFrame:
     result["location_lat"] = [40.0] * hours
     result["location_lon"] = [-120.0] * hours
     result["local_solar_hour"] = [12.0] * hours
+    result["precip_prob_pct"] = [float("nan")] * hours
     result["month"] = [1] * hours
     result["day_of_year"] = [1] * hours
     return pd.DataFrame(result)
@@ -51,7 +52,7 @@ def example_frame(hours: int = 90) -> pd.DataFrame:
 def test_cast_schema():
     result = cast_and_validate(example_frame())
     assert str(result["target_pm25"].dtype) == "float32"
-    assert str(result["horizon_hours"].dtype) == "Int32"
+    assert str(result["horizon_hours"].dtype) == "int8"
     assert str(result["smoke_season"].dtype) == "boolean"
     assert str(result["issue_time"].dt.tz) == "UTC"
 
@@ -89,13 +90,12 @@ def test_safe_sql_identifiers():
         _quoted_identifier("features;DROP TABLE users")
 
 
-def test_time_split_embargo():
+def test_grouped_event_split():
     result, details = assign_time_splits(cast_and_validate(example_frame()))
     assert set(result["split"]) == {"train", "val", "test"}
-    val_start = pd.Timestamp(details["validation_start_utc"])
-    test_start = pd.Timestamp(details["test_start_utc"])
-    assert (result.loc[result["split"] == "train", "target_time"] < val_start).all()
-    assert (result.loc[result["split"] == "val", "target_time"] < test_start).all()
+    assert details["unit"] == "pilot_event_id"
+    assert len(result) == len(example_frame())
+    assert result.groupby("pilot_event_id")["split"].nunique().eq(1).all()
 
 
 def test_parquet_manifest_if_available(tmp_path: Path):
@@ -103,7 +103,7 @@ def test_parquet_manifest_if_available(tmp_path: Path):
     path = build_versioned_dataset(example_frame(), version="v1-smoke", output_root=tmp_path)
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["rows"] > 0
-    assert manifest["events"] == ["PE-001"]
+    assert manifest["events"] == ["PE-001", "PE-002", "PE-003"]
     assert (path / "DATASET_CARD.md").exists()
     for item in manifest["files"]:
         actual = path / item["path"]

@@ -25,39 +25,44 @@ def sha256_file(path: Path) -> str:
 
 
 def assign_time_splits(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Global chronological split; purge targets crossing later split boundaries."""
+    """PM-01 grouped holdout: keep every complete event in exactly one split.
+
+    Event groups are ordered by their first issue_time (with ID tie-breaking).
+    We never use random row splits, and assignment is reproducible regardless
+    of input row order. With fewer than three events a 3-way holdout cannot
+    be produced safely, so fail rather than splitting an event in half.
+    """
     result = frame.sort_values(
         ["issue_time", "pilot_event_id", "forecast_point_id", "horizon_hours"],
         kind="stable",
     ).reset_index(drop=True)
-    times = result["issue_time"].drop_duplicates().sort_values().reset_index(drop=True)
-    if len(times) < 3:
-        raise ValueError("Need >=3 distinct issue times for train/val/test")
-    train_cut = max(1, int(len(times) * 0.70))
-    val_cut = max(train_cut + 1, int(len(times) * 0.85))
-    val_cut = min(val_cut, len(times) - 1)
-    val_start = times.iloc[train_cut]
-    test_start = times.iloc[val_cut]
-    result["split"] = "train"
-    result.loc[result["issue_time"] >= val_start, "split"] = "val"
-    result.loc[result["issue_time"] >= test_start, "split"] = "test"
-    # Any previous split sample whose label looks ahead into the next split leaks.
-    leaked = (
-        ((result["split"] == "train") & (result["target_time"] >= val_start)) |
-        ((result["split"] == "val") & (result["target_time"] >= test_start))
-    )
-    removed = int(leaked.sum())
-    result = result.loc[~leaked].copy()
+    events = (
+        result.groupby("pilot_event_id", sort=True, observed=True)["issue_time"]
+        .min()
+        .reset_index()
+        .sort_values(["issue_time", "pilot_event_id"], kind="stable")
+    )["pilot_event_id"].astype(str).tolist()
+    if len(events) < 3:
+        raise ValueError("Need at least 3 distinct pilot events for grouped train/val/test split")
+    n = len(events)
+    train_cut = min(max(1, int(n * 0.70)), n - 2)
+    val_cut = min(max(train_cut + 1, int(n * 0.85)), n - 1)
+    event_groups = {
+        "train": events[:train_cut],
+        "val": events[train_cut:val_cut],
+        "test": events[val_cut:],
+    }
+    lookup = {event_id: split for split, ids in event_groups.items() for event_id in ids}
+    result["split"] = result["pilot_event_id"].astype(str).map(lookup).astype("string")
+    assert result["split"].notna().all(), "Every event must be assigned"
     counts = result["split"].value_counts().to_dict()
-    if any(counts.get(split, 0) == 0 for split in ("train", "val", "test")):
-        raise ValueError("A split became empty after target-horizon embargo; more dates required")
     return result, {
-        "method": "global_chronological_issue_time_with_target_time_embargo",
-        "validation_start_utc": val_start.isoformat(),
-        "test_start_utc": test_start.isoformat(),
-        "embargoed_rows": removed,
+        "method": "chronological_group_holdout_by_pilot_event_id",
+        "unit": "pilot_event_id",
+        "events": event_groups,
+        "event_counts": {name: len(ids) for name, ids in event_groups.items()},
         "counts": {k: int(counts.get(k, 0)) for k in ("train", "val", "test")},
-        "event_holdout": "not_configured_pending_ml_owner",
+        "note": "Events are disjoint between splits; overlapping event date ranges require ML-owner review",
     }
 
 
@@ -74,7 +79,8 @@ def _card_text(version: str, df: pd.DataFrame, info: dict) -> str:
 - Issue-time date range (UTC): {df['issue_time'].min().isoformat()} → {df['issue_time'].max().isoformat()}
 - Events: {events}
 - Split counts: {info['counts']}
-- Target-horizon embargo rows removed: {info['embargoed_rows']}
+- Train/val/test grouped by entire event: {info['event_counts']}
+- Event assignments: {info['events']}
 - Feature columns: {features}
 
 ## Labels and known limitations (read before training)
@@ -90,22 +96,23 @@ def _card_text(version: str, df: pd.DataFrame, info: dict) -> str:
 - **No PurpleAir labels or fallback.** `purpleair_raw` must NEVER be a target.
 - Weather uses NCEI observations measured at or before `issue_time`.
 - Only past fire/PM2.5 data may form features; review upstream leakage controls.
-- Time split is chronological with target-horizon embargo. Additional complete
-  event holdouts must be approved with the ML owner before final release.
+- Each pilot event belongs to exactly one train/val/test split (PM-01).
+  Event groups are ordered by their first issue time; the ML owner must
+  review cross-event time overlap and the holdout selection before release.
 - This dataset is experimental; it is not an official air-quality warning.
 
 ## Units
 - `target_pm25` and `pm25_lag_*`: µg/m³
 - Distance: km; temperature: °C; wind speed: m/s; precipitation: mm/hour;
   pressure: hPa; humidity: percent; angular bearings: degrees.
-- `precip_prob_pct` is nullable when only observed weather is available.
+- `precip_prob_pct` must be null for v1 NCEI observed weather.
 
 ## Release checklist
 - [ ] PM-01 exact fields/dtypes/units signed off (extra `split` and optional
       `target_monitor_id` currently need agreement)
-- [ ] Event list confirmed
+- [ ] Final event list and coverage verified against real data
 - [ ] AirNow vs AQS row-level provenance confirmed by GEO-01 owner
-- [ ] ML owner reviews event-level holdout and label coverage
+- [ ] ML owner reviews event-group split and label coverage
 - [ ] Generated Parquet and manifest stored in shared Drive/S3, not committed
 """
 
@@ -115,8 +122,9 @@ def build_versioned_dataset(
 ) -> Path:
     """Write a non-overwriting dataset directory with event partitions + hashes.
 
-    Use `pd.read_parquet(output_dir)` after installing pyarrow; one version is a
-    logical dataset composed of event partitions, NOT one physical .parquet file.
+    Use `pd.read_parquet(output_dir / "data")` after installing pyarrow.
+    `manifest.json` and `DATASET_CARD.md` remain at the version root; only
+    the `data/` directory is a Parquet dataset (with event partitions).
     """
     if not _VERSION.fullmatch(version) or version in {".", ".."}:
         raise ValueError("Invalid version string")
@@ -132,7 +140,7 @@ def build_versioned_dataset(
     try:
         files = []
         for event_id, part in frame.groupby("pilot_event_id", sort=True):
-            path = temp / f"event_id={quote(str(event_id), safe='')}" / "part-00000.parquet"
+            path = temp / "data" / f"event_id={quote(str(event_id), safe='')}" / "part-00000.parquet"
             path.parent.mkdir(parents=True, exist_ok=True)
             part.to_parquet(path, index=False, engine="pyarrow", compression="snappy")
             files.append({
@@ -144,6 +152,7 @@ def build_versioned_dataset(
         manifest = {
             "version": version,
             "format": "partitioned_parquet",
+            "data_path": "data",
             "partition_directory": "event_id",
             "event_id_source_column": "pilot_event_id",
             "rows": len(frame),

@@ -7,7 +7,7 @@
 - Fire events: `<event_ids>`
 - Features: `<feature_columns>`
 - Validation: `<PM-01 contract version/review link>`
-- Time split: `<train>/<val>/<test>; target-time embargo; event holdout if approved`
+- Event-grouped split: `<train>/<val>/<test> events; no event in multiple splits`
 - SHA-256 checksums: see adjacent `manifest.json`
 - Storage: `<Drive/S3 path>`
 
@@ -31,5 +31,5 @@ available. **VERIFY AND RECORD** the source field with GEO-01 #22; current
 - [ ] PM-01 columns, dtypes and units agree with the published artifact
 - [ ] GEO-01 rows, provenance and site-time corrections reviewed
 - [ ] Confirmed list of fire events
-- [ ] ML owner approved splits/complete-event holdout and dataset card
+- [ ] ML owner approved grouped-event splits, temporal overlap and dataset card
 - [ ] Parquet and manifest uploaded to shared Drive/S3 (never tracked by git)

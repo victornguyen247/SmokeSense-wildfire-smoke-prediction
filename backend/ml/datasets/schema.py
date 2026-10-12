@@ -15,9 +15,13 @@ FLOAT32_COLUMNS = (
     "precip_1h_mm", "precip_prob_pct", "pm25_lag_1h", "pm25_lag_3h",
     "pm25_lag_6h", "pm25_lag_12h", "pm25_lag_24h", "local_solar_hour",
 )
-INTEGER_COLUMNS = (
-    "horizon_hours", "active_fire_count_200km", "day_of_year", "month",
-)
+INTEGER_DTYPES = {
+    "horizon_hours": "int8",            # PM-01
+    "active_fire_count_200km": "int16",  # PM-01
+    "day_of_year": "int16",              # PM-01
+    "month": "int8",                    # PM-01
+}
+INTEGER_COLUMNS = tuple(INTEGER_DTYPES)
 STRING_COLUMNS = ("forecast_point_id", "pilot_event_id", "target_source")
 TIMESTAMP_COLUMNS = ("issue_time", "target_time")
 OPTIONAL_COLUMNS = {"target_monitor_id"}  # GEO-01 currently emits this extra field.
@@ -48,13 +52,18 @@ def cast_and_validate(frame: pd.DataFrame) -> pd.DataFrame:
                 raise ValueError("Out of float32 range")
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"Invalid float32 values in {col}: {exc}") from exc
-    for col in INTEGER_COLUMNS:
+    for col, dtype in INTEGER_DTYPES.items():
         try:
             numeric = pd.to_numeric(result[col], errors="raise")
-            finite = numeric.dropna().astype("float64")
+            if numeric.isna().any():
+                raise ValueError("Null integer values")
+            finite = numeric.astype("float64")
             if not np.isfinite(finite.to_numpy()).all() or (finite % 1 != 0).any():
                 raise ValueError("Not finite integral values")
-            result[col] = numeric.astype("Int32")
+            limits = np.iinfo(np.dtype(dtype))
+            if (numeric < limits.min).any() or (numeric > limits.max).any():
+                raise ValueError(f"Out of integer {dtype} range")
+            result[col] = numeric.astype(dtype)
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"Invalid integer values in {col}: {exc}") from exc
     for col in STRING_COLUMNS:
@@ -66,7 +75,8 @@ def cast_and_validate(frame: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("smoke_season must be boolean")
     result["smoke_season"] = result["smoke_season"].astype("boolean")
     required_nonnull = ("forecast_point_id", "pilot_event_id", "issue_time",
-                        "target_time", "horizon_hours", "target_pm25", "target_source")
+                        "target_time", "horizon_hours", "target_pm25", "target_source",
+                        "target_monitor_dist_km")
     for col in required_nonnull:
         if result[col].isna().any():
             raise ValueError(f"Nulls not allowed in {col}")
@@ -79,6 +89,10 @@ def cast_and_validate(frame: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Non-finite target_pm25 label")
     if result["target_pm25"].lt(0).any():
         raise ValueError("Negative target_pm25 label")
+    # v1 uses NCEI observed precipitation, never a forecast probability.
+    # A non-null probability signals unintended upstream forecast mixing.
+    if result["precip_prob_pct"].notna().any():
+        raise ValueError("v1 precip_prob_pct must be null for NCEI observed weather")
     # Match the shared GEO-01 structural checks after dtype casting.
     validate_feature_dataset(result)
     return result
