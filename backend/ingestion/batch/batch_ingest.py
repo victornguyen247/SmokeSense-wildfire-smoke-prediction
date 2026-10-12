@@ -471,8 +471,21 @@ def load_existing_coverage(session, event_id: str, source: str) -> SourceCoverag
 # batch_ingestion_progress.
 SOURCES = ("firms", "airnow", "ncei", "purpleair")
 
+SKIPPED_GAP = "skipped by --skip-source"
 
-def load_event_report(event_id: str, event_error: str) -> CoverageReport:
+
+def skipped_coverage(source: str) -> SourceCoverage:
+    """Report entry for a source the caller chose not to run.
+
+    No progress row is written for it, so a later run without the flag
+    (or with --resume) still ingests the source.
+    """
+    return SourceCoverage(source=source, gaps=[SKIPPED_GAP])
+
+
+def load_event_report(
+    event_id: str, event_error: str, skip: frozenset[str] = frozenset()
+) -> CoverageReport:
     """Rebuild a failed event's report from batch_ingestion_progress.
 
     Sources commit independently, so when an event fails after all retries,
@@ -498,6 +511,9 @@ def load_event_report(event_id: str, event_error: str) -> CoverageReport:
         for source in SOURCES:
             row = rows.get(source)
 
+            if source in skip:
+                report.record(skipped_coverage(source))
+                continue
             if row is None:
                 gap = "not attempted (event failed before this source ran)"
             elif row.status == "success":
@@ -533,8 +549,10 @@ def write_coverage_report(reports: list[CoverageReport], out_path: Path) -> None
 # Per-event ingestion
 # ---------------------------------------------------------------------------
 
-def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
-    """Run all sources for a single pilot event.
+def ingest_event(
+    event: PilotEvent, resume: bool = False, skip: frozenset[str] = frozenset()
+) -> CoverageReport:
+    """Run all sources for a single pilot event, except those in skip.
 
     Commits per-source rather than once at the end: if AirNow fails after
     FIRMS already succeeded, FIRMS's rows stay committed and marked done,
@@ -548,7 +566,9 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
 
     try:
         # --- FIRMS (fire detections) ---
-        if progress.is_done("firms"):
+        if "firms" in skip:
+            report.record(skipped_coverage("firms"))
+        elif progress.is_done("firms"):
             report.record(load_existing_coverage(session, event.event_id, "firms"))
         else:
             mark_progress(session, event.event_id, "firms", status="running")
@@ -602,7 +622,9 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                 raise
 
         # --- AirNow (PM2.5, regulatory) ---
-        if progress.is_done("airnow"):
+        if "airnow" in skip:
+            report.record(skipped_coverage("airnow"))
+        elif progress.is_done("airnow"):
             report.record(load_existing_coverage(session, event.event_id, "airnow"))
         else:
             mark_progress(session, event.event_id, "airnow", status="running")
@@ -677,7 +699,9 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                 raise
 
         # --- NCEI (historical weather) ---
-        if progress.is_done("ncei"):
+        if "ncei" in skip:
+            report.record(skipped_coverage("ncei"))
+        elif progress.is_done("ncei"):
             report.record(load_existing_coverage(session, event.event_id, "ncei"))
         else:
             mark_progress(session, event.event_id, "ncei", status="running")
@@ -726,7 +750,9 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
                 raise
 
         # --- PurpleAir (PM2.5, low-cost, Barkjohn-corrected) ---
-        if progress.is_done("purpleair"):
+        if "purpleair" in skip:
+            report.record(skipped_coverage("purpleair"))
+        elif progress.is_done("purpleair"):
             report.record(load_existing_coverage(session, event.event_id, "purpleair"))
         else:
             mark_progress(session, event.event_id, "purpleair", status="running")
@@ -803,7 +829,10 @@ def ingest_event(event: PilotEvent, resume: bool = False) -> CoverageReport:
 
 
 def ingest_event_with_retries(
-    event: PilotEvent, resume: bool, max_attempts: int = 3
+    event: PilotEvent,
+    resume: bool,
+    max_attempts: int = 3,
+    skip: frozenset[str] = frozenset(),
 ) -> CoverageReport:
     """Retry ingest_event, forcing resume=True on any attempt after the first.
 
@@ -818,7 +847,7 @@ def ingest_event_with_retries(
     """
     for attempt in range(1, max_attempts + 1):
         try:
-            return ingest_event(event, resume=resume if attempt == 1 else True)
+            return ingest_event(event, resume=resume if attempt == 1 else True, skip=skip)
         except Exception as exc:
             if attempt == max_attempts:
                 raise
@@ -840,6 +869,13 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="Ingest all pilot events")
     parser.add_argument("--resume", action="store_true", help="Skip sources already completed")
     parser.add_argument(
+        "--skip-source",
+        action="append",
+        choices=SOURCES,
+        default=[],
+        help="Source not to run this pass (repeatable); it gets a report gap, no progress row",
+    )
+    parser.add_argument(
         "--report-out",
         default="data/coverage_report.json",
         help="Where to write the combined coverage report",
@@ -855,6 +891,7 @@ def main() -> None:
         parser.error("Specify --event <id> or --all")
 
     events = load_pilot_events(Path(args.events_config))
+    skip = frozenset(args.skip_source)
 
     if args.event:
         events = [e for e in events if e.event_id == args.event]
@@ -867,7 +904,7 @@ def main() -> None:
     for event in events:
         print(f"--- Ingesting {event.event_id} ({event.name}) ---")
         try:
-            report = ingest_event_with_retries(event, resume=args.resume)
+            report = ingest_event_with_retries(event, resume=args.resume, skip=skip)
         except Exception as exc:
             # A persistently-failing event (bad bbox, prolonged outage, the
             # known MODIS confidence bug, etc.) must not take down the
@@ -878,7 +915,7 @@ def main() -> None:
             had_failure = True
             print(f"[event:{event.event_id}] failed after all retries: {exc!r}")
             try:
-                report = load_event_report(event.event_id, repr(exc))
+                report = load_event_report(event.event_id, repr(exc), skip=skip)
             except Exception as report_exc:
                 # e.g. the DB itself is what failed -- still write a report.
                 print(
