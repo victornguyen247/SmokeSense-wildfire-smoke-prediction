@@ -16,6 +16,7 @@ redis==5.2.1
 
 # --- Data / ML (used by ingestion, features, ml) ---
 pandas==2.2.3
+pyarrow==18.1.0  # Parquet for the DATA-04 dataset (dataset_build/)
 numpy==2.2.1
 scikit-learn==1.6.0
 xgboost==2.1.3
