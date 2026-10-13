@@ -68,6 +68,21 @@ NOTE = ("Final pilot event set (20 events), checked on " + CHECKED + " under the
         "backend/scripts/pilot_verification/reports/final_check.md.")
 
 
+# AQS state codes of in-box sites outside California (docs/data-decisions.md #17).
+# Tribal codes ("TT") carry no state; the tribal sites in these boxes are in California.
+STATES = {"04": "Arizona", "32": "Nevada", "41": "Oregon"}
+
+
+def out_of_state_note(sites):
+    notes = []
+    for s in sites:
+        code = s["aqs"][:2]
+        if code.isdigit() and code != "06":
+            notes.append(f" {nm(s['name'])} ({s['aqs']}) is in {STATES.get(code, 'state ' + code)}: inside the bbox "
+                         "but outside the California scope, so it is not used as a forecast point.")
+    return "".join(notes)
+
+
 def nm(s):
     return s.replace("  ", " ")
 
@@ -110,7 +125,8 @@ def entry(ev, r, s1, e):
             f"Checked {CHECKED} under docs/data-decisions.md: tier site {i3_site}, peak daily PM2.5 "
             f"{e['peak']} µg/m³ on {e['peak_day']}; baseline {e['baseline']} µg/m³ ({e['baseline_source']}); "
             f"nearest in-box AirNow site {nm(n['name'])} ({n['aqs']}) {n['dist_fire_km']} km from the fire; "
-            f"best site {nm(b['name'])} ({b['aqs']}) {b['pct_hours']}% of hours. AirNow preliminary data."),
+            f"best site {nm(b['name'])} ({b['aqs']}) {b['pct_hours']}% of hours. AirNow preliminary data."
+            + out_of_state_note(s for s in r["sites"] if s["pct_hours"] > 0)),
     }
 
 

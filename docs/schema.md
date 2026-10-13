@@ -147,7 +147,8 @@ Air quality stations — AirNow regulatory and PurpleAir low-cost sensors. Each 
 | --- | --- | --- | --- |
 | `id` | TEXT | PK | UUIDv7 |
 | `source` | TEXT | NOT NULL, CHECK IN ('airnow','purpleair') |  |
-| `external_id` | TEXT | NOT NULL | AQS site code (AirNow) or `sensor_index` (PurpleAir) — dedup key |
+| `external_id` | TEXT | NOT NULL | AirNow: `stable_external_id("airnow", aqs_code)` (a hash); PurpleAir: `sensor_index` — dedup key |
+| `aqs_code` | VARCHAR(9) |  | AirNow only: the normalized 9-character AQS code (`061030007`, tribal `TT5821016`). Migration 0003; indexed. Source of truth for the DATA-04 California scope (`docs/data-decisions.md` #32) |
 | `name` | TEXT |  | Station name |
 | `city_id` | TEXT | FK → cities(id), nullable | Which city this monitor counts toward in the History view |
 | `location_type` | TEXT | NOT NULL, CHECK IN ('outdoor','indoor') | **Only `outdoor` sensors are used.** Indoor PurpleAir sensors read lower during smoke events and corrupt labels. Filter to `outdoor` at seed time. |
@@ -157,7 +158,7 @@ Air quality stations — AirNow regulatory and PurpleAir low-cost sensors. Each 
 | `first_seen_at` | TIMESTAMPTZ | NOT NULL | UTC — when first seen at this location |
 | `last_seen_at` | TIMESTAMPTZ |  | UTC — last time data arrived; used to detect dead sensors |
 
-**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (source, external_id)`, `GiST (geom)`, `INDEX (source, active, location_type)`
+**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (source, external_id)`, `GiST (geom)`, `INDEX (source, active, location_type)`, `INDEX (aqs_code)`
 
 ---
 
@@ -488,7 +489,7 @@ One row per Celery ingestion job run. Powers the "data last updated X minutes ag
 
 ## Parquet Training Set
 
-Parquet files live in `data/processed/` and are read by `pd.read_parquet()` during training. They are **immutable snapshots** — running training twice on the same file produces the same result. Never queried by the web server.
+Parquet files live in `backend/data/datasets/<name>/` (e.g. `smokesense_v1/data.parquet` plus `manifest.json`; see `docs/datasets/`) and are read by `pd.read_parquet()` during training. They are **immutable snapshots** — running training twice on the same file produces the same result. Never queried by the web server.
 
 ### How rows are generated
 
@@ -500,7 +501,7 @@ Each row represents one **(forecast_point, issue_time, horizon_hours)** predicti
 
 - PM2.5 lags are relative to `issue_time`, not `target_time`. `pm25_lag_1h` = PM2.5 one hour before `issue_time`.
 - Fire features (distance, FRP, bearing) are computed from detections available at `issue_time`.
-- Weather must use **NWS forecast values issued before `issue_time`** for the `valid_at = target_time` slot — not observed weather at `target_time`. In training, use archived NWS forecast files, not observed weather at the target hour.
+- Weather (v1 dataset) is **observed NCEI weather at or before `issue_time`**: the nearest station's latest report, at most 3 h old. Never weather at `target_time`, which would leak the future. Live inference must supply the same kind of observation. (An earlier version of this doc called for archived NWS forecasts valid at `target_time`; DATA-04 uses observations instead, `docs/data-decisions.md` #33.)
 
 ### Column contract
 
@@ -527,14 +528,15 @@ All columns below must be present with exactly these names and dtypes. Adding co
 | `total_frp_200km` | float32 | MW | FRP-weighted, distance-decayed sum over all fires within 200 km at `issue_time` — better than nearest-only |
 | `active_fire_count_200km` | int16 | count | FIRMS detection count within 200 km at `issue_time` |
 | **Wind alignment** |  |  |  |
-| `wind_alignment` | float32 | — | `cos(fire_bearing_deg - wind_dir_deg)`. +1 = wind from fire toward point. −1 = opposite. Computed from NWS **forecast** wind at `target_time`, not observed. |
-| `wind_speed_ms` | float32 | m/s | NWS forecast value valid at `target_time` |
+| `wind_alignment` | float32 | — | `cos(fire_bearing_deg - wind_dir_deg)`. +1 = wind from fire toward point. −1 = opposite. From observed NCEI wind at `issue_time`. Null for calm or variable winds. |
+| `wind_speed_ms` | float32 | m/s | Observed (NCEI), latest report ≤ `issue_time`, ≤ 3 h old |
 | `wind_dir_sin` | float32 | — | `sin(wind_dir_deg)` — encode circular variable |
 | `wind_dir_cos` | float32 | — | `cos(wind_dir_deg)` |
-| `temp_c` | float32 | °C | NWS forecast at `target_time` |
-| `rh_pct` | float32 | % | NWS forecast at `target_time` |
-| `pressure_hpa` | float32 | hPa |  |
-| `precip_prob_pct` | float32 | % | NWS forecast probability |
+| `temp_c` | float32 | °C | Observed (NCEI) at `issue_time` |
+| `rh_pct` | float32 | % | Observed (NCEI) at `issue_time` |
+| `pressure_hpa` | float32 | hPa | Observed sea-level pressure (NCEI); often null |
+| `precip_1h_mm` | float32 | mm | Observed 1-hour precipitation (NCEI); null when no precipitation group is reported |
+| `precip_prob_pct` | float32 | % | NWS forecast probability. Always null in the observation-based v1 dataset; not a model feature |
 | **PM2.5 lags** (all relative to `issue_time`) |  |  |  |
 | `pm25_lag_1h` | float32 | µg/m³ | PM2.5 at `issue_time - 1h`. Barkjohn-corrected or regulatory. |
 | `pm25_lag_3h` | float32 | µg/m³ |  |
@@ -546,6 +548,11 @@ All columns below must be present with exactly these names and dtypes. Adding co
 | `day_of_year` | int16 | 1–366 | Seasonal signal |
 | `month` | int8 | 1–12 |  |
 | `smoke_season` | bool | — | TRUE if month in \[6,7,8,9,10\] |
+| **Added by the DATA-04 build** (not model inputs) |  |  |  |
+| `target_monitor_id` | str | — | Monitor that provided the label (`monitors.external_id`) |
+| `event_ids` | list\<str\> | — | Every pilot event that produced the row (dedupe, `docs/data-decisions.md` #21); `pilot_event_id` is the first |
+| `event_tier` | str | — | Tier of `pilot_event_id` (computed from the max in-box peak; derived from labels, so never a feature) |
+| `group_id` | str | — | Events whose windows overlap share a group; the CV unit (leave-one-group-out) |
 
 ### Null / missing value policy
 

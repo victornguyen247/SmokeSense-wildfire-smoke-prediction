@@ -28,7 +28,15 @@ from typing import Callable
 
 from datetime import date, datetime, timedelta, timezone
 
-from ingestion.batch.firms_extent import expand_bbox_km, lead_start_date
+from ingestion.batch.firms_extent import (
+    AIRNOW_LEAD_HOURS,
+    AIRNOW_TAIL_HOURS,
+    NCEI_LEAD_HOURS,
+    NCEI_MARGIN_KM,
+    expand_bbox_km,
+    lead_start_date,
+    tail_end_date,
+)
 from ingestion.connectors.firms import get_firms_records
 from ingestion.connectors.airnow import get_airnow_pm25_records, padded_airnow_windows
 from ingestion.connectors.airnow_time_offsets import max_abs_shift_hours
@@ -77,14 +85,24 @@ class PilotEvent:
     purpleair_density: str = ""
     verification_status: str = "pending"
     verification_note: str = ""
-    # Derived, never read from the config: FIRMS pulls the bbox grown by
-    # FIRMS_MARGIN_KM over [firms_start_date, end_date] (firms_extent.py).
+    # Derived, never read from the config (firms_extent.py):
+    #   FIRMS  firms_bbox (bbox + FIRMS_MARGIN_KM) over [firms_start_date, end_date]
+    #   AirNow bbox over [airnow_start_date, airnow_end_date]
+    #   NCEI   ncei_bbox (bbox + NCEI_MARGIN_KM) over [ncei_start_date, end_date]
     firms_bbox: str = field(init=False)
     firms_start_date: str = field(init=False)
+    airnow_start_date: str = field(init=False)
+    airnow_end_date: str = field(init=False)
+    ncei_bbox: str = field(init=False)
+    ncei_start_date: str = field(init=False)
 
     def __post_init__(self) -> None:
         self.firms_bbox = expand_bbox_km(self.bbox)
         self.firms_start_date = lead_start_date(self.start_date)
+        self.airnow_start_date = lead_start_date(self.start_date, AIRNOW_LEAD_HOURS)
+        self.airnow_end_date = tail_end_date(self.end_date, AIRNOW_TAIL_HOURS)
+        self.ncei_bbox = expand_bbox_km(self.bbox, NCEI_MARGIN_KM)
+        self.ncei_start_date = lead_start_date(self.start_date, NCEI_LEAD_HOURS)
 
 
 def load_pilot_events(path: Path = PILOT_EVENTS_PATH) -> list[PilotEvent]:
@@ -640,14 +658,16 @@ def ingest_event(
                 # The connector also bisects a chunk on its own if a dense
                 # bbox still trips the cap.
                 #
-                # The window is padded by the largest configured time
-                # correction, so a site whose labels are shifted still
-                # supplies the event's first and last true hours. Rows
-                # whose corrected valid_at lands outside the event are
-                # dropped, which leaves unshifted sites exactly as before.
+                # The window is [airnow_start_date, airnow_end_date]: the
+                # event plus AIRNOW_LEAD_HOURS before (PM2.5 lags) and
+                # AIRNOW_TAIL_HOURS after (horizon labels). It is padded by
+                # the largest configured time correction, so a site whose
+                # labels are shifted still supplies the first and last true
+                # hours; rows whose corrected valid_at lands outside the
+                # window are dropped.
                 records: list[dict] = []
                 for start_date, start_hour, end_date, end_hour in padded_airnow_windows(
-                    event.start_date, event.end_date, max_abs_shift_hours()
+                    event.airnow_start_date, event.airnow_end_date, max_abs_shift_hours()
                 ):
                     chunk_records = with_retries(
                         lambda sd=start_date, sh=start_hour, ed=end_date, eh=end_hour: (
@@ -664,7 +684,7 @@ def ingest_event(
                     )
                     records.extend(chunk_records)
 
-                window_start, window_end = event_window(event.start_date, event.end_date)
+                window_start, window_end = event_window(event.airnow_start_date, event.airnow_end_date)
                 records = [
                     r for r in records
                     if window_start <= r["observation"]["valid_at"] < window_end
@@ -673,7 +693,7 @@ def ingest_event(
                 coverage.rows_fetched = len(records)
                 coverage.null_counts = {
                     "pm25_missing_station_hours": count_missing_station_hours(
-                        records, event.start_date, event.end_date
+                        records, event.airnow_start_date, event.airnow_end_date
                     )
                 }
                 if coverage.rows_fetched == 0:
@@ -710,10 +730,13 @@ def ingest_event(
 
                 # The connector chunks by month and retries each request
                 # itself; with_retries here covers a failure mid-event.
+                # ncei_bbox (bbox + NCEI_MARGIN_KM) over [ncei_start_date,
+                # end_date]: stations just outside the box and the reports
+                # before the first issue time.
                 records = with_retries(
                     lambda: get_ncei_weather_records(
-                        bbox=event.bbox,
-                        start_date=event.start_date,
+                        bbox=event.ncei_bbox,
+                        start_date=event.ncei_start_date,
                         end_date=event.end_date,
                     ),
                     label=f"ncei:{event.event_id}",

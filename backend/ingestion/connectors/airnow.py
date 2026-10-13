@@ -75,6 +75,22 @@ RECORD_LIMIT_MARKER = "record query limit"
 RAW_NEGATIVE_FLOOR = -5.0
 
 
+def normalize_aqs_code(code: str) -> str:
+    """The 9-digit AQS site code (SS-CCC-NNNN without dashes) for a station id.
+
+    AirNow's FullAQSCode is not consistent: most sites arrive as 9 characters
+    ("060072003"), some with a 3-digit country prefix ("840060072003"),
+    including tribal and agency codes that are not all digits
+    ("840TT5821016", "84032005TRP1"). Monitor identity and the time-offset
+    table use the 9-character form, so a prefixed code is cut to its last 9
+    characters; anything else passes through unchanged.
+    """
+    code = code.strip()
+    if len(code) > 9 and code[:3].isdigit() and (code.isdigit() or len(code) == 12):
+        return code[-9:]
+    return code
+
+
 class AirNowRecordLimitError(RuntimeError):
     """The requested window/area returned more records than AirNow allows."""
 
@@ -313,7 +329,7 @@ def normalize_airnow_row(
     # Monitor identity
     # ---------------------------------------------------------
 
-    station_id = str(
+    station_id = normalize_aqs_code(str(
         row.get("StationID")
         or row.get("AQSID")
         or row.get("FullAQSCode")
@@ -322,7 +338,7 @@ def normalize_airnow_row(
         or row.get("FullAQSID")
         or row.get("SiteID")
         or ""
-    ).strip()
+    ))
 
     site_name = str(
         row.get("SiteName")
@@ -458,6 +474,7 @@ def normalize_airnow_row(
         "monitor": {
             "source": "airnow",
             "external_id": monitor_external_id,
+            "aqs_code": station_id if len(station_id) == 9 else None,
             "name": site_name or station_id,
             "location_type": "outdoor",
             "geom_wkt": geom_wkt,
