@@ -5,6 +5,7 @@
 | Version | 1.0.0 |
 | Built | 2026-10-12, by `python -m dataset_build.build_v1` (backend/) |
 | Files | `backend/data/datasets/smokesense_v1/data.parquet` and `manifest.json` (not in git; the manifest holds the git commit and SHA-256 of the data and of `backend/docs/pilot_events.json`) |
+| Where to get the files | GitHub release [`data04-v1.0.0`](https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/releases/tag/data04-v1.0.0) (pre-release): run `backend/scripts/fetch_data04.sh`, which downloads, checks the SHA-256 sums and unzips into place. The release also has both models and an optional dump of the local DB. |
 | Rows | 141,954 |
 | Rules | `docs/data-decisions.md` #11–#22, #32 |
 | Models | [baseline_v1](../models/baseline_v1.md) (direct XGBoost) and [baseline_v2](../models/baseline_v2.md) (persistence-anchored; the released model) |
