@@ -15,11 +15,15 @@ forecasts is written only by OPS-04, which does not exist yet, so source is adde
 NULL without a default. If this fails on a database that already has forecasts rows,
 decide their source by hand first.
 
+downgrade() refuses to run (with a clear error) if monitor forecast points or 0 km
+forecasts exist, because the 0003 schema cannot hold them; it never deletes data.
+
 Revision ID: 0004
 Revises: 0003
 """
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -64,6 +68,26 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # The old schema cannot represent monitor forecast points (kind CHECK) or a 0 km
+    # nearest-monitor distance (CHECK > 0). Re-adding those constraints on a database
+    # that holds such rows would fail midway, and silently deleting forecast data is
+    # worse, so refuse up front with an actionable message instead.
+    bind = op.get_bind()
+    n_monitor_points = bind.execute(
+        sa.text("SELECT count(*) FROM forecast_points WHERE kind = 'monitor'")
+    ).scalar_one()
+    n_zero_dist = bind.execute(
+        sa.text("SELECT count(*) FROM forecasts WHERE nearest_monitor_dist_km = 0")
+    ).scalar_one()
+    if n_monitor_points or n_zero_dist:
+        raise RuntimeError(
+            "Cannot downgrade 0004: the database has "
+            f"{n_monitor_points} forecast_points with kind='monitor' and "
+            f"{n_zero_dist} forecasts with nearest_monitor_dist_km = 0. "
+            "Delete them first (forecasts rows for those points, then the points), "
+            "then rerun the downgrade."
+        )
+
     op.execute("ALTER TABLE forecasts DROP CONSTRAINT forecasts_nearest_monitor_dist_km_check")
     op.execute("""
         ALTER TABLE forecasts
