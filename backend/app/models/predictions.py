@@ -12,6 +12,7 @@ from app.models.base import Base, one_of
 from app.models.reference import ForecastPoint
 from app.models.values import (
     ALERT_STATUSES,
+    FORECAST_SOURCES,
     HORIZON_HOURS,
     LABEL_CORRECTIONS,
     MODEL_STATUSES,
@@ -59,10 +60,11 @@ class Forecast(Base):
     __table_args__ = (
         UniqueConstraint("forecast_point_id", "model_key", "issued_at", "horizon_hours"),
         one_of("horizon_hours", HORIZON_HOURS),
+        one_of("source", FORECAST_SOURCES),
         CheckConstraint("pm25_predicted >= 0"),
         CheckConstraint("pm25_lower >= 0"),
         CheckConstraint("pm25_upper >= 0"),
-        CheckConstraint("nearest_monitor_dist_km > 0"),
+        CheckConstraint("nearest_monitor_dist_km >= 0"),
         CheckConstraint("target_time = issued_at + make_interval(hours => horizon_hours)"),
         Index("ix_forecasts_target_time", "target_time"),
     )
@@ -74,6 +76,7 @@ class Forecast(Base):
     horizon_hours: Mapped[int]
     target_time: Mapped[datetime]  # must equal issued_at + horizon_hours (DB-enforced)
     pm25_predicted: Mapped[float]
+    source: Mapped[str]  # v2 / persistence / fallback at a monitor (Stage A); idw at a grid cell (Stage B)
     pm25_lower: Mapped[float | None]
     pm25_upper: Mapped[float | None]
     nearest_monitor_dist_km: Mapped[float | None]
