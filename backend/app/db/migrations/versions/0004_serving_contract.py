@@ -8,12 +8,15 @@ those forecasts to grid cells. The schema needs three things it did not have:
    (populated by GEO-02); geom stays the cell centroid the model and IDW use.
 2. forecasts.source: how the value was produced -- 'v2', 'persistence' or 'fallback'
    (Stage A, ml.inference.predict_v2) or 'idw' (Stage B).
-3. forecasts.nearest_monitor_dist_km may be 0: a monitor forecast point is its own
-   nearest monitor (the CHECK was > 0).
+3. forecasts.nearest_monitor_dist_km is NOT NULL and may be 0: a monitor forecast point
+   is its own nearest monitor (the CHECK was > 0), and every forecast row has a distance
+   (cells with no monitor in range get no row).
+4. model_versions.thresholds: the model's per-horizon alert thresholds, copied from
+   release.json when the model is registered, so the API never reads model files.
 
 forecasts is written only by OPS-04, which does not exist yet, so source is added NOT
-NULL without a default. If this fails on a database that already has forecasts rows,
-decide their source by hand first.
+NULL without a default, and nearest_monitor_dist_km is set NOT NULL. If this fails on a
+database that already has forecasts rows, fix those rows by hand first.
 
 downgrade() refuses to run (with a clear error) if monitor forecast points or 0 km
 forecasts exist, because the 0003 schema cannot hold them; it never deletes data.
@@ -65,9 +68,15 @@ def upgrade() -> None:
             ADD CONSTRAINT forecasts_nearest_monitor_dist_km_check
             CHECK (nearest_monitor_dist_km >= 0)
     """)
+    op.execute("ALTER TABLE forecasts ALTER COLUMN nearest_monitor_dist_km SET NOT NULL")
+
+    op.execute("ALTER TABLE model_versions ADD COLUMN thresholds JSONB")
 
 
 def downgrade() -> None:
+    op.execute("ALTER TABLE model_versions DROP COLUMN thresholds")
+
+    op.execute("ALTER TABLE forecasts ALTER COLUMN nearest_monitor_dist_km DROP NOT NULL")
     # The old schema cannot represent monitor forecast points (kind CHECK) or a 0 km
     # nearest-monitor distance (CHECK > 0). Re-adding those constraints on a database
     # that holds such rows would fail midway, and silently deleting forecast data is

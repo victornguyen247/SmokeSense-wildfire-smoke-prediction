@@ -95,7 +95,11 @@ A monitor is a Stage A forecast point when **all** hold:
 2. `in_california_scope(monitors.aqs_code)` (`app/core/scope.py`, decision #17).
 3. It has a regulatory PM2.5 reading in the last 24 h. Without one every lag is null and `fallback` would run on pure weather and fire features.
 
-Each has a `forecast_points` row with `kind = 'monitor'` and `monitor_id` set. `geom` is the monitor's location. This matches DATA-04, where `forecast_point_id` = `monitors.external_id`. Its `nearest_monitor_dist_km` is 0.
+Each has a `forecast_points` row with `kind = 'monitor'` and `monitor_id` set. `geom` is the monitor's location. Its `nearest_monitor_dist_km` is 0.
+
+**Which id is which.** In the database, a monitor point has its own UUIDv7 `forecast_points.id` and links to its monitor through `monitor_id`. DATA-04's `forecast_point_id` is `monitors.external_id`. Do not set `forecast_points.id = external_id`. When comparing serving output with training rows, join `forecast_points.monitor_id → monitors.id` and use `monitors.external_id`. The API uses `forecast_points.id` as the forecast point id, with `aqs_code` and the monitor name as readable fields.
+
+**Moved monitors.** When a monitor moves more than 500 m, `monitors` gets a new row and the old one is deactivated (`docs/schema.md`). The old monitor's forecast point is set `active = false` and stops forecasting, keeping its history; the new monitor gets a new point. Stage B only uses active points.
 
 ## 4. Stage B: interpolation to grid cells
 
@@ -134,7 +138,7 @@ def predict(features: pd.DataFrame) -> pd.DataFrame: ...
 | `model_key` | str | `model_versions.model_key` of the loaded model |
 | `issued_at` | datetime (UTC) | as in the input |
 
-It follows `release.json` per horizon through `ml.inference.predict_v2.predict`; ML-04 (#45) wraps it. Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract; the API compares against `thresholds.json` (31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served). Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
+It follows `release.json` per horizon through `ml.inference.predict_v2.predict`; ML-04 (#45) wraps it. Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract. It is only needed for alerts (Phase 4). The per-horizon thresholds (`release.json`: 31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served) are copied into `model_versions.thresholds` when the model is registered, so the API reads them from the database by `model_key` and never opens model files. These are the **model's alert thresholds, tuned for F1**, not the EPA AQI category cutoffs; the UI must not present them as AQI categories. Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
 
 The model is always loaded by explicit `model_key`, never "newest".
 
@@ -169,6 +173,7 @@ Local cache: `backend/data/models/{model_name}/{version}/`, which is what `predi
 | `feature_list` | `FEATURES_V2` as a JSON array |
 | `training_data_uri` / `training_data_hash` | `smokesense_v1` location and its `manifest.json` `data_sha256` (`6799c405…`) |
 | `hyperparameters`, `backtest_metrics` | from `params.json`, `metrics.json` |
+| `thresholds` | per-horizon alert thresholds from `release.json`, e.g. `{"1": 35.5, "3": 29.5, "6": 25.5, "12": 21.5, "24": 20.0}` |
 | `status` | `shadow` until promoted to `production` (one production row per `model_name`) |
 
 ## 7. Schema delta
@@ -181,7 +186,8 @@ Local cache: `backend/data/models/{model_name}/{version}/`, which is what `predi
 | `forecast_points` | `monitor_id TEXT REFERENCES monitors(id)`, unique where not null; `CHECK ((kind = 'monitor') = (monitor_id IS NOT NULL))` | Links a point to its monitor. |
 | `forecast_points` | `cell_geom GEOGRAPHY(POLYGON, 4326)` + GiST index | The cell polygon for the map. `geom` stays the centroid. GEO-02 fills it. |
 | `forecasts` | `source TEXT NOT NULL CHECK IN ('v2','persistence','fallback','idw')` | Says how each value was made. |
-| `forecasts` | `nearest_monitor_dist_km` CHECK `> 0` → `>= 0` | A monitor point is its own nearest monitor (0 km). |
+| `forecasts` | `nearest_monitor_dist_km` NOT NULL, CHECK `> 0` → `>= 0` | A monitor point is its own nearest monitor (0 km), and every row has a distance (cells with no monitor in range get no row). |
+| `model_versions` | `thresholds JSONB` | Per-horizon alert thresholds, so the API never reads model files. |
 
 The ORM (`app/models/`) and `docs/schema.md` are updated to match.
 

@@ -47,6 +47,8 @@ class ModelVersion(Base):
     training_data_uri: Mapped[str | None]
     training_data_hash: Mapped[str | None]
     backtest_metrics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # per-horizon alert thresholds ({"1": 35.5, ...}), copied from release.json at registration
+    thresholds: Mapped[dict[str, float] | None] = mapped_column(JSONB)
     status: Mapped[str]
     notes: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -79,7 +81,7 @@ class Forecast(Base):
     source: Mapped[str]  # v2 / persistence / fallback at a monitor (Stage A); idw at a grid cell (Stage B)
     pm25_lower: Mapped[float | None]
     pm25_upper: Mapped[float | None]
-    nearest_monitor_dist_km: Mapped[float | None]
+    nearest_monitor_dist_km: Mapped[float]
     is_shadow: Mapped[bool] = mapped_column(server_default=false())
     feature_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 

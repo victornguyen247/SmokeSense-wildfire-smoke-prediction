@@ -370,6 +370,7 @@ To promote a model: set the old `production` row to `retired` and the new `shado
 | `training_data_uri` | TEXT |  | S3 path of the Parquet training snapshot |
 | `training_data_hash` | TEXT |  | Hash of that snapshot — reproducibility audit |
 | `backtest_metrics` | JSONB |  | MAE/RMSE per horizon and per pilot event |
+| `thresholds` | JSONB |  | Per-horizon alert thresholds (`{"1": 35.5, "3": 29.5, …}`), copied from `release.json` at registration so the API never reads model files. Model alert thresholds, not EPA AQI cutoffs. |
 | `status` | TEXT | NOT NULL, CHECK IN ('shadow','production','retired') | Max one `production` row per `model_name` — enforced by partial unique index |
 | `notes` | TEXT |  | Free text: what changed in this version |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
@@ -397,7 +398,7 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 | `pm25_lower` | FLOAT | CHECK >= 0 | Lower bound of prediction interval (stretch goal) |
 | `pm25_upper` | FLOAT | CHECK >= 0 | Upper bound |
 | `source` | TEXT | NOT NULL, CHECK IN ('v2','persistence','fallback','idw') | How the value was made. `v2` / `persistence` / `fallback`: `predict_v2` at a monitor point (Stage A). `idw`: interpolated from nearby Stage A forecasts at a grid cell (Stage B). |
-| `nearest_monitor_dist_km` | FLOAT | CHECK >= 0 | UI shows lower confidence when large (e.g. >25 km). 0 for a monitor point; for an `idw` row, the distance to the nearest monitor used. |
+| `nearest_monitor_dist_km` | FLOAT | NOT NULL, CHECK >= 0 | UI shows lower confidence when large (e.g. >25 km). 0 for a monitor point; for an `idw` row, the distance to the nearest monitor used. |
 | `is_shadow` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = test model run. Never shown to users or used for alerts. |
 | `feature_snapshot` | JSONB |  | Top 5–10 feature values for the "Why?" panel. Written once, read per forecast. |
 
