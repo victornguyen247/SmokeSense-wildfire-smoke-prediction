@@ -124,18 +124,20 @@ User locations are snapped to an H3 cell (resolution 7, \~5 km²) so neighbours 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
 | `id` | TEXT | PK | UUIDv7 |
-| `kind` | TEXT | NOT NULL, CHECK IN ('city','zip','grid_cell','adhoc') |  |
+| `kind` | TEXT | NOT NULL, CHECK IN ('city','zip','grid_cell','adhoc','monitor') | `'monitor'`: an AirNow monitor forecast point (Stage A of the serving contract, `docs/ml/serving-contract.md`) |
 | `label` | TEXT | NOT NULL | Display name: `"Sacramento, CA"`, `"95814"`, H3 cell id |
 | `h3_cell` | TEXT |  | H3 cell identifier at resolution 7 |
 | `city_id` | TEXT | FK → cities(id), nullable | NULL for rural points with no associated city |
 | `geom` | GEOGRAPHY(POINT,4326) | NOT NULL | The point the model predicts for |
+| `monitor_id` | TEXT | FK → monitors(id), UNIQUE where not null | Set exactly when `kind = 'monitor'` (CHECK) |
+| `cell_geom` | GEOGRAPHY(POLYGON,4326) |  | Grid-cell polygon for the map; `geom` stays the centroid. Filled by GEO-02. |
 | `timezone` | TEXT | NOT NULL | IANA zone — used for local solar hour feature and display |
 | `always_forecast` | BOOLEAN | NOT NULL, DEFAULT TRUE | TRUE = forecast every cycle. FALSE = only while users keep requesting it |
 | `last_requested_at` | TIMESTAMPTZ |  | UTC — inference skips non-always points not requested in 7 days |
 | `active` | BOOLEAN | NOT NULL, DEFAULT TRUE | Soft-disable flag |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
 
-**Indexes:** `PRIMARY KEY (id)`, `GiST (geom)`, `INDEX (city_id)`, `INDEX (always_forecast, last_requested_at)`
+**Indexes:** `PRIMARY KEY (id)`, `GiST (geom)`, `GiST (cell_geom)`, `INDEX (city_id)`, `INDEX (always_forecast, last_requested_at)`, `UNIQUE (monitor_id) WHERE monitor_id IS NOT NULL`
 
 ---
 
@@ -368,6 +370,7 @@ To promote a model: set the old `production` row to `retired` and the new `shado
 | `training_data_uri` | TEXT |  | S3 path of the Parquet training snapshot |
 | `training_data_hash` | TEXT |  | Hash of that snapshot — reproducibility audit |
 | `backtest_metrics` | JSONB |  | MAE/RMSE per horizon and per pilot event |
+| `thresholds` | JSONB |  | Per-horizon alert thresholds (`{"1": 35.5, "3": 29.5, …}`), copied from `release.json` at registration so the API never reads model files. Model alert thresholds, not EPA AQI cutoffs. |
 | `status` | TEXT | NOT NULL, CHECK IN ('shadow','production','retired') | Max one `production` row per `model_name` — enforced by partial unique index |
 | `notes` | TEXT |  | Free text: what changed in this version |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
@@ -394,7 +397,8 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 | `pm25_predicted` | FLOAT | NOT NULL, CHECK >= 0 | µg/m³ |
 | `pm25_lower` | FLOAT | CHECK >= 0 | Lower bound of prediction interval (stretch goal) |
 | `pm25_upper` | FLOAT | CHECK >= 0 | Upper bound |
-| `nearest_monitor_dist_km` | FLOAT | CHECK > 0 | UI shows lower confidence when large (e.g. >25 km). Copied from `point_weather_map` at write time. |
+| `source` | TEXT | NOT NULL, CHECK IN ('v2','persistence','fallback','idw') | How the value was made. `v2` / `persistence` / `fallback`: `predict_v2` at a monitor point (Stage A). `idw`: interpolated from nearby Stage A forecasts at a grid cell (Stage B). |
+| `nearest_monitor_dist_km` | FLOAT | NOT NULL, CHECK >= 0 | UI shows lower confidence when large (e.g. >25 km). 0 for a monitor point; for an `idw` row, the distance to the nearest monitor used. |
 | `is_shadow` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = test model run. Never shown to users or used for alerts. |
 | `feature_snapshot` | JSONB |  | Top 5–10 feature values for the "Why?" panel. Written once, read per forecast. |
 
