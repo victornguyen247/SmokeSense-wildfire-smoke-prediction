@@ -1,0 +1,125 @@
+{
+  "issued_at": "2024-07-27T18:00:00Z",
+  "model_key": "baseline_v2/1.0.0",
+  "aqi_table_version": "epa-2024",
+  "query": {
+    "lat": 39.7285,
+    "lon": -121.8375,
+    "zip": null,
+    "zip_area_km2": null
+  },
+  "cell": {
+    "forecast_point_id": "0190f559-7900-7b33-8580-2ba70b2a4d73",
+    "h3_cell": "872814b4dffffff",
+    "centroid": {
+      "lat": 39.73094,
+      "lon": -121.8342
+    },
+    "has_forecast": true,
+    "no_forecast_reason": null,
+    "forecasts": [
+      {
+        "horizon_hours": 1,
+        "target_time": "2024-07-27T19:00:00Z",
+        "pm25": 89.3,
+        "aqi_category": "unhealthy",
+        "method": "interpolated",
+        "source": "idw",
+        "nearest_monitor_dist_km": 3.5
+      },
+      {
+        "horizon_hours": 3,
+        "target_time": "2024-07-27T21:00:00Z",
+        "pm25": 96.1,
+        "aqi_category": "unhealthy",
+        "method": "interpolated",
+        "source": "idw",
+        "nearest_monitor_dist_km": 3.5
+      },
+      {
+        "horizon_hours": 6,
+        "target_time": "2024-07-28T00:00:00Z",
+        "pm25": 105.7,
+        "aqi_category": "unhealthy",
+        "method": "interpolated",
+        "source": "idw",
+        "nearest_monitor_dist_km": 3.5
+      },
+      {
+        "horizon_hours": 12,
+        "target_time": "2024-07-28T06:00:00Z",
+        "pm25": 80.2,
+        "aqi_category": "unhealthy",
+        "method": "interpolated",
+        "source": "idw",
+        "nearest_monitor_dist_km": 3.5
+      },
+      {
+        "horizon_hours": 24,
+        "target_time": "2024-07-28T18:00:00Z",
+        "pm25": 91.9,
+        "aqi_category": "unhealthy",
+        "method": "interpolated",
+        "source": "idw",
+        "nearest_monitor_dist_km": 3.5
+      }
+    ]
+  },
+  "nearest_monitor": {
+    "forecast_point_id": "0190f559-7900-767d-87fc-5cdd4eb424e9",
+    "aqs_code": "060070008",
+    "name": "Chico - East",
+    "location": {
+      "lat": 39.76168,
+      "lon": -121.84047
+    },
+    "distance_km": 3.7,
+    "forecasts": [
+      {
+        "horizon_hours": 1,
+        "target_time": "2024-07-27T19:00:00Z",
+        "pm25": 88.4,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 3,
+        "target_time": "2024-07-27T21:00:00Z",
+        "pm25": 95.1,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 6,
+        "target_time": "2024-07-28T00:00:00Z",
+        "pm25": 104.7,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 12,
+        "target_time": "2024-07-28T06:00:00Z",
+        "pm25": 79.6,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 24,
+        "target_time": "2024-07-28T18:00:00Z",
+        "pm25": 91.2,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      }
+    ]
+  }
+}

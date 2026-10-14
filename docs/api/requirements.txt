@@ -1,0 +1,7 @@
+# Pinned for docs/api/validate.py (CI job: api-spec).
+openapi-spec-validator==0.7.1
+jsonschema==4.23.0
+referencing==0.36.2
+PyYAML==6.0.2
+# Makes `format: date-time` an actual check (validate.py enables format checking).
+rfc3339-validator==0.1.4

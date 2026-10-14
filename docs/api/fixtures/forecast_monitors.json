@@ -1,0 +1,150 @@
+{
+  "type": "FeatureCollection",
+  "issued_at": "2024-07-27T18:00:00Z",
+  "model_key": "baseline_v2/1.0.0",
+  "aqi_table_version": "epa-2024",
+  "horizon_hours": 1,
+  "target_time": "2024-07-27T19:00:00Z",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.84047,
+          39.76168
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-767d-87fc-5cdd4eb424e9",
+        "aqs_code": "060070008",
+        "name": "Chico - East",
+        "pm25": 88.4,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.60791,
+          39.75786
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-7bdd-87ad-df60ab6a8ba3",
+        "aqs_code": "060072003",
+        "name": "Paradise - Clark Road",
+        "pm25": 131.6,
+        "aqi_category": "very_unhealthy",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.25567,
+          40.17092
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-75e1-8a73-0c8edfac71bb",
+        "aqs_code": "061030007",
+        "name": "Red Bluff - Walnut office",
+        "pm25": 61.2,
+        "aqi_category": "unhealthy",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.19083,
+          39.53387
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-7474-87a8-339a851d7b57",
+        "aqs_code": "060210003",
+        "name": "Willows-Colusa",
+        "pm25": 42.7,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.09959,
+          38.93568
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-72ec-86c7-df1d675fe058",
+        "aqs_code": "060610003",
+        "name": "Auburn",
+        "pm25": 17.9,
+        "aqi_category": "moderate",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.9528,
+          39.1003
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-7a5b-8e85-8dba3816dac8",
+        "aqs_code": "060610004",
+        "name": "Colfax",
+        "pm25": 21.3,
+        "aqi_category": "moderate",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.94111,
+          40.73472
+        ]
+      },
+      "properties": {
+        "forecast_point_id": "0190f559-7900-745f-8c32-15c5a8f3d61e",
+        "aqs_code": "061050002",
+        "name": "Weaverville",
+        "pm25": 33.0,
+        "aqi_category": "moderate",
+        "method": "model",
+        "source": "fallback",
+        "nearest_monitor_dist_km": 0.0
+      }
+    }
+  ]
+}
