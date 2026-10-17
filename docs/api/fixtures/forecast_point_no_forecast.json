@@ -1,0 +1,79 @@
+{
+  "issued_at": "2024-07-27T18:00:00Z",
+  "model_key": "baseline_v2/1.0.0",
+  "aqi_table_version": "epa-2024",
+  "query": {
+    "lat": 39.75,
+    "lon": -122.85,
+    "zip": null,
+    "zip_area_km2": null
+  },
+  "cell": {
+    "forecast_point_id": "grid-ca-epsg3310-12500m-r+000015-c-000020-p00",
+    "centroid": {
+      "lat": 39.72667,
+      "lon": -122.84552
+    },
+    "has_forecast": false,
+    "no_forecast_reason": "no_monitor_within_50km",
+    "nearest_monitor_dist_km": 60.0,
+    "forecasts": []
+  },
+  "nearest_monitor": {
+    "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
+    "aqs_code": "060210003",
+    "name": "Willows-Colusa",
+    "location": {
+      "lat": 39.53387,
+      "lon": -122.19083
+    },
+    "distance_km": 61.3,
+    "forecasts": [
+      {
+        "horizon_hours": 1,
+        "target_time": "2024-07-27T19:00:00Z",
+        "pm25": 42.7,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "persistence",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 3,
+        "target_time": "2024-07-27T21:00:00Z",
+        "pm25": 46.9,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 6,
+        "target_time": "2024-07-28T00:00:00Z",
+        "pm25": 51.8,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 12,
+        "target_time": "2024-07-28T06:00:00Z",
+        "pm25": 38.2,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      },
+      {
+        "horizon_hours": 24,
+        "target_time": "2024-07-28T18:00:00Z",
+        "pm25": 44.6,
+        "aqi_category": "unhealthy_sensitive",
+        "method": "model",
+        "source": "v2",
+        "nearest_monitor_dist_km": 0.0
+      }
+    ]
+  }
+}

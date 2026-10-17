@@ -1,0 +1,4 @@
+{
+  "code": "out_of_scope",
+  "message": "Point (45.52, -122.68) is outside California; SmokeSense only forecasts for California."
+}
