@@ -4,7 +4,7 @@
   "window_hours": 72,
   "window_start": "2024-07-24T18:40:00Z",
   "window_end": "2024-07-27T18:40:00Z",
-  "detection_count": 33,
+  "detection_count": 30,
   "features": [
     {
       "type": "Feature",
@@ -71,13 +71,13 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.80239,
-          39.91453
+          -121.80144,
+          39.84072
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7a36-88e8-9961bf1ae86d",
-        "detected_at": "2024-07-26T21:18:00Z",
+        "detection_id": "0190ebb7-0ac0-7916-8fbc-3c9815a09529",
+        "detected_at": "2024-07-25T21:06:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
         "confidence": "nominal",
@@ -91,13 +91,13 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.62027,
-          40.04578
+          -121.69216,
+          39.91947
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7ef5-85b2-a3490ce8d4f6",
-        "detected_at": "2024-07-26T21:18:00Z",
+        "detection_id": "0190ebb7-0ac0-7e67-83ce-10601ea4f33e",
+        "detected_at": "2024-07-25T21:06:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
         "confidence": "nominal",
@@ -111,13 +111,13 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.66699,
-          39.94197
+          -121.72019,
+          39.85718
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7fec-8714-04f97908d86a",
-        "detected_at": "2024-07-26T21:18:00Z",
+        "detection_id": "0190ebb7-0ac0-78ea-8e88-6a644436ec89",
+        "detected_at": "2024-07-25T21:06:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
         "confidence": "nominal",
@@ -131,13 +131,13 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.80745,
-          40.05601
+          -121.80447,
+          39.92561
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-750c-834a-58389d1f1210",
-        "detected_at": "2024-07-26T21:18:00Z",
+        "detection_id": "0190ebb7-0ac0-714e-8854-fcf07e3f6255",
+        "detected_at": "2024-07-25T21:06:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
         "confidence": "nominal",
@@ -151,18 +151,118 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.78377,
-          39.98119
+          -121.78702,
+          39.94095
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7af8-8e3c-a650fea5000b",
-        "detected_at": "2024-07-26T21:18:00Z",
+        "detection_id": "0190ee5a-b380-7d02-8e42-f8130bb9d446",
+        "detected_at": "2024-07-26T09:24:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
         "frp_mw": 19.8,
+        "daynight": "N"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.64398,
+          40.00953
+        ]
+      },
+      "properties": {
+        "detection_id": "0190ee5a-b380-70a3-8b2c-ba5e6c56d4bd",
+        "detected_at": "2024-07-26T09:24:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 47.6,
+        "daynight": "N"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.70495,
+          40.00542
+        ]
+      },
+      "properties": {
+        "detection_id": "0190ee5a-b380-7420-87e2-f8ab9523e46a",
+        "detected_at": "2024-07-26T09:24:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "high",
+        "confidence_raw": "h",
+        "frp_mw": 369.9,
+        "daynight": "N"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.7379,
+          39.94134
+        ]
+      },
+      "properties": {
+        "detection_id": "0190ee5a-b380-7557-8a5c-8f9ad3772b04",
+        "detected_at": "2024-07-26T09:24:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 64.9,
+        "daynight": "N"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.76054,
+          39.88581
+        ]
+      },
+      "properties": {
+        "detection_id": "0190ee5a-b380-7154-84e9-6b12a0bb7388",
+        "detected_at": "2024-07-26T09:24:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 13.7,
+        "daynight": "N"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.66715,
+          39.88926
+        ]
+      },
+      "properties": {
+        "detection_id": "0190f0e8-6340-7a36-88e8-9961bf1ae86d",
+        "detected_at": "2024-07-26T21:18:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 78.6,
         "daynight": "D"
       }
     },
@@ -171,8 +271,88 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.60497,
-          40.06692
+          -121.74086,
+          39.97425
+        ]
+      },
+      "properties": {
+        "detection_id": "0190f0e8-6340-7ef5-85b2-a3490ce8d4f6",
+        "detected_at": "2024-07-26T21:18:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "high",
+        "confidence_raw": "h",
+        "frp_mw": 154.5,
+        "daynight": "D"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.77731,
+          39.96256
+        ]
+      },
+      "properties": {
+        "detection_id": "0190f0e8-6340-7fec-8714-04f97908d86a",
+        "detected_at": "2024-07-26T21:18:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 44.5,
+        "daynight": "D"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.63579,
+          39.95117
+        ]
+      },
+      "properties": {
+        "detection_id": "0190f0e8-6340-750c-834a-58389d1f1210",
+        "detected_at": "2024-07-26T21:18:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 81.7,
+        "daynight": "D"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.80375,
+          40.06086
+        ]
+      },
+      "properties": {
+        "detection_id": "0190f0e8-6340-7af8-8e3c-a650fea5000b",
+        "detected_at": "2024-07-26T21:18:00Z",
+        "satellite": "VIIRS_SNPP",
+        "product": "NRT",
+        "confidence": "low",
+        "confidence_raw": "l",
+        "frp_mw": 3.2,
+        "daynight": "D"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.66999,
+          40.03303
         ]
       },
       "properties": {
@@ -182,7 +362,7 @@
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
-        "frp_mw": 47.6,
+        "frp_mw": 51.7,
         "daynight": "D"
       }
     },
@@ -191,248 +371,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.66118,
-          40.08177
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f0f3-5fc0-7e1e-8929-622106d10ca4",
-        "detected_at": "2024-07-26T21:30:00Z",
-        "satellite": "MODIS_Aqua",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "63",
-        "frp_mw": 119.9,
-        "daynight": "D"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.70237,
-          40.00167
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f0f3-5fc0-7218-8b87-00edc2da7351",
-        "detected_at": "2024-07-26T21:30:00Z",
-        "satellite": "MODIS_Aqua",
-        "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "88",
-        "frp_mw": 185.1,
-        "daynight": "D"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.74936,
-          39.99027
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f0f3-5fc0-7d86-8fec-b96bc6053db4",
-        "detected_at": "2024-07-26T21:30:00Z",
-        "satellite": "MODIS_Aqua",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "63",
-        "frp_mw": 115.3,
-        "daynight": "D"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.79796,
-          39.90865
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f0f3-5fc0-7fd9-8049-016344954cd4",
-        "detected_at": "2024-07-26T21:30:00Z",
-        "satellite": "MODIS_Aqua",
-        "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "95",
-        "frp_mw": 419.2,
-        "daynight": "D"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.56613,
-          40.06528
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-70df-8a47-2eda04030bb8",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 27.1,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.77782,
-          40.10866
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7c72-8436-f81d27206c62",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "h",
-        "frp_mw": 299.6,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.73513,
-          40.04352
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7b2b-8c08-9c3da53f8ec1",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 85.7,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.72967,
-          40.09764
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7b1f-8dd6-3dabdb08bd20",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 118.8,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.701,
-          40.11829
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-75cd-8fe4-b55751c38bb5",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 121.8,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.46181,
-          39.9542
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7d9f-893e-19b9d7b52a23",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 11.4,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.77193,
-          40.01998
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7165-8950-062109ab32dc",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "h",
-        "frp_mw": 184.3,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.68293,
-          40.10906
-        ]
-      },
-      "properties": {
-        "detection_id": "0190f365-9840-7b17-80cb-3bff8a85e90a",
-        "detected_at": "2024-07-27T08:54:00Z",
-        "satellite": "VIIRS_NOAA20",
-        "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 50.5,
-        "daynight": "N"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.54075,
-          39.97587
+          -121.61598,
+          39.98326
         ]
       },
       "properties": {
@@ -440,9 +380,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "h",
-        "frp_mw": 376.9,
+        "confidence": "low",
+        "confidence_raw": "l",
+        "frp_mw": 6.7,
         "daynight": "N"
       }
     },
@@ -451,8 +391,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.76468,
-          40.13401
+          -121.42265,
+          40.19878
         ]
       },
       "properties": {
@@ -462,7 +402,7 @@
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
-        "frp_mw": 126.0,
+        "frp_mw": 134.7,
         "daynight": "N"
       }
     },
@@ -471,8 +411,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.69748,
-          40.0176
+          -121.68229,
+          39.93546
         ]
       },
       "properties": {
@@ -480,9 +420,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 29.0,
+        "confidence": "high",
+        "confidence_raw": "h",
+        "frp_mw": 345.8,
         "daynight": "N"
       }
     },
@@ -491,8 +431,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.6533,
-          40.10193
+          -121.42711,
+          40.05313
         ]
       },
       "properties": {
@@ -502,7 +442,7 @@
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
-        "frp_mw": 56.2,
+        "frp_mw": 116.0,
         "daynight": "N"
       }
     },
@@ -511,8 +451,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.4061,
-          40.1713
+          -121.72035,
+          40.01802
         ]
       },
       "properties": {
@@ -522,7 +462,7 @@
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
-        "frp_mw": 66.0,
+        "frp_mw": 26.0,
         "daynight": "N"
       }
     },
@@ -531,8 +471,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.43755,
-          39.99217
+          -121.41989,
+          40.04449
         ]
       },
       "properties": {
@@ -540,9 +480,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "low",
-        "confidence_raw": "l",
-        "frp_mw": 2.0,
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 9.2,
         "daynight": "N"
       }
     },
@@ -551,8 +491,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.56274,
-          40.15114
+          -121.72887,
+          39.94344
         ]
       },
       "properties": {
@@ -560,9 +500,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "h",
-        "frp_mw": 290.2,
+        "confidence": "nominal",
+        "confidence_raw": "n",
+        "frp_mw": 55.9,
         "daynight": "N"
       }
     },
@@ -571,8 +511,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.56776,
-          40.09387
+          -121.75713,
+          40.0171
         ]
       },
       "properties": {
@@ -580,9 +520,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 12.7,
+        "confidence": "high",
+        "confidence_raw": "h",
+        "frp_mw": 229.9,
         "daynight": "N"
       }
     },
@@ -591,8 +531,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.68077,
-          40.18046
+          -121.77186,
+          39.99238
         ]
       },
       "properties": {
@@ -600,9 +540,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "high",
-        "confidence_raw": "h",
-        "frp_mw": 305.0,
+        "confidence": "low",
+        "confidence_raw": "l",
+        "frp_mw": 2.8,
         "daynight": "N"
       }
     },
@@ -611,8 +551,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.71631,
-          39.99008
+          -121.73664,
+          40.13305
         ]
       },
       "properties": {
@@ -620,9 +560,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 72.9,
+        "confidence": "low",
+        "confidence_raw": "l",
+        "frp_mw": 5.2,
         "daynight": "N"
       }
     },
@@ -631,8 +571,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.62203,
-          39.99572
+          -121.40592,
+          40.00472
         ]
       },
       "properties": {
@@ -640,9 +580,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "nominal",
-        "confidence_raw": "n",
-        "frp_mw": 64.5,
+        "confidence": "low",
+        "confidence_raw": "l",
+        "frp_mw": 5.5,
         "daynight": "N"
       }
     },
@@ -651,8 +591,8 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -121.72179,
-          39.99472
+          -121.63536,
+          40.16214
         ]
       },
       "properties": {
@@ -660,9 +600,9 @@
         "detected_at": "2024-07-27T09:42:00Z",
         "satellite": "VIIRS_SNPP",
         "product": "NRT",
-        "confidence": "low",
-        "confidence_raw": "l",
-        "frp_mw": 3.4,
+        "confidence": "high",
+        "confidence_raw": "h",
+        "frp_mw": 247.7,
         "daynight": "N"
       }
     }

@@ -78,6 +78,12 @@ jobs:
       - name: Validate spec and fixtures
         run: python docs/api/validate.py
 
+      # The fixtures are generated; fail if gen_fixtures.py and the committed JSON disagree.
+      - name: Check fixtures match gen_fixtures.py
+        run: |
+          python docs/api/gen_fixtures.py "$RUNNER_TEMP/fixtures"
+          diff -r "$RUNNER_TEMP/fixtures" docs/api/fixtures
+
   frontend:
     name: Frontend (lint + build)
     runs-on: ubuntu-latest

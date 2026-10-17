@@ -1,1428 +1,1906 @@
 {
-  "type": "FeatureCollection",
   "issued_at": "2024-07-27T18:00:00Z",
   "model_key": "baseline_v2/1.0.0",
   "aqi_table_version": "epa-2024",
-  "horizon_hours": 1,
-  "target_time": "2024-07-27T19:00:00Z",
+  "grid_key": "grid-ca-epsg3310-12500m",
   "method": "interpolated",
   "source": "idw",
-  "h3_resolution": 7,
   "bbox": [
-    -122.2,
-    39.6,
-    -121.6,
-    39.68
+    -122.95,
+    39.4,
+    -121.5,
+    40.1
   ],
-  "cell_count": 88,
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.60329,
-          39.64854
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b01ffffff",
-        "pm25": 122.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 12.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.60212,
-          39.62652
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b05ffffff",
-        "pm25": 120.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.63012,
-          39.67974
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b08ffffff",
-        "pm25": 124.6,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 8.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.62894,
-          39.65773
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b0cffffff",
-        "pm25": 122.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 11.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.6546,
-          39.66691
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b0dffffff",
-        "pm25": 118.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 10.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.60446,
-          39.67056
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b0effffff",
-        "pm25": 124.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 9.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.60095,
-          39.6045
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b23ffffff",
-        "pm25": 119.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.65224,
-          39.62288
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b28ffffff",
-        "pm25": 112.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.67788,
-          39.63206
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b29ffffff",
-        "pm25": 110.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.62777,
-          39.63571
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b2affffff",
-        "pm25": 116.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.65342,
-          39.6449
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b2bffffff",
-        "pm25": 115.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.65106,
-          39.60086
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b2cffffff",
-        "pm25": 110.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.67669,
-          39.61004
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b2dffffff",
-        "pm25": 108.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.62659,
-          39.61369
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b2effffff",
-        "pm25": 113.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.77926,
-          39.64669
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b60ffffff",
-        "pm25": 98.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.8049,
-          39.65584
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b61ffffff",
-        "pm25": 95.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 12.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.75482,
-          39.65955
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b62ffffff",
-        "pm25": 101.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.78047,
-          39.6687
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b63ffffff",
-        "pm25": 97.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 11.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.77805,
-          39.62469
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b64ffffff",
-        "pm25": 98.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.80369,
-          39.63383
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b65ffffff",
-        "pm25": 95.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.75362,
-          39.63754
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b66ffffff",
-        "pm25": 101.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.83054,
-          39.66497
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b6cffffff",
-        "pm25": 93.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 10.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.85619,
-          39.6741
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b6dffffff",
-        "pm25": 91.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 9.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.80611,
-          39.67784
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b6effffff",
-        "pm25": 94.4,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 9.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.70472,
-          39.66324
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b70ffffff",
-        "pm25": 110.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.73037,
-          39.6724
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b71ffffff",
-        "pm25": 105.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.68025,
-          39.67608
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b72ffffff",
-        "pm25": 115.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 11.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.70353,
-          39.64123
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b74ffffff",
-        "pm25": 108.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.72917,
-          39.65039
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b75ffffff",
-        "pm25": 105.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.67907,
-          39.65407
-        ]
-      },
-      "properties": {
-        "h3_cell": "872814b76ffffff",
-        "pm25": 113.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.77684,
-          39.60267
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334caffffff",
-        "pm25": 97.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.80247,
-          39.61183
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334cbffffff",
-        "pm25": 95.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.72678,
-          39.60637
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334d8ffffff",
-        "pm25": 103.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 19.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.75241,
-          39.61553
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334d9ffffff",
-        "pm25": 100.6,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.70233,
-          39.61922
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334daffffff",
-        "pm25": 106.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.72797,
-          39.62838
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728334dbffffff",
-        "pm25": 104.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.10754,
-          39.6771
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833600ffffff",
-        "pm25": 65.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.10627,
-          39.65512
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833604ffffff",
-        "pm25": 61.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.13189,
-          39.66418
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833605ffffff",
-        "pm25": 59.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.08192,
-          39.66803
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833606ffffff",
-        "pm25": 66.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.03192,
-          39.67186
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833614ffffff",
-        "pm25": 75.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 19.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.12933,
-          39.62022
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833620ffffff",
-        "pm25": 52.1,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 11.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.15494,
-          39.62929
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833621ffffff",
-        "pm25": 51.6,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 11.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.10499,
-          39.63314
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833622ffffff",
-        "pm25": 57.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.13061,
-          39.64221
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833623ffffff",
-        "pm25": 55.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.15365,
-          39.6073
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833625ffffff",
-        "pm25": 48.3,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 8.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.10371,
-          39.61116
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833626ffffff",
-        "pm25": 53.4,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 11.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.18184,
-          39.66031
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833628ffffff",
-        "pm25": 50.4,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 14.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.15751,
-          39.67324
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283362affffff",
-        "pm25": 59.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.18055,
-          39.63834
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283362cffffff",
-        "pm25": 48.0,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 11.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.15622,
-          39.65126
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283362effffff",
-        "pm25": 55.3,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 13.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.05502,
-          39.63697
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833630ffffff",
-        "pm25": 65.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.08064,
-          39.64605
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833631ffffff",
-        "pm25": 62.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.03066,
-          39.64988
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833632ffffff",
-        "pm25": 71.6,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.05629,
-          39.65896
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833633ffffff",
-        "pm25": 69.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.05376,
-          39.61499
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833634ffffff",
-        "pm25": 61.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.07937,
-          39.62407
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833635ffffff",
-        "pm25": 58.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.0294,
-          39.62789
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833636ffffff",
-        "pm25": 68.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.0781,
-          39.60208
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283371bffffff",
-        "pm25": 55.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 12.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.17926,
-          39.61636
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833752ffffff",
-        "pm25": 46.0,
-        "aqi_category": "unhealthy_sensitive",
-        "nearest_monitor_dist_km": 9.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.92816,
-          39.61347
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833780ffffff",
-        "pm25": 82.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.95379,
-          39.62259
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833781ffffff",
-        "pm25": 79.8,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.90377,
-          39.62636
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833782ffffff",
-        "pm25": 86.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.9294,
-          39.63547
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833783ffffff",
-        "pm25": 84.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.95254,
-          39.60059
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833785ffffff",
-        "pm25": 77.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 20.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.90254,
-          39.60435
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833786ffffff",
-        "pm25": 84.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.98066,
-          39.65368
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833788ffffff",
-        "pm25": 79.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.00629,
-          39.66277
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833789ffffff",
-        "pm25": 77.5,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.95628,
-          39.66657
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283378affffff",
-        "pm25": 84.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.98191,
-          39.67567
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283378bffffff",
-        "pm25": 82.4,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.97941,
-          39.63169
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283378cffffff",
-        "pm25": 77.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.00504,
-          39.64079
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283378dffffff",
-        "pm25": 74.4,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 19.5
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.95503,
-          39.64458
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283378effffff",
-        "pm25": 82.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.3
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.85374,
-          39.63011
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833790ffffff",
-        "pm25": 91.0,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.87937,
-          39.63923
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833791ffffff",
-        "pm25": 89.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 14.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.82932,
-          39.64297
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833792ffffff",
-        "pm25": 93.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.85496,
-          39.65211
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833793ffffff",
-        "pm25": 91.4,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 12.2
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.85252,
-          39.6081
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833794ffffff",
-        "pm25": 90.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 17.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.87814,
-          39.61723
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833795ffffff",
-        "pm25": 88.2,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.4
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.82811,
-          39.62097
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833796ffffff",
-        "pm25": 92.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 15.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.90624,
-          39.67035
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833798ffffff",
-        "pm25": 88.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 11.6
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.93188,
-          39.67945
-        ]
-      },
-      "properties": {
-        "h3_cell": "872833799ffffff",
-        "pm25": 87.4,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 12.0
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.90501,
-          39.64835
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283379cffffff",
-        "pm25": 87.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.8
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.93064,
-          39.65747
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283379dffffff",
-        "pm25": 86.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 13.9
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.8806,
-          39.66123
-        ]
-      },
-      "properties": {
-        "h3_cell": "87283379effffff",
-        "pm25": 89.9,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 11.7
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.02814,
-          39.6059
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728337a9ffffff",
-        "pm25": 64.7,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 16.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -121.97816,
-          39.6097
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728337aaffffff",
-        "pm25": 74.3,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 20.1
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -122.00378,
-          39.6188
-        ]
-      },
-      "properties": {
-        "h3_cell": "8728337abffffff",
-        "pm25": 71.1,
-        "aqi_category": "unhealthy",
-        "nearest_monitor_dist_km": 18.6
-      }
+  "horizons": [
+    {
+      "horizon_hours": 1,
+      "target_time": "2024-07-27T19:00:00Z",
+      "cells": [
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000011-p00",
+          "pm25": 114.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000012-p00",
+          "pm25": 92.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000013-p00",
+          "pm25": 81.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000014-p00",
+          "pm25": 66.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000015-p00",
+          "pm25": 47.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 16.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000016-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 15.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000017-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000018-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 33.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000019-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000011-p00",
+          "pm25": 117.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000012-p00",
+          "pm25": 100.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000013-p00",
+          "pm25": 87.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000014-p00",
+          "pm25": 67.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 19.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000015-p00",
+          "pm25": 44.4,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 7.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000016-p00",
+          "pm25": 43.4,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 5.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000017-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 18.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000018-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 30.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000019-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 43.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000011-p00",
+          "pm25": 122.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000012-p00",
+          "pm25": 111.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000013-p00",
+          "pm25": 93.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000014-p00",
+          "pm25": 78.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 18.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000015-p00",
+          "pm25": 55.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 12.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000016-p00",
+          "pm25": 46.5,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 11.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000017-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 20.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000018-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 32.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000019-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000011-p00",
+          "pm25": 129.1,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000012-p00",
+          "pm25": 123.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 6.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
+          "pm25": 88.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 2.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000014-p00",
+          "pm25": 87.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000015-p00",
+          "pm25": 73.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000016-p00",
+          "pm25": 57.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000017-p00",
+          "pm25": 54.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 29.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000018-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000019-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 48.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000011-p00",
+          "pm25": 123.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000012-p00",
+          "pm25": 116.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000013-p00",
+          "pm25": 94.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000014-p00",
+          "pm25": 87.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000015-p00",
+          "pm25": 78.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000016-p00",
+          "pm25": 63.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000017-p00",
+          "pm25": 60.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000018-p00",
+          "pm25": 52.4,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000011-p00",
+          "pm25": 117.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000012-p00",
+          "pm25": 111.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000013-p00",
+          "pm25": 97.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000014-p00",
+          "pm25": 89.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000015-p00",
+          "pm25": 74.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000016-p00",
+          "pm25": 63.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000017-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 27.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000018-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000019-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000011-p00",
+          "pm25": 113.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000012-p00",
+          "pm25": 99.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000013-p00",
+          "pm25": 91.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000014-p00",
+          "pm25": 79.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000015-p00",
+          "pm25": 64.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000016-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000017-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 17.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000018-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 28.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000019-p00",
+          "pm25": 61.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 40.5
+        }
+      ]
+    },
+    {
+      "horizon_hours": 3,
+      "target_time": "2024-07-27T21:00:00Z",
+      "cells": [
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000011-p00",
+          "pm25": 123.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000012-p00",
+          "pm25": 100.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000013-p00",
+          "pm25": 88.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000014-p00",
+          "pm25": 72.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000015-p00",
+          "pm25": 52.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 16.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000016-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 15.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000017-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000018-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 33.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000019-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000011-p00",
+          "pm25": 126.3,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000012-p00",
+          "pm25": 108.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000013-p00",
+          "pm25": 94.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000014-p00",
+          "pm25": 72.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 19.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000015-p00",
+          "pm25": 48.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 7.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000016-p00",
+          "pm25": 47.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 5.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000017-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 18.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000018-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 30.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000019-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 43.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000011-p00",
+          "pm25": 132.8,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 14.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000012-p00",
+          "pm25": 120.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000013-p00",
+          "pm25": 101.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000014-p00",
+          "pm25": 85.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 18.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000015-p00",
+          "pm25": 60.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 12.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000016-p00",
+          "pm25": 50.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 11.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000017-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 20.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000018-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 32.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000019-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000011-p00",
+          "pm25": 139.5,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000012-p00",
+          "pm25": 133.5,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
+          "pm25": 95.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 2.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000014-p00",
+          "pm25": 94.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000015-p00",
+          "pm25": 79.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000016-p00",
+          "pm25": 62.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000017-p00",
+          "pm25": 59.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 29.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000018-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000019-p00",
+          "pm25": 46.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 48.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000011-p00",
+          "pm25": 133.9,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 13.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000012-p00",
+          "pm25": 125.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000013-p00",
+          "pm25": 102.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000014-p00",
+          "pm25": 94.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000015-p00",
+          "pm25": 85.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000016-p00",
+          "pm25": 68.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000017-p00",
+          "pm25": 66.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000018-p00",
+          "pm25": 57.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 44.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000011-p00",
+          "pm25": 126.5,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 24.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000012-p00",
+          "pm25": 120.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000013-p00",
+          "pm25": 105.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000014-p00",
+          "pm25": 96.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000015-p00",
+          "pm25": 81.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000016-p00",
+          "pm25": 69.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000017-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 27.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000018-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000019-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000011-p00",
+          "pm25": 122.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000012-p00",
+          "pm25": 107.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000013-p00",
+          "pm25": 98.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000014-p00",
+          "pm25": 86.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000015-p00",
+          "pm25": 69.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000016-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000017-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 17.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000018-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 28.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000019-p00",
+          "pm25": 66.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 40.5
+        }
+      ]
+    },
+    {
+      "horizon_hours": 6,
+      "target_time": "2024-07-28T00:00:00Z",
+      "cells": [
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000011-p00",
+          "pm25": 132.1,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000012-p00",
+          "pm25": 108.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000013-p00",
+          "pm25": 95.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000014-p00",
+          "pm25": 78.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000015-p00",
+          "pm25": 57.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 16.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000016-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 15.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000017-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000018-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 33.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000019-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000011-p00",
+          "pm25": 135.2,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000012-p00",
+          "pm25": 117.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000013-p00",
+          "pm25": 102.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000014-p00",
+          "pm25": 79.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 19.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000015-p00",
+          "pm25": 53.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 7.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000016-p00",
+          "pm25": 52.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 5.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000017-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 18.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000018-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 30.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000019-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 43.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000011-p00",
+          "pm25": 141.6,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 14.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000012-p00",
+          "pm25": 129.1,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 14.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000013-p00",
+          "pm25": 110.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000014-p00",
+          "pm25": 93.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 18.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000015-p00",
+          "pm25": 66.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 12.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000016-p00",
+          "pm25": 56.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000017-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 20.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000018-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 32.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000019-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000011-p00",
+          "pm25": 148.1,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000012-p00",
+          "pm25": 142.1,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
+          "pm25": 105.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 2.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000014-p00",
+          "pm25": 103.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000015-p00",
+          "pm25": 86.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000016-p00",
+          "pm25": 68.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000017-p00",
+          "pm25": 65.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 29.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000018-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000019-p00",
+          "pm25": 51.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 48.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000011-p00",
+          "pm25": 142.6,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 13.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000012-p00",
+          "pm25": 134.3,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 13.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000013-p00",
+          "pm25": 111.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000014-p00",
+          "pm25": 103.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000015-p00",
+          "pm25": 92.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000016-p00",
+          "pm25": 75.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000017-p00",
+          "pm25": 72.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000018-p00",
+          "pm25": 62.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 44.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000011-p00",
+          "pm25": 135.3,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 24.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000012-p00",
+          "pm25": 129.7,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 24.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000013-p00",
+          "pm25": 113.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000014-p00",
+          "pm25": 104.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000015-p00",
+          "pm25": 88.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000016-p00",
+          "pm25": 75.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000017-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 27.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000018-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000019-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000011-p00",
+          "pm25": 131.8,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000012-p00",
+          "pm25": 115.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000013-p00",
+          "pm25": 106.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000014-p00",
+          "pm25": 93.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000015-p00",
+          "pm25": 76.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000016-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000017-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 17.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000018-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 28.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000019-p00",
+          "pm25": 72.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 40.5
+        }
+      ]
+    },
+    {
+      "horizon_hours": 12,
+      "target_time": "2024-07-28T06:00:00Z",
+      "cells": [
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000011-p00",
+          "pm25": 99.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000012-p00",
+          "pm25": 81.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000013-p00",
+          "pm25": 71.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000014-p00",
+          "pm25": 58.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000015-p00",
+          "pm25": 42.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 16.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000016-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 15.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000017-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000018-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 33.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000019-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000011-p00",
+          "pm25": 101.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000012-p00",
+          "pm25": 87.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000013-p00",
+          "pm25": 77.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000014-p00",
+          "pm25": 59.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 19.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000015-p00",
+          "pm25": 39.8,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 7.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000016-p00",
+          "pm25": 38.9,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 5.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000017-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 18.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000018-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 30.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000019-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 43.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000011-p00",
+          "pm25": 105.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000012-p00",
+          "pm25": 96.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000013-p00",
+          "pm25": 82.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000014-p00",
+          "pm25": 70.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 18.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000015-p00",
+          "pm25": 49.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 12.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000016-p00",
+          "pm25": 41.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 11.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000017-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 20.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000018-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 32.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000019-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000011-p00",
+          "pm25": 110.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 6.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000012-p00",
+          "pm25": 106.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 6.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
+          "pm25": 79.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 2.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000014-p00",
+          "pm25": 78.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000015-p00",
+          "pm25": 64.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000016-p00",
+          "pm25": 51.1,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000017-p00",
+          "pm25": 49.1,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 29.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000018-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000019-p00",
+          "pm25": 38.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 48.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000011-p00",
+          "pm25": 106.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000012-p00",
+          "pm25": 100.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000013-p00",
+          "pm25": 84.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000014-p00",
+          "pm25": 78.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000015-p00",
+          "pm25": 69.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000016-p00",
+          "pm25": 56.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000017-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000018-p00",
+          "pm25": 46.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000011-p00",
+          "pm25": 101.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000012-p00",
+          "pm25": 97.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000013-p00",
+          "pm25": 85.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000014-p00",
+          "pm25": 78.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000015-p00",
+          "pm25": 66.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000016-p00",
+          "pm25": 56.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000017-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 27.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000018-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 35.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000019-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000011-p00",
+          "pm25": 98.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000012-p00",
+          "pm25": 87.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000013-p00",
+          "pm25": 80.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000014-p00",
+          "pm25": 70.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000015-p00",
+          "pm25": 57.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000016-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 10.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000017-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 17.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000018-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 28.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000019-p00",
+          "pm25": 54.3,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 40.5
+        }
+      ]
+    },
+    {
+      "horizon_hours": 24,
+      "target_time": "2024-07-28T18:00:00Z",
+      "cells": [
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000011-p00",
+          "pm25": 113.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000012-p00",
+          "pm25": 92.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 39.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000013-p00",
+          "pm25": 82.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000014-p00",
+          "pm25": 67.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000015-p00",
+          "pm25": 49.7,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 16.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000016-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 15.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000017-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 23.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000018-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 33.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000012-c-000019-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000011-p00",
+          "pm25": 115.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000012-p00",
+          "pm25": 100.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000013-p00",
+          "pm25": 88.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 26.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000014-p00",
+          "pm25": 68.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 19.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000015-p00",
+          "pm25": 46.4,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 7.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000016-p00",
+          "pm25": 45.4,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 5.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000017-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 18.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000018-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 30.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000013-c-000019-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 43.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000011-p00",
+          "pm25": 120.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000012-p00",
+          "pm25": 110.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000013-p00",
+          "pm25": 94.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 14.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000014-p00",
+          "pm25": 80.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 18.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000015-p00",
+          "pm25": 56.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 12.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000016-p00",
+          "pm25": 48.5,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 11.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000017-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 20.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000018-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 32.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000014-c-000019-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000011-p00",
+          "pm25": 125.7,
+          "aqi_category": "very_unhealthy",
+          "nearest_monitor_dist_km": 6.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000012-p00",
+          "pm25": 120.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 6.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
+          "pm25": 91.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 2.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000014-p00",
+          "pm25": 89.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 11.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000015-p00",
+          "pm25": 74.7,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000016-p00",
+          "pm25": 59.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000017-p00",
+          "pm25": 56.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 29.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000018-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000015-c-000019-p00",
+          "pm25": 44.6,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 48.7
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000011-p00",
+          "pm25": 121.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000012-p00",
+          "pm25": 114.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 13.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000013-p00",
+          "pm25": 96.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000014-p00",
+          "pm25": 89.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000015-p00",
+          "pm25": 80.2,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000016-p00",
+          "pm25": 65.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000017-p00",
+          "pm25": 62.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 38.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000016-c-000018-p00",
+          "pm25": 54.2,
+          "aqi_category": "unhealthy_sensitive",
+          "nearest_monitor_dist_km": 44.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000011-p00",
+          "pm25": 115.6,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.9
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000012-p00",
+          "pm25": 111.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 24.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000013-p00",
+          "pm25": 98.1,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.3
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000014-p00",
+          "pm25": 90.3,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000015-p00",
+          "pm25": 76.4,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000016-p00",
+          "pm25": 65.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 23.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000017-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 27.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000018-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.2
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000017-c-000019-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 45.4
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000011-p00",
+          "pm25": 112.8,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000012-p00",
+          "pm25": 99.5,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 37.1
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000013-p00",
+          "pm25": 91.9,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 35.8
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000014-p00",
+          "pm25": 81.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 25.5
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000015-p00",
+          "pm25": 66.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 15.0
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000016-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 10.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000017-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 17.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000018-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 28.6
+        },
+        {
+          "id": "grid-ca-epsg3310-12500m-r+000018-c-000019-p00",
+          "pm25": 63.0,
+          "aqi_category": "unhealthy",
+          "nearest_monitor_dist_km": 40.5
+        }
+      ]
     }
   ]
 }

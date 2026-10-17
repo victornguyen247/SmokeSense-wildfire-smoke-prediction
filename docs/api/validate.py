@@ -2,7 +2,8 @@
 
 Run from anywhere: python docs/api/validate.py
 Fails if the spec is invalid, a fixture does not match its response schema, a fixture
-is not listed in FIXTURES, or an operation has no 200 fixture.
+is not listed in FIXTURES, an operation has no 200 fixture, or an error response does
+not use the shared Error schema.
 """
 
 import json
@@ -19,9 +20,12 @@ HERE = Path(__file__).resolve().parent
 SPEC_PATH = HERE / "openapi.yaml"
 FIXTURE_DIR = HERE / "fixtures"
 SPEC_URI = "urn:smokesense:openapi"
+HTTP_METHODS = {"get", "put", "post", "delete", "patch", "head", "options"}
+ERROR_SCHEMA = {"$ref": "#/components/schemas/Error"}
 
 # fixture file -> (path, method, status); a list when one body serves several operations
 FIXTURES = {
+    "grid_cells.json": ("/api/v1/grid/cells", "get", "200"),
     "forecast_grid.json": ("/api/v1/forecast/grid", "get", "200"),
     "forecast_point.json": ("/api/v1/forecast/point", "get", "200"),
     "forecast_point_no_forecast.json": ("/api/v1/forecast/point", "get", "200"),
@@ -31,6 +35,7 @@ FIXTURES = {
     "meta.json": ("/api/v1/meta", "get", "200"),
     "health.json": [("/health", "get", "200"), ("/api/v1/health", "get", "200")],
     "error_out_of_scope.json": ("/api/v1/forecast/point", "get", "404"),
+    "error_invalid_query.json": ("/api/v1/forecast/point", "get", "400"),
 }
 
 
@@ -38,13 +43,19 @@ def escape(token: str) -> str:
     return token.replace("~", "~0").replace("/", "~1")
 
 
-def schema_pointer(spec: dict, path: str, method: str, status: str) -> str:
-    """JSON pointer to the response's application/json schema, following a response $ref."""
+def resolve_response(spec: dict, path: str, method: str, status: str) -> tuple[str, dict]:
+    """JSON pointer to the response and the response itself, following a response $ref."""
     pointer = f"/paths/{escape(path)}/{method}/responses/{status}"
     response = spec["paths"][path][method]["responses"][status]
     if "$ref" in response:
         pointer = response["$ref"].removeprefix("#")
         response = spec["components"]["responses"][pointer.rsplit("/", 1)[1]]
+    return pointer, response
+
+
+def schema_pointer(spec: dict, path: str, method: str, status: str) -> str:
+    """JSON pointer to the response's application/json schema."""
+    pointer, response = resolve_response(spec, path, method, status)
     if "application/json" not in response.get("content", {}):
         raise KeyError(f"{method.upper()} {path} {status} has no application/json schema")
     return f"{pointer}/content/application~1json/schema"
@@ -67,9 +78,16 @@ def main() -> int:
     targets = {name: t if isinstance(t, list) else [t] for name, t in FIXTURES.items()}
     covered = {(p, m) for ts in targets.values() for p, m, s in ts if s == "200"}
     for path, ops in spec["paths"].items():
-        for method in ops:
+        for method in ops.keys() & HTTP_METHODS:
             if (path, method) not in covered:
                 errors.append(f"{method.upper()} {path}: no 200 fixture")
+            # Every 4xx/5xx must be the one Error shape, never FastAPI's 422 {"detail": [...]}.
+            for status in ops[method].get("responses", {}):
+                if status.startswith(("4", "5")):
+                    _, response = resolve_response(spec, path, method, status)
+                    schema = response.get("content", {}).get("application/json", {}).get("schema")
+                    if schema != ERROR_SCHEMA:
+                        errors.append(f"{method.upper()} {path} {status}: does not use the Error schema")
 
     for name, ts in targets.items():
         if name not in on_disk:

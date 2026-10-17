@@ -9,18 +9,18 @@
     "zip_area_km2": null
   },
   "cell": {
-    "forecast_point_id": "0190f559-7900-7be7-85fc-e05bc9bb221c",
-    "h3_cell": "8728065aeffffff",
+    "forecast_point_id": "grid-ca-epsg3310-12500m-r+000015-c-000020-p00",
     "centroid": {
-      "lat": 39.74853,
-      "lon": -122.86362
+      "lat": 39.72667,
+      "lon": -122.84552
     },
     "has_forecast": false,
     "no_forecast_reason": "no_monitor_within_50km",
+    "nearest_monitor_dist_km": 60.0,
     "forecasts": []
   },
   "nearest_monitor": {
-    "forecast_point_id": "0190f559-7900-7474-87a8-339a851d7b57",
+    "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
     "aqs_code": "060210003",
     "name": "Willows-Colusa",
     "location": {

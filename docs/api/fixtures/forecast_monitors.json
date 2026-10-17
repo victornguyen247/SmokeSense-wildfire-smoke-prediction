@@ -3,8 +3,6 @@
   "issued_at": "2024-07-27T18:00:00Z",
   "model_key": "baseline_v2/1.0.0",
   "aqi_table_version": "epa-2024",
-  "horizon_hours": 1,
-  "target_time": "2024-07-27T19:00:00Z",
   "features": [
     {
       "type": "Feature",
@@ -16,14 +14,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-767d-87fc-5cdd4eb424e9",
+        "forecast_point_id": "airnow:9355aeb39438a63427fe3226",
         "aqs_code": "060070008",
         "name": "Chico - East",
-        "pm25": 88.4,
-        "aqi_category": "unhealthy",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 88.4,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 95.1,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 104.7,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 79.6,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 91.2,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -36,14 +76,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-7bdd-87ad-df60ab6a8ba3",
+        "forecast_point_id": "airnow:aa1eab746205b21d136c28ca",
         "aqs_code": "060072003",
         "name": "Paradise - Clark Road",
-        "pm25": 131.6,
-        "aqi_category": "very_unhealthy",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 131.6,
+            "aqi_category": "very_unhealthy",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 142.3,
+            "aqi_category": "very_unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 150.8,
+            "aqi_category": "very_unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 112.4,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 127.9,
+            "aqi_category": "very_unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -56,14 +138,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-75e1-8a73-0c8edfac71bb",
+        "forecast_point_id": "airnow:805d0d7ed28ba75fa6006060",
         "aqs_code": "061030007",
         "name": "Red Bluff - Walnut office",
-        "pm25": 61.2,
-        "aqi_category": "unhealthy",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 61.2,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 66.8,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 72.5,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 54.3,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 63.0,
+            "aqi_category": "unhealthy",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -76,14 +200,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-7474-87a8-339a851d7b57",
+        "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
         "aqs_code": "060210003",
         "name": "Willows-Colusa",
-        "pm25": 42.7,
-        "aqi_category": "unhealthy_sensitive",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 42.7,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 46.9,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 51.8,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 38.2,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 44.6,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -96,14 +262,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-72ec-86c7-df1d675fe058",
+        "forecast_point_id": "airnow:f10533305584ce4c0738fbff",
         "aqs_code": "060610003",
         "name": "Auburn",
-        "pm25": 17.9,
-        "aqi_category": "moderate",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 17.9,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 19.6,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 22.4,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 15.1,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 18.8,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -116,14 +324,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-7a5b-8e85-8dba3816dac8",
+        "forecast_point_id": "airnow:c35487cf0fc346ffa53d47d7",
         "aqs_code": "060610004",
         "name": "Colfax",
-        "pm25": 21.3,
-        "aqi_category": "moderate",
-        "method": "model",
-        "source": "persistence",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 21.3,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "persistence",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 23.0,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 26.1,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 18.4,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 22.5,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "v2",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     },
     {
@@ -136,14 +386,56 @@
         ]
       },
       "properties": {
-        "forecast_point_id": "0190f559-7900-745f-8c32-15c5a8f3d61e",
+        "forecast_point_id": "airnow:1908a9f6f6c0ae2f8dcd198f",
         "aqs_code": "061050002",
         "name": "Weaverville",
-        "pm25": 33.0,
-        "aqi_category": "moderate",
-        "method": "model",
-        "source": "fallback",
-        "nearest_monitor_dist_km": 0.0
+        "forecasts": [
+          {
+            "horizon_hours": 1,
+            "target_time": "2024-07-27T19:00:00Z",
+            "pm25": 33.0,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "fallback",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 3,
+            "target_time": "2024-07-27T21:00:00Z",
+            "pm25": 34.8,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "fallback",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 6,
+            "target_time": "2024-07-28T00:00:00Z",
+            "pm25": 37.2,
+            "aqi_category": "unhealthy_sensitive",
+            "method": "model",
+            "source": "fallback",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 12,
+            "target_time": "2024-07-28T06:00:00Z",
+            "pm25": 29.5,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "fallback",
+            "nearest_monitor_dist_km": 0.0
+          },
+          {
+            "horizon_hours": 24,
+            "target_time": "2024-07-28T18:00:00Z",
+            "pm25": 31.9,
+            "aqi_category": "moderate",
+            "method": "model",
+            "source": "fallback",
+            "nearest_monitor_dist_km": 0.0
+          }
+        ]
       }
     }
   ]

@@ -9,64 +9,64 @@
     "zip_area_km2": null
   },
   "cell": {
-    "forecast_point_id": "0190f559-7900-7b33-8580-2ba70b2a4d73",
-    "h3_cell": "872814b4dffffff",
+    "forecast_point_id": "grid-ca-epsg3310-12500m-r+000015-c-000013-p00",
     "centroid": {
-      "lat": 39.73094,
-      "lon": -121.8342
+      "lat": 39.74606,
+      "lon": -121.82437
     },
     "has_forecast": true,
     "no_forecast_reason": null,
+    "nearest_monitor_dist_km": 2.2,
     "forecasts": [
       {
         "horizon_hours": 1,
         "target_time": "2024-07-27T19:00:00Z",
-        "pm25": 89.3,
+        "pm25": 88.8,
         "aqi_category": "unhealthy",
         "method": "interpolated",
         "source": "idw",
-        "nearest_monitor_dist_km": 3.5
+        "nearest_monitor_dist_km": 2.2
       },
       {
         "horizon_hours": 3,
         "target_time": "2024-07-27T21:00:00Z",
-        "pm25": 96.1,
+        "pm25": 95.6,
         "aqi_category": "unhealthy",
         "method": "interpolated",
         "source": "idw",
-        "nearest_monitor_dist_km": 3.5
+        "nearest_monitor_dist_km": 2.2
       },
       {
         "horizon_hours": 6,
         "target_time": "2024-07-28T00:00:00Z",
-        "pm25": 105.7,
+        "pm25": 105.1,
         "aqi_category": "unhealthy",
         "method": "interpolated",
         "source": "idw",
-        "nearest_monitor_dist_km": 3.5
+        "nearest_monitor_dist_km": 2.2
       },
       {
         "horizon_hours": 12,
         "target_time": "2024-07-28T06:00:00Z",
-        "pm25": 80.2,
+        "pm25": 79.9,
         "aqi_category": "unhealthy",
         "method": "interpolated",
         "source": "idw",
-        "nearest_monitor_dist_km": 3.5
+        "nearest_monitor_dist_km": 2.2
       },
       {
         "horizon_hours": 24,
         "target_time": "2024-07-28T18:00:00Z",
-        "pm25": 91.9,
+        "pm25": 91.5,
         "aqi_category": "unhealthy",
         "method": "interpolated",
         "source": "idw",
-        "nearest_monitor_dist_km": 3.5
+        "nearest_monitor_dist_km": 2.2
       }
     ]
   },
   "nearest_monitor": {
-    "forecast_point_id": "0190f559-7900-767d-87fc-5cdd4eb424e9",
+    "forecast_point_id": "airnow:9355aeb39438a63427fe3226",
     "aqs_code": "060070008",
     "name": "Chico - East",
     "location": {

@@ -34,29 +34,57 @@ tags:
     description: Model, freshness, AQI legend and health
 
 paths:
+  /api/v1/grid/cells:
+    get:
+      tags: [forecast]
+      operationId: getGridCells
+      summary: GEO-02 grid cell polygons (static; fetch once and cache)
+      description: |
+        One Polygon feature per GEO-02 grid cell (`forecast_points.cell_geom`): ~3,000
+        squares of 12.5 km in EPSG:3310, clipped to California and served in WGS84.
+        A square split by the coastline is several cells (`-p00`, `-p01`, …).
+
+        The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The
+        response is sent with `Cache-Control: public, max-age=86400` and an `ETag`;
+        compare `grid_key` with `/meta` to know when to refetch.
+      parameters:
+        - $ref: "#/components/parameters/BboxOptional"
+      responses:
+        "200":
+          description: Grid cells intersecting the bbox.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridCellCollection"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/OutOfScope"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/forecast/grid:
     get:
       tags: [forecast]
       operationId: getForecastGrid
-      summary: Interpolated forecast for every H3 cell in a bbox, at one horizon
+      summary: Interpolated forecast for every grid cell in a bbox, all horizons
       description: |
-        One Point feature per H3 resolution-7 cell, at the cell centroid. Draw the hexagon
-        from `h3_cell` (e.g. `h3-js` `cellToBoundary`); polygons are not sent, to keep the
-        payload small.
+        Values only, keyed by cell `id`; draw them on the polygons from
+        `/api/v1/grid/cells`. Every horizon is returned in one response, so switching
+        horizon is a client-side swap.
 
-        Cells with no forecast (no eligible monitor within 50 km) are **omitted**, not sent
-        with nulls. All cells are Stage B, so `method` and `source` are given once on the
-        collection.
+        Cells with no forecast at a horizon (no eligible monitor within 50 km) are
+        **omitted** from that horizon, not sent with nulls; draw them as "no data". All
+        cells are Stage B, so `method` and `source` are given once on the response.
       parameters:
-        - $ref: "#/components/parameters/HorizonRequired"
-        - $ref: "#/components/parameters/BboxRequired"
+        - $ref: "#/components/parameters/BboxOptional"
       responses:
         "200":
-          description: Grid cells with a forecast inside the bbox.
+          description: Grid cell forecasts inside the bbox.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GridForecastCollection"
+                $ref: "#/components/schemas/GridForecast"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -74,13 +102,19 @@ paths:
       description: |
         Pass **either** `lat` + `lon` **or** `zip` (400 `invalid_query` otherwise).
 
-        The location is snapped to its H3 resolution-7 cell, and the cell's forecast is
+        The location is snapped to its GEO-02 grid cell, and the cell's forecast is
         returned for every horizon, together with the nearest monitor's own forecast.
         A ZIP is resolved to its ZCTA centroid; no forecast point is created.
 
         If the cell has no forecast (no eligible monitor within 50 km), the response is
-        still 200: `cell.has_forecast` is false, `cell.forecasts` is empty and
-        `nearest_monitor` is filled in.
+        still 200: `cell.has_forecast` is false, `cell.forecasts` is empty, and
+        `cell.nearest_monitor_dist_km` and `nearest_monitor` are filled in.
+
+        The cell distances and `nearest_monitor.distance_km` intentionally differ: the
+        cell's are measured from the centroid to monitors Stage B can use (`v2` or
+        `persistence`), while `nearest_monitor` is the physically nearest monitor of any
+        source, measured from the query location. It can be a `fallback` monitor closer
+        than any monitor the cell uses.
       parameters:
         - name: lat
           in: query
@@ -114,13 +148,13 @@ paths:
     get:
       tags: [forecast]
       operationId: getForecastMonitors
-      summary: Model forecasts at AirNow monitors, at one horizon
+      summary: Model forecasts at AirNow monitors, all horizons
       description: |
-        Stage A forecast points only (AirNow monitors, `kind = 'monitor'`).
-        `nearest_monitor_dist_km` is always 0. A `fallback` source means the monitor had
-        no reading in the last 6 h; show it as lower confidence.
+        Stage A forecast points only (AirNow monitors, `kind = 'monitor'`), each with its
+        forecast for every horizon. `nearest_monitor_dist_km` is always 0. A `fallback`
+        source means the monitor had no reading in the last 6 h; show it as lower
+        confidence.
       parameters:
-        - $ref: "#/components/parameters/HorizonRequired"
         - $ref: "#/components/parameters/BboxOptional"
       responses:
         "200":
@@ -142,10 +176,11 @@ paths:
     get:
       tags: [fires]
       operationId: getActiveFires
-      summary: Satellite fire detections from the last 72 hours
+      summary: VIIRS SNPP fire detections from the last 72 hours
       description: |
-        Raw FIRMS detections (one feature per pixel) with `detected_at` in
-        `[window_start, window_end)`. The 72 h window matches the model's fire features.
+        Raw FIRMS VIIRS SNPP detections (one feature per pixel) with `detected_at` in
+        `[window_start, window_end)`. Same satellite and 72 h window as the model's fire
+        features; v1 ingests no other satellite (PM-03, DATA-06).
         All confidence levels are returned; **`confidence = "low"` detections must be
         shown as low confidence**.
       parameters:
@@ -231,37 +266,18 @@ paths:
 
 components:
   parameters:
-    HorizonRequired:
-      name: horizon
-      in: query
-      required: true
-      description: Forecast horizon in hours after `issued_at`.
-      schema:
-        $ref: "#/components/schemas/HorizonHours"
-    BboxRequired:
-      name: bbox
-      in: query
-      required: true
-      description: |
-        `minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order). Clipped to California.
-        Responses are capped at 100,000 cells (400 `too_many_cells`), which covers all of
-        California at resolution 7.
-      schema:
-        $ref: "#/components/schemas/BboxParam"
-      example: "-122.20,39.60,-121.60,39.68"
     BboxOptional:
       name: bbox
       in: query
       required: false
-      description: "`minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order). Defaults to all of California."
+      description: "`minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order). Clipped to California; defaults to all of it."
       schema:
         $ref: "#/components/schemas/BboxParam"
+      example: "-122.95,39.40,-121.50,40.10"
 
   responses:
     BadRequest:
-      description: |
-        Invalid parameters. `code` is one of `invalid_query`, `invalid_bbox`,
-        `too_many_cells`.
+      description: "Invalid parameters. `code` is `invalid_query` or `invalid_bbox`."
       content:
         application/json:
           schema:
@@ -307,7 +323,7 @@ components:
     Pm25:
       type: number
       minimum: 0
-      description: PM2.5 concentration in µg/m³, rounded to 0.1.
+      description: PM2.5 concentration in µg/m³, truncated (not rounded) to 0.1, the value `aqi_category` is binned from.
     DistanceKm:
       type: number
       minimum: 0
@@ -330,12 +346,15 @@ components:
         lon: { type: number, minimum: -180, maximum: 180 }
     ForecastPointId:
       type: string
-      format: uuid
-      description: "`forecast_points.id` (UUIDv7)."
-    H3Cell:
+      minLength: 1
+      description: |
+        `forecast_points.id`. Opaque: compare it, never parse it. Grid cells look like
+        `grid-ca-epsg3310-12500m-r+000015-c-000013-p00` (GEO-02); monitor points are not
+        UUIDs either.
+    GridKey:
       type: string
-      pattern: "^[0-9a-f]{15}$"
-      description: H3 index at resolution 7.
+      description: Identifies the GEO-02 grid generation; changes when the grid is regenerated.
+      examples: [grid-ca-epsg3310-12500m]
     AqsCode:
       type: string
       pattern: "^[0-9A-Z]{9}$"
@@ -360,7 +379,7 @@ components:
         key: { $ref: "#/components/schemas/AqiCategory" }
         label: { type: string, examples: ["Unhealthy for Sensitive Groups"] }
         color: { type: string, pattern: "^#[0-9A-F]{6}$" }
-        pm25_min: { type: number, description: "Inclusive lower bound, µg/m³, applied to `pm25` as returned (rounded to 0.1)." }
+        pm25_min: { type: number, description: "Inclusive lower bound, µg/m³, applied to `pm25` as returned (truncated to 0.1)." }
         pm25_max: { type: [number, "null"], description: "Inclusive upper bound, µg/m³; null for the top category." }
 
     # ---------- forecasts ----------
@@ -403,56 +422,96 @@ components:
         source: { $ref: "#/components/schemas/ForecastSource" }
         nearest_monitor_dist_km:
           $ref: "#/components/schemas/DistanceKm"
-          description: 0 at a monitor; for a cell, distance from its centroid to the nearest monitor used. Above 25 km means lower confidence.
-
-    GridForecastCollection:
+          description: |
+            0 at a monitor. For a cell, the distance from its centroid to the nearest monitor
+            Stage B used (`v2` or `persistence`; `fallback` monitors never feed a cell).
+            Above `/meta` `low_confidence_dist_km` (25) means lower confidence.
+    MonitorForecastValue:
       allOf:
-        - $ref: "#/components/schemas/ForecastEnvelope"
-        - type: object
-          required: [type, horizon_hours, target_time, method, source, h3_resolution, bbox, cell_count, features]
-          properties:
-            type: { const: FeatureCollection }
-            horizon_hours: { $ref: "#/components/schemas/HorizonHours" }
-            target_time: { $ref: "#/components/schemas/UtcTimestamp" }
-            method: { const: interpolated }
-            source: { const: idw }
-            h3_resolution: { const: 7 }
-            bbox:
-              $ref: "#/components/schemas/Bbox"
-              description: The bbox after clipping to California.
-            cell_count: { type: integer, minimum: 0, maximum: 100000 }
-            features:
-              type: array
-              items: { $ref: "#/components/schemas/GridCellFeature" }
-      unevaluatedProperties: false
+        - $ref: "#/components/schemas/ForecastValue"
+        - properties:
+            method: { const: model }
+            source: { enum: [v2, persistence, fallback] }
+            nearest_monitor_dist_km: { const: 0 }
+
+    GridCellCollection:
+      type: object
+      required: [type, grid_key, cell_size_m, bbox, cell_count, features]
+      additionalProperties: false
+      properties:
+        type: { const: FeatureCollection }
+        grid_key: { $ref: "#/components/schemas/GridKey" }
+        cell_size_m: { const: 12500 }
+        bbox:
+          $ref: "#/components/schemas/Bbox"
+          description: The bbox after clipping to California.
+        cell_count: { type: integer, minimum: 0 }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/GridCellFeature" }
     GridCellFeature:
       type: object
       required: [type, geometry, properties]
       additionalProperties: false
       properties:
         type: { const: Feature }
-        geometry:
-          $ref: "#/components/schemas/PointGeometry"
-          description: Cell centroid.
+        geometry: { $ref: "#/components/schemas/PolygonGeometry" }
         properties:
           type: object
-          required: [h3_cell, pm25, aqi_category, nearest_monitor_dist_km]
+          required: [id]
           additionalProperties: false
           properties:
-            h3_cell: { $ref: "#/components/schemas/H3Cell" }
-            pm25: { $ref: "#/components/schemas/Pm25" }
-            aqi_category: { $ref: "#/components/schemas/AqiCategory" }
-            nearest_monitor_dist_km: { $ref: "#/components/schemas/DistanceKm" }
+            id: { $ref: "#/components/schemas/ForecastPointId" }
+
+    GridForecast:
+      allOf:
+        - $ref: "#/components/schemas/ForecastEnvelope"
+        - type: object
+          required: [grid_key, method, source, bbox, horizons]
+          properties:
+            grid_key: { $ref: "#/components/schemas/GridKey" }
+            method: { const: interpolated }
+            source: { const: idw }
+            bbox:
+              $ref: "#/components/schemas/Bbox"
+              description: The bbox after clipping to California.
+            horizons:
+              type: array
+              description: One entry per horizon, ordered 1, 3, 6, 12, 24.
+              minItems: 5
+              maxItems: 5
+              items: { $ref: "#/components/schemas/GridHorizon" }
+      unevaluatedProperties: false
+    GridHorizon:
+      type: object
+      required: [horizon_hours, target_time, cells]
+      additionalProperties: false
+      properties:
+        horizon_hours: { $ref: "#/components/schemas/HorizonHours" }
+        target_time:
+          $ref: "#/components/schemas/UtcTimestamp"
+          description: "`issued_at + horizon_hours`."
+        cells:
+          type: array
+          description: Cells with a forecast at this horizon. A cell from `/grid/cells` that is missing here has no forecast.
+          items: { $ref: "#/components/schemas/GridCellValue" }
+    GridCellValue:
+      type: object
+      required: [id, pm25, aqi_category, nearest_monitor_dist_km]
+      additionalProperties: false
+      properties:
+        id: { $ref: "#/components/schemas/ForecastPointId" }
+        pm25: { $ref: "#/components/schemas/Pm25" }
+        aqi_category: { $ref: "#/components/schemas/AqiCategory" }
+        nearest_monitor_dist_km: { $ref: "#/components/schemas/DistanceKm" }
 
     MonitorForecastCollection:
       allOf:
         - $ref: "#/components/schemas/ForecastEnvelope"
         - type: object
-          required: [type, horizon_hours, target_time, features]
+          required: [type, features]
           properties:
             type: { const: FeatureCollection }
-            horizon_hours: { $ref: "#/components/schemas/HorizonHours" }
-            target_time: { $ref: "#/components/schemas/UtcTimestamp" }
             features:
               type: array
               items: { $ref: "#/components/schemas/MonitorForecastFeature" }
@@ -466,17 +525,16 @@ components:
         geometry: { $ref: "#/components/schemas/PointGeometry" }
         properties:
           type: object
-          required: [forecast_point_id, aqs_code, name, pm25, aqi_category, method, source, nearest_monitor_dist_km]
+          required: [forecast_point_id, aqs_code, name, forecasts]
           additionalProperties: false
           properties:
             forecast_point_id: { $ref: "#/components/schemas/ForecastPointId" }
             aqs_code: { $ref: "#/components/schemas/AqsCode" }
             name: { type: [string, "null"] }
-            pm25: { $ref: "#/components/schemas/Pm25" }
-            aqi_category: { $ref: "#/components/schemas/AqiCategory" }
-            method: { const: model }
-            source: { enum: [v2, persistence, fallback] }
-            nearest_monitor_dist_km: { const: 0 }
+            forecasts:
+              type: array
+              description: One per horizon, ordered 1, 3, 6, 12, 24.
+              items: { $ref: "#/components/schemas/MonitorForecastValue" }
 
     PointForecast:
       allOf:
@@ -498,16 +556,26 @@ components:
                   description: Set for ZIP queries. The UI warns when the ZIP is large (centroid can be 20+ km from a house).
             cell:
               type: object
-              required: [forecast_point_id, h3_cell, centroid, has_forecast, no_forecast_reason, forecasts]
+              required: [forecast_point_id, centroid, has_forecast, no_forecast_reason, nearest_monitor_dist_km, forecasts]
               additionalProperties: false
               properties:
-                forecast_point_id: { $ref: "#/components/schemas/ForecastPointId" }
-                h3_cell: { $ref: "#/components/schemas/H3Cell" }
+                forecast_point_id:
+                  $ref: "#/components/schemas/ForecastPointId"
+                  description: The cell's id, the same as `id` in `/grid/cells` and `/forecast/grid`.
                 centroid: { $ref: "#/components/schemas/LatLon" }
                 has_forecast: { type: boolean }
                 no_forecast_reason:
                   type: [string, "null"]
                   enum: [no_monitor_within_50km, null]
+                nearest_monitor_dist_km:
+                  description: |
+                    Distance from the centroid to the nearest monitor Stage B can use this
+                    cycle (`v2` or `persistence`), with no 50 km limit, so it is set when
+                    `has_forecast` is false too ("nearest monitor 61 km away"). Null only if no
+                    monitor is usable.
+                  oneOf:
+                    - $ref: "#/components/schemas/DistanceKm"
+                    - type: "null"
                 forecasts:
                   type: array
                   description: One per horizon, ordered 1, 3, 6, 12, 24. Empty when `has_forecast` is false.
@@ -518,7 +586,11 @@ components:
                           method: { const: interpolated }
                           source: { const: idw }
             nearest_monitor:
-              description: Nearest forecast-point monitor to the query location; null only if no monitor has a current forecast.
+              description: |
+                Physically nearest forecast-point monitor to the query location, of any source;
+                null only if no monitor has a current forecast. It can be a `fallback` monitor
+                that no cell uses, so `distance_km` can be smaller than every cell distance.
+                Show `forecasts[].source = fallback` as lower confidence.
               oneOf:
                 - type: "null"
                 - type: object
@@ -534,12 +606,8 @@ components:
                       description: Distance from the query location to this monitor.
                     forecasts:
                       type: array
-                      items:
-                        allOf:
-                          - $ref: "#/components/schemas/ForecastValue"
-                          - properties:
-                              method: { const: model }
-                              nearest_monitor_dist_km: { const: 0 }
+                      description: One per horizon, ordered 1, 3, 6, 12, 24.
+                      items: { $ref: "#/components/schemas/MonitorForecastValue" }
       unevaluatedProperties: false
 
     # ---------- fires ----------
@@ -565,7 +633,7 @@ components:
         type: { const: Feature }
         geometry:
           $ref: "#/components/schemas/PointGeometry"
-          description: Pixel centre. A pixel is ~375 m (VIIRS) or ~1 km (MODIS) across.
+          description: Pixel centre. A VIIRS pixel is ~375 m across.
         properties:
           type: object
           required: [detection_id, detected_at, satellite, product, confidence, confidence_raw, frp_mw, daynight]
@@ -575,14 +643,16 @@ components:
             detected_at:
               $ref: "#/components/schemas/UtcTimestamp"
               description: Satellite overpass time.
-            satellite: { enum: [MODIS_Terra, MODIS_Aqua, VIIRS_SNPP, VIIRS_NOAA20, VIIRS_NOAA21] }
+            satellite:
+              enum: [VIIRS_SNPP]
+              description: v1 only ingests VIIRS SNPP. Another satellite would be a new enum value (additive).
             product: { enum: [URT, RT, NRT, SP] }
             confidence:
               enum: [low, nominal, high]
               description: Normalized confidence. **Render `low` as low confidence** (e.g. hollow or faded marker).
             confidence_raw:
-              type: string
-              description: "As reported by FIRMS: 0–100 for MODIS, `l` / `n` / `h` for VIIRS."
+              enum: [l, n, h]
+              description: "As reported by FIRMS for VIIRS: `l` / `n` / `h`."
             frp_mw:
               type: [number, "null"]
               minimum: 0
@@ -647,7 +717,10 @@ components:
         - forecast_stale_after_minutes
         - forecast_stale
         - horizons
-        - h3_resolution
+        - grid_key
+        - low_confidence_dist_km
+        - max_interpolation_dist_km
+        - aqi_category_label
         - aqi_table_version
         - aqi_categories
         - sources
@@ -672,7 +745,21 @@ components:
         horizons:
           type: array
           items: { $ref: "#/components/schemas/HorizonHours" }
-        h3_resolution: { const: 7 }
+        grid_key:
+          $ref: "#/components/schemas/GridKey"
+          description: The current grid; refetch `/grid/cells` when it differs from the cached one.
+        low_confidence_dist_km:
+          type: number
+          description: Show a cell forecast as lower confidence when its `nearest_monitor_dist_km` is above this.
+          examples: [25]
+        max_interpolation_dist_km:
+          type: number
+          description: Stage B radius. A cell with no usable monitor within it has no forecast.
+          examples: [50]
+        aqi_category_label:
+          type: string
+          description: Display label for `aqi_category` on every screen.
+          examples: ["AQI category (hourly PM2.5)"]
         aqi_table_version: { $ref: "#/components/schemas/AqiTableVersion" }
         aqi_categories:
           type: array
@@ -731,6 +818,27 @@ components:
             - { type: number, minimum: -90, maximum: 90 }
           minItems: 2
           maxItems: 2
+    PolygonGeometry:
+      type: object
+      required: [type, coordinates]
+      additionalProperties: false
+      properties:
+        type: { const: Polygon }
+        coordinates:
+          type: array
+          description: "One exterior ring, counter-clockwise, closed, of [lon, lat] (WGS84, 5 decimals)."
+          minItems: 1
+          maxItems: 1
+          items:
+            type: array
+            minItems: 4
+            items:
+              type: array
+              prefixItems:
+                - { type: number, minimum: -180, maximum: 180 }
+                - { type: number, minimum: -90, maximum: 90 }
+              minItems: 2
+              maxItems: 2
     Error:
       type: object
       description: The only error shape. `code` is stable and machine-readable; `message` is for people.
@@ -741,7 +849,6 @@ components:
           enum:
             - invalid_query
             - invalid_bbox
-            - too_many_cells
             - out_of_scope
             - zip_not_found
             - forecast_unavailable
