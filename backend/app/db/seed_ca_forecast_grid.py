@@ -1,4 +1,4 @@
-"""Generate and seed California grid cells and Census ZCTA centroid mappings.
+"""Generate and seed California grid cells and Census ZCTA internal-point mappings.
 
 Run in the backend environment:
     python -m app.db.seed_ca_forecast_grid
@@ -26,18 +26,25 @@ from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 from sqlalchemy import bindparam, create_engine, text
 
+from app.core.geo import (
+    DEFAULT_CELL_SIZE_M,
+    PROJECTED_EPSG,
+    TIGER_VINTAGE,
+    california_grid_key,
+)
 from app.core.scope import CA_TRIBAL_SITES
 
 LOGGER = logging.getLogger("smokesense.grid_seed")
-TIGER_VINTAGE = 2025
-PROJECTED_EPSG = 3310
 GEOGRAPHIC_CRS = "EPSG:4326"
 PROJECTED_CRS = f"EPSG:{PROJECTED_EPSG}"
-DEFAULT_CELL_SIZE_M = 12_500
 TIMEZONE = "America/Los_Angeles"
-STATE_URL = "https://www2.census.gov/geo/tiger/TIGER2025/STATE/" "tl_2025_us_state.zip"
+STATE_URL = (
+    f"https://www2.census.gov/geo/tiger/TIGER{TIGER_VINTAGE}/STATE/"
+    f"tl_{TIGER_VINTAGE}_us_state.zip"
+)
 ZCTA_URL = (
-    "https://www2.census.gov/geo/tiger/TIGER2025/ZCTA520/" "tl_2025_us_zcta520.zip"
+    f"https://www2.census.gov/geo/tiger/TIGER{TIGER_VINTAGE}/ZCTA520/"
+    f"tl_{TIGER_VINTAGE}_us_zcta520.zip"
 )
 
 GRID_INSERT = text("""
@@ -243,7 +250,9 @@ def _zcta_internal_point_columns(frame: gpd.GeoDataFrame) -> tuple[str, str]:
     raise ValueError("Could not find Census ZCTA internal-point coordinates")
 
 
-def generate_zcta_centroids(zcta_file: Path, state_wgs84: Any) -> list[dict[str, Any]]:
+def generate_zcta_internal_points(
+    zcta_file: Path, state_wgs84: Any
+) -> list[dict[str, Any]]:
     # Read only ZCTAs whose bounding boxes meet California instead of keeping
     # the full national shapefile in memory.
     zctas = gpd.read_file(zcta_file, bbox=state_wgs84.bounds)
@@ -281,7 +290,7 @@ def generate_zcta_centroids(zcta_file: Path, state_wgs84: Any) -> list[dict[str,
 
     records.sort(key=lambda item: item["zcta"])
     if not records:
-        raise ValueError("No ZCTA centroids fall within California")
+        raise ValueError("No ZCTA internal points fall within California")
     return records
 
 
@@ -395,7 +404,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path(tempfile.gettempdir()) / "smokesense-tiger-2025",
+        default=Path(tempfile.gettempdir()) / f"smokesense-tiger-{TIGER_VINTAGE}",
     )
     parser.add_argument("--database-url", default=settings.database_url)
     parser.add_argument(
@@ -413,13 +422,15 @@ def main() -> None:
     zcta_file = args.zcta_file or _download(ZCTA_URL, args.data_dir)
     state_wgs84, state_projected = _read_california_boundary(state_file)
     cells, uncovered_area_m2 = generate_grid(state_projected, args.cell_size_m)
-    zctas = generate_zcta_centroids(zcta_file, state_wgs84)
+    zctas = generate_zcta_internal_points(zcta_file, state_wgs84)
 
     LOGGER.info(
-        "TIGER %s; EPSG:%s; cell size %s m; grid cells %s; California ZCTA centroids %s",
+        "TIGER %s; EPSG:%s; cell size %s m; grid key %s; "
+        "grid cells %s; California ZCTA internal points %s",
         TIGER_VINTAGE,
         PROJECTED_EPSG,
         args.cell_size_m,
+        california_grid_key(args.cell_size_m),
         len(cells),
         len(zctas),
     )

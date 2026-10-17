@@ -15,6 +15,10 @@ GiST indexes. Migration `0005` adds the point-to-cell lookup function.
   reviewed against the ~3,000-cell target.
 - Squares align to EPSG:3310 coordinate multiples. IDs include projection,
   width, row, column, and polygon-part number, so regeneration is deterministic.
+- The stable grid key comes from the grid settings and TIGER vintage
+  (california_grid_key in app.core.geo); identical inputs retain the same key,
+  while a change in cell width, projection, or TIGER vintage changes it. API
+  responses and /meta should use this shared helper for cache invalidation.
 - Every positive-area square intersection is retained and clipped to the
   California boundary. Disconnected polygon parts within one square become
   separate rows because PM-03 uses `POLYGON`, not `MULTIPOLYGON`; together they

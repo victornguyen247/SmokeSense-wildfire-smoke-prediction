@@ -1,8 +1,16 @@
+from pathlib import Path
+
+import geopandas as gpd
+import pytest
 from shapely import from_wkb
 from shapely.geometry import MultiPolygon, box
 
+from app.core.geo import california_grid_key
 from app.core.scope import in_california_scope
-from app.db.seed_ca_forecast_grid import generate_grid
+from app.db.seed_ca_forecast_grid import (
+    generate_grid,
+    generate_zcta_internal_points,
+)
 from ingestion.connectors.airnow import normalize_aqs_code
 
 
@@ -18,6 +26,38 @@ def test_grid_splits_disconnected_clipped_parts_with_stable_polygon_ids():
     assert [cell["id"] for cell in first_run] == [cell["id"] for cell in second_run]
     assert [cell["id"].rsplit("-", 1)[-1] for cell in first_run] == ["p00", "p01"]
     assert all(from_wkb(cell["cell_wkb"]).geom_type == "Polygon" for cell in first_run)
+
+
+def test_california_grid_key_encodes_grid_configuration_and_tiger_vintage():
+    assert california_grid_key() == "grid-ca-epsg3310-12500m-tiger2025"
+    assert california_grid_key(10_000) == "grid-ca-epsg3310-10000m-tiger2025"
+    with pytest.raises(ValueError, match="positive"):
+        california_grid_key(0)
+
+
+def test_zcta_lookup_uses_census_internal_point(monkeypatch):
+    zctas = gpd.GeoDataFrame(
+        {
+            "GEOID20": ["06001"],
+            "INTPTLAT20": ["38.25000"],
+            "INTPTLON20": ["-122.75000"],
+        },
+        geometry=[box(-122.1, 37.5, -121.1, 38.5)],
+        crs="EPSG:4326",
+    )
+    monkeypatch.setattr(
+        "app.db.seed_ca_forecast_grid.gpd.read_file",
+        lambda _path, **_kwargs: zctas,
+    )
+
+    result = generate_zcta_internal_points(
+        Path("unused-zctas.shp"), box(-123, 36, -120, 40)
+    )
+
+    assert len(result) == 1
+    assert result[0]["zcta"] == "06001"
+    assert result[0]["longitude"] == -122.75
+    assert result[0]["latitude"] == 38.25
 
 
 def test_aqs_normalization_and_california_scope():
