@@ -152,17 +152,29 @@ def padded_airnow_windows(
     if pad_hours < 0:
         raise ValueError("pad_hours must not be negative")
 
-    windows = [
-        [chunk_start, "00", chunk_end, "23"]
+    windows: list[tuple[str, str, str, str]] = [
+        (chunk_start, "00", chunk_end, "23")
         for chunk_start, chunk_end in split_airnow_range(start_date, end_date, max_days)
     ]
 
     first_start = datetime.fromisoformat(start_date) - timedelta(hours=pad_hours)
     last_end = datetime.fromisoformat(end_date) + timedelta(hours=23 + pad_hours)
-    windows[0][0:2] = [first_start.date().isoformat(), f"{first_start.hour:02d}"]
-    windows[-1][2:4] = [last_end.date().isoformat(), f"{last_end.hour:02d}"]
+    first_window = windows[0]
+    windows[0] = (
+        first_start.date().isoformat(),
+        f"{first_start.hour:02d}",
+        first_window[2],
+        first_window[3],
+    )
+    last_window = windows[-1]
+    windows[-1] = (
+        last_window[0],
+        last_window[1],
+        last_end.date().isoformat(),
+        f"{last_end.hour:02d}",
+    )
 
-    return [tuple(window) for window in windows]
+    return windows
 
 
 def _request_airnow_rows(
