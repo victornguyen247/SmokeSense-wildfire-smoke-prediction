@@ -103,7 +103,14 @@ Required artifacts:
 
 These files are excluded from Git.
 
-Artifact publication instructions are pending.
+Model artifacts are published at:
+https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/releases/tag/ml01-baselines-v1.0.0
+
+Download ml01-baselines-v1.0.0.zip and its .sha256
+checksum file. Verify the checksum, then extract
+the ZIP into backend/data/models/ml01_baselines/.
+
+Only load trusted Joblib model artifacts.
 
 ## Automated Tests
 
@@ -117,7 +124,7 @@ Artifact-dependent integration tests require the five trained Decision Tree Jobl
 
 When these files are unavailable, the ten artifact-dependent tests are skipped. The five remaining tests continue to execute.
 
-Model artifacts are currently stored locally and are not included in Git. Publication to an approved artifact repository or GitHub Release is pending.
+Model artifacts are published through GitHub Releases: https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/releases/tag/ml01-baselines-v1.0.0
 
 Only load model artifacts from trusted sources.
 
