@@ -4,7 +4,7 @@
 # Rules per branch:
 #   - PRs only, no direct pushes
 #   - 1 approving review, stale approvals dismissed on new commits
-#   - CI must be green (all three required checks) and the branch up to date
+#   - CI must be green (every check in CHECKS) and the branch up to date
 #   - Conversations resolved before merge
 #   - No force pushes, no branch deletion
 #   - Rules apply to admins too
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
-CHECKS='["Conventional Commits","Backend (lint + test)","Frontend (lint + build)","Docker Compose (db + redis)"]'
+CHECKS='["Conventional Commits","Backend (lint + test)","Frontend (lint + build)","Docker Compose (db + redis)","API spec (OpenAPI + fixtures)"]'
 
 protect() {
   local branch="$1"
