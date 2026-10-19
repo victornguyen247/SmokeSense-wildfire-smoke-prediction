@@ -33,8 +33,8 @@ GiST indexes. Migration `0005` adds the point-to-cell lookup function.
 
 The seed creates an active monitor point only for an active outdoor AirNow
 monitor in California scope with a regulatory PM2.5 observation in the last
-24 hours. It uses `monitors.external_id` as the forecast-point ID and sets
-`monitor_id`. Before the first seed on a database with existing monitor rows,
+24 hours. New monitor forecast points receive their own UUIDv7 and link through
+`monitor_id`; repeat seeds preserve existing point IDs. Before the first seed on a database with existing monitor rows,
 run `python scripts/backfill_monitor_aqs_code.py`; future AirNow ingestion
 stores the normalized AQS code directly.
 

@@ -32,6 +32,7 @@ from app.core.geo import (
     TIGER_VINTAGE,
     california_grid_key,
 )
+from app.core.ids import uuid7
 from app.core.scope import CA_TRIBAL_SITES
 
 LOGGER = logging.getLogger("smokesense.grid_seed")
@@ -295,6 +296,33 @@ def generate_zcta_internal_points(
 
 
 def sync_monitor_forecast_points(connection: Any) -> None:
+    # Raw SQL bypasses the ORM's UUID default. Generate IDs in Python for each
+    # eligible monitor; the upsert preserves the ID of an existing point.
+    connection.execute(
+        text("""
+        CREATE TEMP TABLE monitor_forecast_point_ids (
+            monitor_id TEXT PRIMARY KEY, forecast_point_id TEXT NOT NULL
+        ) ON COMMIT DROP
+    """)
+    )
+    monitor_ids = (
+        connection.execute(
+            text("SELECT id FROM monitors WHERE source = 'airnow' AND active")
+        )
+        .scalars()
+        .all()
+    )
+    if monitor_ids:
+        connection.execute(
+            text("""
+            INSERT INTO monitor_forecast_point_ids (monitor_id, forecast_point_id)
+            VALUES (:monitor_id, :forecast_point_id)
+        """),
+            [
+                {"monitor_id": monitor_id, "forecast_point_id": uuid7()}
+                for monitor_id in monitor_ids
+            ],
+        )
     connection.execute(
         text("""
         UPDATE forecast_points SET active = FALSE
@@ -308,11 +336,12 @@ def sync_monitor_forecast_points(connection: Any) -> None:
             timezone, always_forecast, active
         )
         SELECT
-            m.external_id, 'monitor',
+            point_ids.forecast_point_id, 'monitor',
             COALESCE(NULLIF(m.name, ''), m.external_id),
             NULL, NULL, m.id, m.geom, NULL,
             COALESCE(c.timezone, :default_timezone), TRUE, TRUE
         FROM monitors AS m
+        JOIN monitor_forecast_point_ids AS point_ids ON point_ids.monitor_id = m.id
         LEFT JOIN cities AS c ON c.id = m.city_id
         WHERE m.source = 'airnow'
           AND m.active
@@ -341,6 +370,7 @@ def sync_monitor_forecast_points(connection: Any) -> None:
             "tribal_codes": list(CA_TRIBAL_SITES),
         },
     )
+    connection.execute(text("DROP TABLE monitor_forecast_point_ids"))
 
 
 def seed(
