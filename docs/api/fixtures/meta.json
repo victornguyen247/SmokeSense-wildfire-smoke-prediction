@@ -1,0 +1,100 @@
+{
+  "generated_at": "2024-07-27T18:40:00Z",
+  "api_version": "v1",
+  "model_key": "baseline_v2/1.0.0",
+  "model_status": "production",
+  "latest_issued_at": "2024-07-27T18:00:00Z",
+  "forecast_age_minutes": 40,
+  "forecast_stale_after_minutes": 120,
+  "forecast_stale": false,
+  "horizons": [
+    1,
+    3,
+    6,
+    12,
+    24
+  ],
+  "grid_key": "grid-ca-epsg3310-12500m",
+  "low_confidence_dist_km": 25,
+  "max_interpolation_dist_km": 50,
+  "aqi_category_label": "AQI category (hourly PM2.5)",
+  "aqi_table_version": "epa-2024",
+  "aqi_categories": [
+    {
+      "key": "good",
+      "label": "Good",
+      "color": "#00E400",
+      "pm25_min": 0.0,
+      "pm25_max": 9.0
+    },
+    {
+      "key": "moderate",
+      "label": "Moderate",
+      "color": "#FFFF00",
+      "pm25_min": 9.1,
+      "pm25_max": 35.4
+    },
+    {
+      "key": "unhealthy_sensitive",
+      "label": "Unhealthy for Sensitive Groups",
+      "color": "#FF7E00",
+      "pm25_min": 35.5,
+      "pm25_max": 55.4
+    },
+    {
+      "key": "unhealthy",
+      "label": "Unhealthy",
+      "color": "#FF0000",
+      "pm25_min": 55.5,
+      "pm25_max": 125.4
+    },
+    {
+      "key": "very_unhealthy",
+      "label": "Very Unhealthy",
+      "color": "#8F3F97",
+      "pm25_min": 125.5,
+      "pm25_max": 225.4
+    },
+    {
+      "key": "hazardous",
+      "label": "Hazardous",
+      "color": "#7E0023",
+      "pm25_min": 225.5,
+      "pm25_max": null
+    }
+  ],
+  "sources": [
+    {
+      "source": "airnow",
+      "last_success_at": "2024-07-27T18:25:00Z",
+      "latest_data_at": "2024-07-27T17:00:00Z",
+      "age_minutes": 100,
+      "stale_after_minutes": 120,
+      "stale": false
+    },
+    {
+      "source": "purpleair",
+      "last_success_at": "2024-07-27T18:30:00Z",
+      "latest_data_at": "2024-07-27T17:00:00Z",
+      "age_minutes": 100,
+      "stale_after_minutes": 120,
+      "stale": false
+    },
+    {
+      "source": "firms",
+      "last_success_at": "2024-07-27T18:15:00Z",
+      "latest_data_at": "2024-07-27T09:42:00Z",
+      "age_minutes": 538,
+      "stale_after_minutes": 720,
+      "stale": false
+    },
+    {
+      "source": "nws_obs",
+      "last_success_at": "2024-07-27T18:20:00Z",
+      "latest_data_at": "2024-07-27T15:53:00Z",
+      "age_minutes": 167,
+      "stale_after_minutes": 120,
+      "stale": true
+    }
+  ]
+}
