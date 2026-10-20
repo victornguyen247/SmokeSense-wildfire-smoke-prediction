@@ -1,0 +1,228 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2024-07-27T18:40:00Z",
+  "max_age_hours": 2,
+  "aqi_table_version": "epa-2024",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.84047,
+          39.76168
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-7f55-8c88-3bceaaba5f5e",
+        "provider": "airnow",
+        "station_code": "060070008",
+        "name": "Chico - East",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 88.4,
+        "aqi_category": "unhealthy",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.60791,
+          39.75786
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-7a3a-88fe-b6013e70b6d8",
+        "provider": "airnow",
+        "station_code": "060072003",
+        "name": "Paradise - Clark Road",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 131.6,
+        "aqi_category": "very_unhealthy",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.25567,
+          40.17092
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-734c-830b-63cbfa72510d",
+        "provider": "airnow",
+        "station_code": "061030007",
+        "name": "Red Bluff - Walnut office",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 61.2,
+        "aqi_category": "unhealthy",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.19083,
+          39.53387
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-7175-8b38-53cb0bdc33da",
+        "provider": "airnow",
+        "station_code": "060210003",
+        "name": "Willows-Colusa",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 42.7,
+        "aqi_category": "unhealthy_sensitive",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.09959,
+          38.93568
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-77a0-8773-57275d35e44c",
+        "provider": "airnow",
+        "station_code": "060610003",
+        "name": "Auburn",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 17.9,
+        "aqi_category": "moderate",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -120.9528,
+          39.1003
+        ]
+      },
+      "properties": {
+        "monitor_id": "018dfc75-e000-7c49-8699-993d154428a1",
+        "provider": "airnow",
+        "station_code": "060610004",
+        "name": "Colfax",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 21.3,
+        "aqi_category": "moderate",
+        "correction": "regulatory"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.8264,
+          39.7452
+        ]
+      },
+      "properties": {
+        "monitor_id": "018f64f3-0800-78cd-83ae-485c9944ccda",
+        "provider": "purpleair",
+        "station_code": "131075",
+        "name": "Chico - Mangrove Ave",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 82.6,
+        "aqi_category": "unhealthy",
+        "correction": "purpleair_barkjohn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.8231,
+          39.7198
+        ]
+      },
+      "properties": {
+        "monitor_id": "018f64f3-0800-7627-8c7a-4698f08d1e89",
+        "provider": "purpleair",
+        "station_code": "98213",
+        "name": "Chico - Chapmantown",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 79.1,
+        "aqi_category": "unhealthy",
+        "correction": "purpleair_barkjohn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.7997,
+          39.6463
+        ]
+      },
+      "properties": {
+        "monitor_id": "018f64f3-0800-7e0d-8ce1-a1704d3a38cf",
+        "provider": "purpleair",
+        "station_code": "176540",
+        "name": "Durham",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 71.4,
+        "aqi_category": "unhealthy",
+        "correction": "purpleair_barkjohn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.6211,
+          39.7639
+        ]
+      },
+      "properties": {
+        "monitor_id": "018f64f3-0800-7091-8406-ec9e6a74e8ea",
+        "provider": "purpleair",
+        "station_code": "150992",
+        "name": "Paradise - Skyway",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 124.8,
+        "aqi_category": "unhealthy",
+        "correction": "purpleair_barkjohn"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.5571,
+          39.4943
+        ]
+      },
+      "properties": {
+        "monitor_id": "018f64f3-0800-7414-8b52-d5c04bd9e9ff",
+        "provider": "purpleair",
+        "station_code": "112318",
+        "name": "Oroville - South",
+        "valid_at": "2024-07-27T17:00:00Z",
+        "pm25": 63.9,
+        "aqi_category": "unhealthy",
+        "correction": "purpleair_barkjohn"
+      }
+    }
+  ]
+}
