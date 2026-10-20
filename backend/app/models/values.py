@@ -4,7 +4,7 @@ Single source for the ORM CHECK constraints and for ingestion/validation code.
 Changing a list here also needs a migration that updates the DB constraint.
 """
 
-KINDS = ("city", "zip", "grid_cell", "adhoc")
+KINDS = ("city", "zip", "grid_cell", "adhoc", "monitor")
 MONITOR_SOURCES = ("airnow", "purpleair")
 LOCATION_TYPES = ("outdoor", "indoor")
 
@@ -23,6 +23,7 @@ DAYNIGHT = ("D", "N")
 SOURCE_SCOPES = ("regulatory", "all_corrected")
 MODEL_STATUSES = ("shadow", "production", "retired")
 HORIZON_HOURS = (1, 3, 6, 12, 24)
+FORECAST_SOURCES = ("v2", "persistence", "fallback", "idw")
 SEVERITIES = ("moderate", "unhealthy_sensitive", "unhealthy", "very_unhealthy", "hazardous")
 ALERT_STATUSES = ("open", "resolved")
 
