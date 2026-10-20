@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from geoalchemy2 import WKBElement
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint, func, true
+from geoalchemy2 import Geography, WKBElement
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint, func, text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.ids import uuid7
@@ -34,7 +34,11 @@ class ForecastPoint(Base):
     __tablename__ = "forecast_points"
     __table_args__ = (
         one_of("kind", KINDS),
+        CheckConstraint("(kind = 'monitor') = (monitor_id IS NOT NULL)"),
         Index("ix_forecast_points_geom", "geom", postgresql_using="gist"),
+        Index("ix_forecast_points_cell_geom", "cell_geom", postgresql_using="gist"),
+        Index("ux_forecast_points_monitor_id", "monitor_id", unique=True,
+              postgresql_where=text("monitor_id IS NOT NULL")),
         Index("ix_forecast_points_city_id", "city_id"),
         Index("ix_forecast_points_forecast", "always_forecast", "last_requested_at"),
     )
@@ -45,6 +49,11 @@ class ForecastPoint(Base):
     h3_cell: Mapped[str | None]  # H3 resolution 7
     city_id: Mapped[str | None] = mapped_column(ForeignKey("cities.id"))
     geom: Mapped[WKBElement] = mapped_column(point(), nullable=False)
+    # kind = 'monitor': the AirNow monitor this point is (Stage A). kind = 'grid_cell': the cell polygon.
+    monitor_id: Mapped[str | None] = mapped_column(ForeignKey("monitors.id"))
+    cell_geom: Mapped[WKBElement | None] = mapped_column(
+        Geography(geometry_type="POLYGON", srid=4326, spatial_index=False)
+    )
     timezone: Mapped[str]
     always_forecast: Mapped[bool] = mapped_column(server_default=true())
     last_requested_at: Mapped[datetime | None]
