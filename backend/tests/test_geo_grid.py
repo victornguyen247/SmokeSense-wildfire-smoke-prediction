@@ -25,6 +25,7 @@ def test_grid_splits_disconnected_clipped_parts_with_stable_polygon_ids():
     assert uncovered_area == 0
     assert [cell["id"] for cell in first_run] == [cell["id"] for cell in second_run]
     assert [cell["id"].rsplit("-", 1)[-1] for cell in first_run] == ["p00", "p01"]
+    assert all(cell["id"].startswith(california_grid_key() + "-") for cell in first_run)
     assert all(from_wkb(cell["cell_wkb"]).geom_type == "Polygon" for cell in first_run)
 
 
@@ -35,29 +36,46 @@ def test_california_grid_key_encodes_grid_configuration_and_tiger_vintage():
         california_grid_key(0)
 
 
-def test_zcta_lookup_uses_census_internal_point(monkeypatch):
+@pytest.mark.parametrize("source_crs", ["EPSG:4326", "EPSG:3310"])
+def test_zcta_lookup_uses_census_internal_point(monkeypatch, caplog, source_crs):
     zctas = gpd.GeoDataFrame(
         {
-            "GEOID20": ["06001"],
-            "INTPTLAT20": ["38.25000"],
-            "INTPTLON20": ["-122.75000"],
+            "GEOID20": ["06001", "97001"],
+            "INTPTLAT20": ["38.25000", "41.00000"],
+            "INTPTLON20": ["-122.75000", "-122.75000"],
         },
-        geometry=[box(-122.1, 37.5, -121.1, 38.5)],
+        geometry=[box(-122.1, 37.5, -121.1, 38.5), box(-123, 39.5, -122, 41.5)],
         crs="EPSG:4326",
-    )
+    ).to_crs(source_crs)
+    reads = []
+
+    def read_file(_path, **kwargs):
+        reads.append(kwargs)
+        return zctas
+
     monkeypatch.setattr(
         "app.db.seed_ca_forecast_grid.gpd.read_file",
-        lambda _path, **_kwargs: zctas,
+        read_file,
     )
 
-    result = generate_zcta_internal_points(
-        Path("unused-zctas.shp"), box(-123, 36, -120, 40)
-    )
+    with caplog.at_level("INFO", logger="smokesense.grid_seed"):
+        result = generate_zcta_internal_points(
+            Path("unused-zctas.shp"), box(-123, 36, -120, 40)
+        )
 
     assert len(result) == 1
     assert result[0]["zcta"] == "06001"
     assert result[0]["longitude"] == -122.75
     assert result[0]["latitude"] == 38.25
+    assert "97001" in caplog.text
+    assert "1 excluded" in caplog.text
+    assert reads[0] == {"rows": 0}
+    expected_bounds = (
+        gpd.GeoSeries([box(-123, 36, -120, 40)], crs=4326)
+        .to_crs(source_crs)
+        .total_bounds
+    )
+    assert reads[1]["bbox"] == pytest.approx(expected_bounds)
 
 
 def test_aqs_normalization_and_california_scope():

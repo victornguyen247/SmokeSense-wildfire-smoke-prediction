@@ -163,7 +163,7 @@ def generate_grid(
     last_row = math.ceil(max_y / cell_size_m)
     rows: list[dict[str, Any]] = []
     projected_geometries: list[Polygon] = []
-    grid_prefix = f"grid-ca-epsg{PROJECTED_EPSG}-{cell_size_m}m"
+    grid_prefix = california_grid_key(cell_size_m)
 
     for row in range(first_row, last_row):
         for col in range(first_col, last_col):
@@ -256,7 +256,15 @@ def generate_zcta_internal_points(
 ) -> list[dict[str, Any]]:
     # Read only ZCTAs whose bounding boxes meet California instead of keeping
     # the full national shapefile in memory.
-    zctas = gpd.read_file(zcta_file, bbox=state_wgs84.bounds)
+    metadata = gpd.read_file(zcta_file, rows=0)
+    if metadata.crs is None:
+        raise ValueError("Census ZCTA input has no declared CRS")
+    source_bbox = (
+        gpd.GeoSeries([state_wgs84], crs=GEOGRAPHIC_CRS)
+        .to_crs(metadata.crs)
+        .total_bounds
+    )
+    zctas = gpd.read_file(zcta_file, bbox=tuple(source_bbox))
     if zctas.empty:
         raise ValueError("No ZCTAs intersect the California bounding box")
     key_column = _zcta_key_column(zctas)
@@ -270,6 +278,7 @@ def generate_zcta_internal_points(
     candidates = candidates.to_crs(PROJECTED_CRS)
 
     records = []
+    excluded = []
     for _, zcta in candidates.iterrows():
         geometry = make_valid(zcta.geometry)
         longitude = float(zcta[longitude_column])
@@ -278,6 +287,7 @@ def generate_zcta_internal_points(
         # Use the internal point shipped with TIGER/Line and include ZCTAs
         # whose Census point falls inside the supported California boundary.
         if not state_wgs84.covers(census_point):
+            excluded.append(str(zcta[key_column]).strip().zfill(5))
             continue
         zcta_id = str(zcta[key_column]).strip().zfill(5)
         records.append(
@@ -289,6 +299,14 @@ def generate_zcta_internal_points(
             }
         )
 
+    LOGGER.info(
+        "ZCTA scope: %s intersect California; %s included by internal point; "
+        "%s excluded (internal point outside California): %s",
+        len(candidates),
+        len(records),
+        len(excluded),
+        ", ".join(sorted(excluded)),
+    )
     records.sort(key=lambda item: item["zcta"])
     if not records:
         raise ValueError("No ZCTA internal points fall within California")
@@ -377,6 +395,8 @@ def seed(
     cells: list[dict[str, Any]],
     zctas: list[dict[str, Any]],
     database_url: str,
+    *,
+    sync_monitors: bool = False,
 ) -> None:
     engine = create_engine(database_url)
     ids = [zcta["zcta"] for zcta in zctas]
@@ -388,15 +408,11 @@ def seed(
                 text("""
                 UPDATE forecast_points
                 SET active = FALSE
-                WHERE kind = 'grid_cell' AND cell_geom IS NULL
-            """)
-            )
-            connection.execute(
-                text("""
-                UPDATE forecast_points
-                SET active = FALSE
-                WHERE kind = 'grid_cell' AND id LIKE 'grid-ca-epsg%'
-            """)
+                WHERE kind = 'grid_cell' AND (
+                    cell_geom IS NULL OR starts_with(id, :grid_namespace)
+                )
+            """),
+                {"grid_namespace": "grid-ca-"},
             )
             connection.execute(GRID_INSERT, cells)
             connection.execute(ZIP_INSERT, zctas)
@@ -419,7 +435,8 @@ def seed(
                     f"{len(missing)} California ZCTAs did not map to a grid cell: "
                     f"{examples}"
                 )
-            sync_monitor_forecast_points(connection)
+            if sync_monitors:
+                sync_monitor_forecast_points(connection)
     finally:
         engine.dispose()
 
@@ -431,6 +448,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cell-size-m", type=int, default=DEFAULT_CELL_SIZE_M)
     parser.add_argument("--state-file", type=Path)
     parser.add_argument("--zcta-file", type=Path)
+    parser.add_argument(
+        "--sync-monitors",
+        action="store_true",
+        help="Also refresh monitor eligibility from current observations. "
+        "May deactivate monitors during an ingestion outage.",
+    )
     parser.add_argument(
         "--data-dir",
         type=Path,
@@ -474,9 +497,9 @@ def main() -> None:
         LOGGER.info("Dry run complete; PostGIS was not changed.")
         return
 
-    seed(cells, zctas, args.database_url)
+    seed(cells, zctas, args.database_url, sync_monitors=args.sync_monitors)
     LOGGER.info(
-        "Seeded %s grid cells and mapped %s ZCTAs; synchronized eligible monitor points.",
+        "Seeded %s grid cells and mapped %s ZCTAs.",
         len(cells),
         len(zctas),
     )
