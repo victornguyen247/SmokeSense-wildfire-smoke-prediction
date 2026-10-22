@@ -41,3 +41,7 @@ backend/scripts/pilot_verification/out/
 backend/scripts/pilot_verification/out_pr21/
 backend/scripts/pilot_verification/out_final/
 backend/scripts/pilot_verification/out_candidates/
+
+# --- Claude Code (local-only) ---
+.claude/settings.local.json
+CLAUDE.local.md
