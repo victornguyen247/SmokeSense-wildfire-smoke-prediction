@@ -94,7 +94,8 @@ async function main() {
   for (const [path, content] of outputs) {
     const name = relative(FRONTEND_DIR, path);
     if (check) {
-      const current = await readFile(path, "utf8").catch(() => "");
+      // Ignore CRLF vs LF, so a Windows checkout doesn't fail the check.
+      const current = (await readFile(path, "utf8").catch(() => "")).replace(/\r\n/g, "\n");
       if (current !== content) {
         console.error(`out of date: ${name}`);
         stale = true;

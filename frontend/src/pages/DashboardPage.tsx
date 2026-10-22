@@ -19,7 +19,7 @@ export function DashboardPage() {
       <header className="app-header">
         <h1 className="app-header__title">SmokeSense</h1>
         <p className="app-header__tagline">Wildfire smoke forecast for California</p>
-        <MockModeBadge />
+        <MockModeBadge apiMockMode={meta.status === "success" && meta.data.mock_mode} />
       </header>
 
       <main className="dashboard">

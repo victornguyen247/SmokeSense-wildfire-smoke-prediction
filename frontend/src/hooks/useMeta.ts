@@ -3,5 +3,5 @@ import { useApiQuery } from "./useApiQuery";
 
 /** `/meta`: forecast cycle, freshness, thresholds, AQI legend and the current grid key. */
 export function useMeta() {
-  return useApiQuery((signal) => getMeta(signal), []);
+  return useApiQuery((signal) => getMeta(signal), "meta");
 }

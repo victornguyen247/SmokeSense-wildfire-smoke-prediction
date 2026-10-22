@@ -15,6 +15,9 @@ const scenario = new URLSearchParams(window.location.search).get("mock");
 // Rough California extent, enough to exercise the out_of_scope error in mock mode.
 const CA = { minLon: -124.5, minLat: 32.5, maxLon: -114.1, maxLat: 42.1 };
 
+// BboxParam in docs/api/openapi.yaml.
+const BBOX_PATTERN = /^-?[0-9]+(\.[0-9]+)?(,-?[0-9]+(\.[0-9]+)?){3}$/;
+
 function errorBody(code: ApiErrorBody["code"], message: string): ApiErrorBody {
   return { code, message };
 }
@@ -32,6 +35,46 @@ async function respond(body: JsonBodyType, status = 200) {
 
 // `*` matches any origin, so the handlers work whatever VITE_API_BASE_URL is.
 const api = (path: string) => `*/api/v1${path}`;
+
+/** A query value as a number, or NaN when it is missing, empty or not numeric. */
+function toNumber(value: string | null): number {
+  return value === null || value.trim() === "" ? Number.NaN : Number(value);
+}
+
+/**
+ * Validate an optional `bbox` like the real API (docs/api.md, "Coordinates and bbox"):
+ * malformed or min > max is 400 invalid_bbox, entirely outside California is 404
+ * out_of_scope. Returns the error response, or null when the bbox is fine or absent.
+ */
+function bboxError(url: URL) {
+  const raw = url.searchParams.get("bbox");
+  if (raw === null) return null;
+  if (!BBOX_PATTERN.test(raw)) {
+    return respond(errorBody("invalid_bbox", "bbox must be minLon,minLat,maxLon,maxLat."), 400);
+  }
+  const [minLon, minLat, maxLon, maxLat] = raw.split(",").map(Number);
+  const inRange = [minLon, maxLon].every((x) => x >= -180 && x <= 180) &&
+    [minLat, maxLat].every((y) => y >= -90 && y <= 90);
+  if (!inRange || minLon > maxLon || minLat > maxLat) {
+    return respond(
+      errorBody("invalid_bbox", "bbox must be minLon,minLat,maxLon,maxLat with min <= max."),
+      400,
+    );
+  }
+  if (maxLon < CA.minLon || minLon > CA.maxLon || maxLat < CA.minLat || minLat > CA.maxLat) {
+    return respond(
+      errorBody("out_of_scope", "bbox is outside California; SmokeSense only forecasts for California."),
+      404,
+    );
+  }
+  return null;
+}
+
+/** A handler for a bbox endpoint that returns `fixture` when the bbox is valid. */
+const withBbox =
+  (fixture: JsonBodyType) =>
+  ({ request }: { request: Request }) =>
+    bboxError(new URL(request.url)) ?? respond(fixture);
 
 function pointForecast(url: URL) {
   const lat = url.searchParams.get("lat");
@@ -54,10 +97,14 @@ function pointForecast(url: URL) {
     return respond(fixtures.forecastPoint);
   }
 
-  const latN = Number(lat);
-  const lonN = Number(lon);
+  // An empty `lat=` must not become 0, which is a valid coordinate.
+  const latN = toNumber(lat);
+  const lonN = toNumber(lon);
   if (Number.isNaN(latN) || Number.isNaN(lonN)) {
     return respond(errorBody("invalid_query", "lat and lon must be numbers."), 400);
+  }
+  if (latN < -90 || latN > 90 || lonN < -180 || lonN > 180) {
+    return respond(errorBody("invalid_query", "lat must be in [-90, 90] and lon in [-180, 180]."), 400);
   }
   if (lonN < CA.minLon || lonN > CA.maxLon || latN < CA.minLat || latN > CA.maxLat) {
     return respond(
@@ -79,12 +126,12 @@ function pointForecast(url: URL) {
 export const handlers = [
   http.get(api("/meta"), () => respond(fixtures.meta)),
   http.get(api("/health"), () => respond(fixtures.health)),
-  http.get(api("/grid/cells"), () => respond(fixtures.gridCells)),
-  http.get(api("/forecast/grid"), () => respond(fixtures.forecastGrid)),
-  http.get(api("/forecast/monitors"), () => respond(fixtures.forecastMonitors)),
+  http.get(api("/grid/cells"), withBbox(fixtures.gridCells)),
+  http.get(api("/forecast/grid"), withBbox(fixtures.forecastGrid)),
+  http.get(api("/forecast/monitors"), withBbox(fixtures.forecastMonitors)),
   http.get(api("/forecast/point"), ({ request }) => pointForecast(new URL(request.url))),
-  http.get(api("/fires/active"), () => respond(fixtures.firesActive)),
-  http.get(api("/observations/pm25/latest"), () => respond(fixtures.observationsPm25Latest)),
+  http.get(api("/fires/active"), withBbox(fixtures.firesActive)),
+  http.get(api("/observations/pm25/latest"), withBbox(fixtures.observationsPm25Latest)),
   // Anything else under /api/v1 gets the API's unknown-route error.
   http.all(api("/*"), ({ request }) =>
     respond(errorBody("not_found", `No mock for ${new URL(request.url).pathname}.`), 404),

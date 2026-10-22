@@ -34,7 +34,12 @@ To see the other UI states, add a parameter to the page URL:
 - `?mock=slow`: every response waits 3 s (loading states)
 - `?mock=error`: every response is a 500 `internal_error` (error states)
 
-`/forecast/point` behaves like the real API: lat/lon outside California or a non-California ZIP returns `404 out_of_scope`, passing both or neither returns `400 invalid_query`, and a point near the Mendocino National Forest fixture returns the "no forecast" case.
+The "Demo data" badge also appears when the API itself is in mock mode (`/meta` `mock_mode`, set by API-01's `MOCK_MODE=true`).
+
+Mock responses reject what the real API rejects:
+
+- every endpoint that takes `bbox`: a malformed bbox or min > max returns `400 invalid_bbox`; a bbox entirely outside California returns `404 out_of_scope`
+- `/forecast/point`: empty or non-numeric `lat`/`lon` returns `400 invalid_query`, as does passing both lat/lon and a ZIP, or neither; lat/lon outside California or a non-California ZIP returns `404 out_of_scope`; a point near the Mendocino National Forest fixture returns the "no forecast" case.
 
 ## The API contract: `npm run gen:api`
 
@@ -55,11 +60,14 @@ npm run api:check   # CI runs this and fails if the generated files are out of d
 Components never call `fetch`. They call a function from `src/api/` (`getMeta`, `getGridCells`, `getForecastGrid`, `getForecastPoint`, `getForecastMonitors`, `getActiveFires`, `getLatestPm25`), usually through `useApiQuery`:
 
 ```tsx
-const meta = useApiQuery((signal) => getMeta(signal), []);
+const meta = useApiQuery((signal) => getMeta(signal), "meta");
+// The key decides when to refetch: build it from every input, e.g. `point:${lat},${lon}`.
 if (meta.status === "loading") return <Spinner label="Loading…" />;
 if (meta.status === "error") return <ErrorMessage title="…" message={meta.error.message} onRetry={meta.retry} />;
 return <ForecastStatus meta={meta.data} />;
 ```
+
+Production builds without `VITE_API_BASE_URL` call the API on the page's own origin (an API behind the same host), never `localhost`.
 
 Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `invalid_query`, …, or `network_error`) and a `message` that is safe to show.
 

@@ -8,13 +8,22 @@ import { MapContext } from "../../context/MapContext";
 
 const NO_WEBGL = "Your browser can't display the map (WebGL is unavailable).";
 
+let webglSupport: boolean | undefined;
+
+/** Whether the browser can create a WebGL context. Probed once per page load. */
 function supportsWebGL(): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
-  } catch {
-    return false;
+  if (webglSupport === undefined) {
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+      webglSupport = gl !== null;
+      // Free the probe's context right away; browsers cap how many can be open.
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      webglSupport = false;
+    }
   }
+  return webglSupport;
 }
 
 type MapViewProps = {
@@ -46,20 +55,23 @@ export default function MapView({ children }: MapViewProps) {
     instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
     instance.touchZoomRotate.disableRotation();
 
-    let loaded = false;
+    // Sprites, glyphs and tiles are only requested after the style document has loaded,
+    // so an error before "style.load" means the style itself failed. Later errors are
+    // single resources, which MapLibre retries or renders without.
+    let styleLoaded = false;
     // Events from a map that was already removed (e.g. its aborted style request)
     // must not change the state of the map that replaced it.
     let disposed = false;
+    instance.on("style.load", () => {
+      styleLoaded = true;
+    });
     instance.on("load", () => {
       if (disposed) return;
-      loaded = true;
       setProblem(null);
       setMap(instance);
     });
     instance.on("error", () => {
-      // Before "load" an error means the basemap style itself failed; later ones are
-      // individual tiles, which MapLibre retries on its own.
-      if (!disposed && !loaded) {
+      if (!disposed && !styleLoaded) {
         setProblem("The basemap couldn't load. Check your connection and reload the page.");
       }
     });
