@@ -12,12 +12,6 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-
-pytest.importorskip("sqlalchemy")
-pytest.importorskip("geoalchemy2")
-URL = os.environ.get("TEST_DATABASE_URL")
-pytestmark = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL not set")
-
 from sqlalchemy import create_engine, text
 
 from mlops.registry import (
@@ -30,6 +24,11 @@ from mlops.registry import (
     SqlRepo,
 )
 from tests.test_registry import make_model_dir
+
+pytest.importorskip("sqlalchemy")
+pytest.importorskip("geoalchemy2")
+URL = os.environ.get("TEST_DATABASE_URL")
+pytestmark = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL not set")
 
 
 @pytest.fixture
