@@ -517,6 +517,12 @@ export interface components {
             /** @description The current grid; refetch `/grid/cells` when it differs from the cached one. */
             grid_key: components["schemas"]["GridKey"];
             /**
+             * @description True when the API serves the PM-02 fixtures instead of real data (API-01
+             *     `MOCK_MODE=true`). The UI shows a "Demo data" badge so sample data is never
+             *     mistaken for a live forecast. True in the fixtures, since they are sample data.
+             */
+            mock_mode: boolean;
+            /**
              * @description Show a cell forecast as lower confidence when its `nearest_monitor_dist_km` is above this.
              * @example 25
              */

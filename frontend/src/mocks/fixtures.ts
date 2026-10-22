@@ -5774,6 +5774,7 @@ export const meta = {
     24
   ],
   "grid_key": "grid-ca-epsg3310-12500m",
+  "mock_mode": true,
   "low_confidence_dist_km": 25,
   "max_interpolation_dist_km": 50,
   "aqi_category_label": "AQI category (hourly PM2.5)",

@@ -204,6 +204,7 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 
 - The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per source (`airnow`, `purpleair`, `firms`, `nws_obs`).
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
+- `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. It is true in `meta.json`, so a server that returns the fixtures as-is reports it automatically.
 - **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
 
 ## Fixtures
