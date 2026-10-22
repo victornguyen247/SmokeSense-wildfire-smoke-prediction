@@ -66,7 +66,7 @@ Units are fixed by field name and never sent per value.
 
 ### CORS
 
-The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is needed, and no credentials. API-01 (#54) replaces the hard-coded origin in `backend/app/main.py` with this setting.
+The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is allowed, and no credentials. The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
 
 ### Errors
 
@@ -236,6 +236,13 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 
 `validate.py` fails if the spec is invalid, a fixture doesn't match its response schema, a fixture isn't listed in `validate.py`, an endpoint has no 200 fixture, or an error response doesn't use the `Error` schema. When you add or change an endpoint, update `openapi.yaml`, `gen_fixtures.py`, the regenerated fixtures and the `FIXTURES` map in `validate.py` in the same PR.
 
+## Backend (API-01)
+
+The FastAPI app in `backend/app` implements this contract.
+
+- **The spec is served as-is.** `/openapi.json` and `/docs` serve `openapi.yaml`, not a schema generated from the code. `docker compose up backend` mounts `docs/api` read-only for this.
+- **Errors.** Every error, including FastAPI's own (validation, unknown route, unhandled exception), is returned in the shared `Error` shape, and 500s keep their CORS headers.
+
 ## Open items
 
 | Item | Owner | Status |
@@ -244,5 +251,6 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 | `airnow` is not yet an ingestion source in `ingestion_runs` | DATA | Needed before `/meta` can report AirNow freshness |
 | `backend/shared/aqi.py` is empty | TBD | The table above is the spec for it (truncate to 0.1) |
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
-| `CORS_ALLOWED_ORIGINS` setting | API-01 (#54) | Spec'd above; not implemented yet |
+| Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
+| `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
 | Attribution text (AirNow, FIRMS, PurpleAir, NWS) | TBD | Not in v1 of this contract yet |
