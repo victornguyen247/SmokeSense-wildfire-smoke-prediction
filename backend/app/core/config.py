@@ -5,9 +5,14 @@ calling os.getenv directly, so config is typed and validated at startup.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# docs/api/ (the OpenAPI spec and its fixtures), found from this file: <repo>/backend/app/core/
+# locally, and /code/app/core/ in Docker, where docker-compose mounts docs/api at /docs/api.
+DEFAULT_API_CONTRACT_DIR = Path(__file__).resolve().parents[3] / "docs" / "api"
 
 
 class Settings(BaseSettings):
@@ -21,6 +26,12 @@ class Settings(BaseSettings):
     app_name: str = "SmokeSense API"
     environment: str = Field(default="development")  # development | staging | production
     debug: bool = Field(default=True)
+
+    # --- API (API-01) ---
+    # Browser origins allowed to call the API, comma-separated (docs/api.md, "CORS").
+    # Add the staging and production frontend origins here when they exist.
+    cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    api_contract_dir: Path = DEFAULT_API_CONTRACT_DIR
 
     # --- Database (PostGIS) ---
     postgres_user: str = "smokesense"
@@ -45,6 +56,10 @@ class Settings(BaseSettings):
     # connector's smoke test, so a .env that predates this setting stays
     # capped; set PURPLEAIR_MAX_SENSORS=0 to explicitly remove the cap.
     purpleair_max_sensors: int = 5
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
 
     @property
     def database_url(self) -> str:

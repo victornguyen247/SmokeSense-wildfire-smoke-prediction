@@ -3,6 +3,7 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.1
+PyYAML==6.0.2  # serves docs/api/openapi.yaml at /openapi.json
 
 # --- Database ---
 sqlalchemy==2.0.36
@@ -26,4 +27,8 @@ python-dotenv==1.0.1
 
 # --- Dev / test ---
 pytest==8.3.4
+# API tests check responses against docs/api/openapi.yaml; same pins as docs/api/requirements.txt.
+jsonschema==4.23.0
+referencing==0.36.2
+rfc3339-validator==0.1.4  # makes `format: date-time` an actual check
 ruff==0.8.4
