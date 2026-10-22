@@ -6,6 +6,7 @@ The yet to be agreed contract between the frontend and backend (PM-02). Both sid
 |---|---|
 | [`api/openapi.yaml`](api/openapi.yaml) | OpenAPI 3.1 spec: every endpoint, parameter, response and error |
 | [`api/fixtures/*.json`](api/fixtures/) | One realistic response per endpoint (Park Fire, see [Fixtures](#fixtures)) |
+| [`api/fixture_manifest.json`](api/fixture_manifest.json) | Which response each fixture is an example of. Read by `validate.py` and the backend contract tests |
 | [`api/validate.py`](api/validate.py) | Validates the spec, then every fixture against it. Runs in CI (`api-spec` job) |
 | [`api/gen_fixtures.py`](api/gen_fixtures.py) | Generates the fixtures. CI reruns it and fails if the output differs from the committed fixtures |
 
@@ -233,14 +234,23 @@ python docs/api/validate.py
 python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/fixtures
 ```
 
-`validate.py` fails if the spec is invalid, a fixture doesn't match its response schema, a fixture isn't listed in `validate.py`, an endpoint has no 200 fixture, or an error response doesn't use the `Error` schema. When you add or change an endpoint, update `openapi.yaml`, `gen_fixtures.py`, the regenerated fixtures and the `FIXTURES` map in `validate.py` in the same PR.
+`validate.py` fails if the spec is invalid, a fixture doesn't match its response schema, a fixture isn't listed in `fixture_manifest.json`, an endpoint has no 200 fixture, or an error response doesn't use the `Error` schema. When you add or change an endpoint, update `openapi.yaml`, `gen_fixtures.py`, the regenerated fixtures, `fixture_manifest.json` and the backend route in the same PR.
 
 ## Backend (API-01)
 
 The FastAPI app in `backend/app` implements this contract.
 
+- **Mock mode.** With `MOCK_MODE=true` (the default until the database layer exists), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture.
+- **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database layer will use the state polygon and ZCTAs.
 - **The spec is served as-is.** `/openapi.json` and `/docs` serve `openapi.yaml`, not a schema generated from the code. `docker compose up backend` mounts `docs/api` read-only for this.
 - **Errors.** Every error, including FastAPI's own (validation, unknown route, unhandled exception), is returned in the shared `Error` shape, and 500s keep their CORS headers.
+- **Layers.** `app/api/routes` parse requests, `app/services` apply the scope rules, and `app/repositories` return the data. Real data replaces `FixtureRepository` without touching the other two.
+- **Contract tests.** `backend/tests/test_api_contract.py` validates every response, including errors, against the spec. It also checks that the app serves exactly the spec's paths, so CI's backend job fails on drift.
+
+```bash
+cd backend && pytest tests/test_api_app.py tests/test_api_contract.py
+uvicorn app.main:app --reload   # or: docker compose up backend
+```
 
 ## Open items
 
