@@ -13,6 +13,7 @@ python -m mlops.registry <register|promote|rollback|list|load> ...      # run fr
 | Version | One model directory (`release.json`, `features.json`, per-horizon boosters, ...) stored as a single deterministic `.tar.gz`. `model_key = <name>/<version>`, e.g. `baseline/v2`. |
 | Checksum | `model_versions.artifact_sha256` is the sha256 of the archive. It is checked on every load, and again before `promote` / `rollback` switch anything. A mismatch is an error; nothing is served or changed. |
 | Immutable | A version is never overwritten. Fix a bad model by registering a new version. |
+| Names | `--name` and `--version` use letters, digits, `.`, `_`, `-` only (no `/`, spaces or `..`). |
 
 ### Statuses
 
@@ -41,7 +42,7 @@ One switch, `REGISTRY_BACKEND`, picks where `register` writes. `load` follows ea
 | Variable | Default | |
 |---|---|---|
 | `REGISTRY_BACKEND` | `local` | `local` or `s3` |
-| `REGISTRY_LOCAL_DIR` | `data/registry` | local archives (git-ignored under `backend/data/`) |
+| `REGISTRY_LOCAL_DIR` | `data/registry` | local archives; relative paths are relative to `backend/`, wherever the CLI runs (git-ignored) |
 | `REGISTRY_CACHE_DIR` | `data/registry_cache` | verified, extracted models, one folder per sha256 |
 | `REGISTRY_S3_BUCKET` | `smoke-sense` | |
 | `REGISTRY_S3_PREFIX` | `models` | objects are `models/<name>/<version>.tar.gz` |
@@ -125,7 +126,7 @@ version, model_dir = build_registry().load_production("baseline")
 # predict_v2.predict(frame, horizon=6, model_dir=model_dir)
 ```
 
-`load_production` downloads the archive if it is not cached, verifies its sha256, extracts it (regular files only; absolute paths and `..` are rejected), and returns the folder. The CLI equivalent prints that path: `python -m mlops.registry load baseline`.
+`load_production` downloads the archive if it is not cached, verifies its sha256, extracts it (regular files only; absolute paths and `..` are rejected), and returns the folder. The extracted files' hashes are recorded, and every later load re-checks them; a damaged cache is discarded and fetched again. `promote` and `rollback` download and verify *before* taking the database lock. The CLI equivalent prints that path: `python -m mlops.registry load baseline`.
 
 ## Failure modes
 
@@ -136,3 +137,7 @@ version, model_dir = build_registry().load_production("baseline")
 | `nothing to roll back to` | No `retired` version exists for that name. |
 | `no production version` | Nothing has been promoted yet. |
 | `could not download` | Wrong endpoint/bucket/credentials, or the object was deleted. |
+
+## Tests
+
+`pytest tests/test_registry.py` needs no database. `tests/test_registry_db.py` exercises the Postgres code (including the `one_production` index) and is skipped unless `TEST_DATABASE_URL` points at a migrated database, e.g. a throwaway Neon branch.

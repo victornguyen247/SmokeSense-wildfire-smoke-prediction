@@ -24,6 +24,7 @@ import contextlib
 import gzip
 import hashlib
 import json
+import re
 import shutil
 import sys
 import tarfile
@@ -38,10 +39,32 @@ from urllib.request import url2pathname
 
 SHADOW, PRODUCTION, RETIRED = "shadow", "production", "retired"
 ARCHIVE_SUFFIX = ".tar.gz"
+BACKEND = Path(__file__).resolve().parents[1]
+_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 class RegistryError(Exception):
     """A user-facing failure (bad input, missing version, checksum mismatch)."""
+
+
+def check_name(kind: str, value: str) -> str:
+    """Names and versions end up in model keys and storage paths: no '/', '..' or spaces."""
+    if not _NAME_RE.fullmatch(value) or ".." in value:
+        raise RegistryError(f"invalid {kind} {value!r}: use letters, digits, '.', '_' and '-'")
+    return value
+
+
+def split_key(model_key: str) -> tuple[str, str]:
+    name, sep, version = model_key.partition("/")
+    if not sep:
+        raise RegistryError(f"expected <name>/<version>, got {model_key!r}")
+    return check_name("name", name), check_name("version", version)
+
+
+def resolve_dir(path: str) -> Path:
+    """Relative registry paths are relative to backend/, not to wherever the CLI was started."""
+    p = Path(path)
+    return p if p.is_absolute() else BACKEND / p
 
 
 # --------------------------------------------------------------------------- archive
@@ -126,7 +149,10 @@ class S3Store:
         self.bucket = bucket
         self.prefix = prefix.strip("/")
         if client is None:
-            import boto3  # lazy: the local backend needs no boto3
+            try:
+                import boto3  # lazy: the local backend needs no boto3
+            except ImportError as e:
+                raise RegistryError("the s3 backend needs boto3 (pip install -r requirements.txt)") from e
 
             client = boto3.client(
                 "s3",
@@ -137,7 +163,10 @@ class S3Store:
 
     def put(self, key: str, src: Path) -> str:
         full = f"{self.prefix}/{key}" if self.prefix else key
-        self.client.upload_file(str(src), self.bucket, full)
+        try:
+            self.client.upload_file(str(src), self.bucket, full)
+        except Exception as e:  # missing credentials, bad endpoint, access denied, ...
+            raise RegistryError(f"could not upload {full} to bucket {self.bucket!r}: {e}") from e
         return f"s3://{self.bucket}/{full}"
 
     def get(self, uri: str, dest: Path) -> None:
@@ -181,6 +210,17 @@ class Repo(Protocol):
     def all_versions(self, model_name: str | None = None) -> list[Version]: ...
 
 
+@contextlib.contextmanager
+def _db_errors() -> Iterator[None]:
+    """Turn driver/connection errors into a one-line RegistryError."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    try:
+        yield
+    except SQLAlchemyError as e:
+        raise RegistryError(f"database error: {getattr(e, 'orig', None) or e}") from e
+
+
 class SqlRepo:
     """model_versions in Postgres. Uses the ORM model; imported lazily so the CLI's helpers
     (and the unit tests) don't need the database stack."""
@@ -205,13 +245,16 @@ class SqlRepo:
 
     @contextlib.contextmanager
     def transaction(self, model_name: str) -> Iterator[Tx]:
-        from sqlalchemy import select
+        from sqlalchemy import select, text
+        from sqlalchemy.exc import IntegrityError
         from sqlalchemy.orm import Session
 
         from app.models.predictions import ModelVersion
 
-        with Session(self.engine) as session, session.begin():
-            # Lock the family's rows so concurrent promote/rollback calls serialise.
+        with _db_errors(), Session(self.engine) as session, session.begin():
+            # Serialise everything for this model_name. The advisory lock also covers the first
+            # register of a new name, where there are no rows for FOR UPDATE to lock.
+            session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:n))"), {"n": model_name})
             rows = list(session.scalars(
                 select(ModelVersion).where(ModelVersion.model_name == model_name).with_for_update()
             ))
@@ -223,7 +266,10 @@ class SqlRepo:
                 def add(self_, fields: dict[str, Any]) -> None:
                     row = ModelVersion(**fields)
                     session.add(row)
-                    session.flush()
+                    try:
+                        session.flush()
+                    except IntegrityError as e:
+                        raise RegistryError(f"{fields['model_key']} is already registered") from e
                     rows.append(row)
 
                 def set_status(self_, model_key: str, status: str, at: datetime) -> None:
@@ -244,7 +290,7 @@ class SqlRepo:
         stmt = select(ModelVersion).order_by(ModelVersion.model_name, ModelVersion.created_at)
         if model_name:
             stmt = stmt.where(ModelVersion.model_name == model_name)
-        with Session(self.engine) as session:
+        with _db_errors(), Session(self.engine) as session:
             return [self._to_version(r) for r in session.scalars(stmt)]
 
 
@@ -286,6 +332,8 @@ class Registry:
 
     def register(self, model_dir: Path, name: str, version: str, algorithm: str = "xgboost",
                  training_data_uri: str | None = None, notes: str | None = None) -> Version:
+        check_name("name", name)
+        check_name("version", version)
         model_dir = Path(model_dir)
         if not model_dir.is_dir():
             raise RegistryError(f"not a directory: {model_dir}")
@@ -307,7 +355,7 @@ class Registry:
         return self.get(key)
 
     def get(self, model_key: str) -> Version:
-        name = model_key.partition("/")[0]
+        name, _ = split_key(model_key)
         for v in self.repo.all_versions(name):
             if v.model_key == model_key:
                 return v
@@ -316,12 +364,33 @@ class Registry:
     def list(self, name: str | None = None) -> list[Version]:
         return self.repo.all_versions(name)
 
+    def _manifest_path(self, v: Version) -> Path:
+        return self.cache_dir / f"{v.artifact_sha256}.files.json"
+
+    def _cached_ok(self, v: Version) -> bool:
+        """True if the cached copy still matches the per-file hashes recorded when it was
+        verified against artifact_sha256."""
+        target, manifest = self.cache_dir / v.artifact_sha256, self._manifest_path(v)
+        if not (target.is_dir() and manifest.is_file()):
+            return False
+        try:
+            recorded = json.loads(manifest.read_text())
+        except ValueError:
+            return False
+        present = {p.relative_to(target).as_posix(): p for p in target.rglob("*") if p.is_file()}
+        return present.keys() == recorded.keys() and all(
+            sha256_file(present[name]) == digest for name, digest in recorded.items())
+
     def materialize(self, v: Version) -> Path:
-        """Download v's archive, verify its sha256, extract to the content-addressed cache."""
+        """Return a local directory holding v, verified against artifact_sha256.
+
+        The archive's sha256 is checked on download; the extracted files' hashes are recorded
+        and re-checked on every cache hit, so a damaged cache is discarded and fetched again."""
         target = self.cache_dir / v.artifact_sha256
-        if target.is_dir():
+        if self._cached_ok(v):
             return target
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(target, ignore_errors=True)
         with tempfile.TemporaryDirectory(dir=self.cache_dir) as tmp:
             archive = Path(tmp) / "artifact.tar.gz"
             self.store_for_uri(v.artifact_uri).get(v.artifact_uri, archive)
@@ -332,14 +401,27 @@ class Registry:
             staging = Path(tmp) / "extract"
             staging.mkdir()
             unpack(archive, staging)
-            with contextlib.suppress(FileExistsError):  # a concurrent loader won the race
+            files = {p.relative_to(staging).as_posix(): sha256_file(p)
+                     for p in staging.rglob("*") if p.is_file()}
+            self._manifest_path(v).write_text(json.dumps(files))
+            try:
                 staging.rename(target)
+            except OSError:
+                # A concurrent loader renamed first (FileExistsError on Windows, ENOTEMPTY on
+                # POSIX). Its copy is content-identical; anything else is a real failure.
+                if not target.is_dir():
+                    raise
+        if not self._cached_ok(v):
+            raise RegistryError(f"cache for {v.model_key} failed verification after extraction")
         return target
 
     def promote(self, model_key: str) -> tuple[Version, Version | None]:
         """Make model_key the production version; the previous one becomes retired.
         Returns (new, retired)."""
-        name = model_key.partition("/")[0]
+        name, _ = split_key(model_key)
+        # Download and verify before opening the transaction, so row locks are not held across
+        # network I/O. Inside the lock the same call is a local cache check.
+        self.materialize(self.get(model_key))
         with self.repo.transaction(name) as tx:
             rows = tx.versions()
             target = next((v for v in rows if v.model_key == model_key), None)
@@ -355,17 +437,23 @@ class Registry:
             tx.set_status(model_key, PRODUCTION, at)
         return self.get(model_key), current
 
+    @staticmethod
+    def _rollback_target(rows: list[Version], name: str) -> Version:
+        retired = [v for v in rows if v.status == RETIRED]
+        if not retired:
+            raise RegistryError(f"nothing to roll back to for {name!r}: no retired versions")
+        floor = datetime.min.replace(tzinfo=UTC)
+        return max(retired, key=lambda v: (v.status_changed_at or floor, v.created_at or floor))
+
     def rollback(self, name: str) -> tuple[Version, Version | None]:
         """Restore the most recently retired version. The version being replaced goes back to
         shadow (not retired), so repeated rollbacks keep walking back through history instead
         of flip-flopping. Returns (restored, demoted)."""
+        check_name("name", name)
+        self.materialize(self._rollback_target(self.repo.all_versions(name), name))  # outside the lock
         with self.repo.transaction(name) as tx:
             rows = tx.versions()
-            retired = [v for v in rows if v.status == RETIRED]
-            if not retired:
-                raise RegistryError(f"nothing to roll back to for {name!r}: no retired versions")
-            floor = datetime.min.replace(tzinfo=UTC)
-            target = max(retired, key=lambda v: (v.status_changed_at or floor, v.created_at or floor))
+            target = self._rollback_target(rows, name)
             self.materialize(target)
             current = next((v for v in rows if v.status == PRODUCTION), None)
             at = _now()
@@ -390,7 +478,7 @@ def build_registry() -> Registry:
 
     backend = settings.registry_backend
     if backend == "local":
-        store: Store = LocalStore(Path(settings.registry_local_dir))
+        store: Store = LocalStore(resolve_dir(settings.registry_local_dir))
     elif backend == "s3":
         store = S3Store(settings.registry_s3_bucket, settings.registry_s3_prefix,
                         settings.registry_s3_endpoint_url)
@@ -400,13 +488,13 @@ def build_registry() -> Registry:
     def store_for_uri(uri: str) -> Store:
         scheme = urlparse(uri).scheme
         if scheme == "file":
-            return LocalStore(Path(settings.registry_local_dir))
+            return LocalStore(resolve_dir(settings.registry_local_dir))
         if scheme == "s3":
             return store if isinstance(store, S3Store) else S3Store(
                 urlparse(uri).netloc, settings.registry_s3_prefix, settings.registry_s3_endpoint_url)
         raise RegistryError(f"unsupported artifact_uri scheme: {uri}")
 
-    return Registry(SqlRepo(), store, Path(settings.registry_cache_dir), store_for_uri)
+    return Registry(SqlRepo(), store, resolve_dir(settings.registry_cache_dir), store_for_uri)
 
 
 def _row(v: Version) -> str:

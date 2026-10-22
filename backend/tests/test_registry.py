@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import errno
 import json
 import shutil
 import tarfile
@@ -13,6 +14,7 @@ from typing import Any
 import pytest
 
 from mlops.registry import (
+    BACKEND,
     PRODUCTION,
     RETIRED,
     SHADOW,
@@ -24,6 +26,7 @@ from mlops.registry import (
     main,
     pack,
     read_metadata,
+    resolve_dir,
     sha256_file,
     unpack,
 )
@@ -35,6 +38,7 @@ class MemoryRepo:
     def __init__(self) -> None:
         self.rows: dict[str, Version] = {}
         self.clock = datetime(2026, 10, 1, tzinfo=UTC)
+        self.in_tx = False
 
     @contextlib.contextmanager
     def transaction(self, model_name: str):
@@ -59,11 +63,14 @@ class MemoryRepo:
                 repo.clock += timedelta(minutes=1)
                 repo.rows[model_key].status, repo.rows[model_key].status_changed_at = status, repo.clock
 
+        self.in_tx = True
         try:
             yield Tx()
         except BaseException:
             self.rows = snapshot
             raise
+        finally:
+            self.in_tx = False
 
     def all_versions(self, model_name: str | None = None) -> list[Version]:
         return [copy.copy(v) for v in self.rows.values() if model_name in (None, v.model_name)]
@@ -295,3 +302,80 @@ def test_cli_end_to_end(reg, tmp_path, capsys):
 def test_cli_reports_errors_without_traceback(reg, capsys):
     assert main(["promote", "baseline/nope"], reg) == 1
     assert "error: no such model version" in capsys.readouterr().err
+
+
+# --- review fixes --------------------------------------------------------------------------
+
+
+def test_cache_hit_is_reverified_and_repaired(reg, tmp_path):
+    v = register(reg, tmp_path, "v1")
+    path = reg.materialize(v)
+    (path / "model_h1.json").write_text("corrupted")
+    assert (reg.materialize(v) / "model_h1.json").read_text() == "a" * 100  # re-fetched
+    (path / "extra.bin").write_bytes(b"x")  # an extra file is also damage
+    assert not (reg.materialize(v) / "extra.bin").exists()
+
+
+def test_cache_without_manifest_is_not_trusted(reg, tmp_path):
+    v = register(reg, tmp_path, "v1")
+    reg.materialize(v)
+    reg._manifest_path(v).unlink()
+    (reg.cache_dir / v.artifact_sha256 / "model_h1.json").write_text("corrupted")
+    assert (reg.materialize(v) / "model_h1.json").read_text() == "a" * 100
+
+
+def test_concurrent_loader_winning_the_rename_is_not_an_error(reg, tmp_path, monkeypatch):
+    v = register(reg, tmp_path, "v1")
+
+    def lose_race(self, target):  # the other loader already put identical content there
+        shutil.copytree(self, target)
+        raise OSError(errno.ENOTEMPTY, "Directory not empty")
+
+    monkeypatch.setattr(Path, "rename", lose_race)
+    assert (reg.materialize(v) / "release.json").is_file()
+
+
+@pytest.mark.parametrize("name,version", [("a/b", "v1"), ("a", "v/1"), ("a", ".."), ("", "v1"),
+                                          ("a", "v 1"), ("a", "../x")])
+def test_register_rejects_bad_names(reg, tmp_path, name, version):
+    with pytest.raises(RegistryError, match="invalid"):
+        reg.register(make_model_dir(tmp_path / "d"), name, version)
+    assert reg.list() == []
+
+
+def test_model_key_must_have_name_and_version(reg):
+    with pytest.raises(RegistryError, match="expected <name>/<version>"):
+        reg.promote("baseline")
+
+
+def test_download_happens_outside_the_transaction(tmp_path):
+    repo = MemoryRepo()
+
+    class CheckingStore(LocalStore):
+        def get(self, uri, dest):
+            assert not repo.in_tx, "downloading while holding the row locks"
+            super().get(uri, dest)
+
+    reg = Registry(repo, CheckingStore(tmp_path / "store"), tmp_path / "cache")
+    register(reg, tmp_path, "v1", "a")
+    register(reg, tmp_path, "v2", "b")
+    reg.promote("baseline/v1")
+    reg.promote("baseline/v2")
+    shutil.rmtree(reg.cache_dir)  # force a fresh download for the rollback
+    reg.rollback("baseline")
+
+
+def test_upload_failure_is_a_registry_error(tmp_path):
+    class Denied(FakeS3):
+        def upload_file(self, *a):
+            raise PermissionError("no credentials")
+
+    reg = Registry(MemoryRepo(), S3Store("smoke-sense", client=Denied()), tmp_path / "cache")
+    with pytest.raises(RegistryError, match="could not upload"):
+        reg.register(make_model_dir(tmp_path / "d"), "baseline", "v1")
+    assert reg.list() == []
+
+
+def test_relative_registry_dirs_resolve_against_backend(tmp_path):
+    assert resolve_dir("data/registry") == BACKEND / "data" / "registry"
+    assert resolve_dir(str(tmp_path)) == tmp_path
