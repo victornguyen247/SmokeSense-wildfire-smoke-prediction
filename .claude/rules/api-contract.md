@@ -14,4 +14,4 @@ paths:
 - Response schemas are strict (`additionalProperties: false`). A spec change means updating fixtures in the same PR: `python docs/api/gen_fixtures.py` then `python docs/api/validate.py`; CI fails on drift. Fixtures are LF.
 - Timestamps: ISO-8601 UTC with `Z`. Geo responses are GeoJSON; grid/forecast/fires/observations take a `bbox` query param.
 - Frontend types and MSW fixtures are generated from the spec (`npm run gen:api`); never hand-edit.
-- Backend returns pydantic schemas, never ORM objects; error bodies expose no internals.
+- `openapi.yaml` is the contract; backend responses are verified against it by contract tests (`tests/test_api_contract.py` once API-01 lands), not by pydantic response models. Never return ORM objects; error bodies expose no internals.

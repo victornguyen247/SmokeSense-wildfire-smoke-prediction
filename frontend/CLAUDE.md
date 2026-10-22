@@ -3,7 +3,7 @@
 Run from `frontend/`: `npm run dev` · `npm run lint` (**oxlint**, not ESLint/Prettier) · `npm run build` (`tsc -b && vite build`). CI runs lint + build. No test runner yet.
 
 ## Structure (`src/`)
-`api/` the only place that calls the backend (typed `openapi-fetch` client) · `components/{ui,map,forecast}` · `features/{map,playback,city-history}` · `pages/` · `hooks/` · `context/` (only truly shared state) · `constants/` · `utils/` · `mocks/` (MSW).
+`api/` the only place that calls the backend (typed `openapi-fetch` client) · `components/{ui,map,forecast}` · `features/{map,playback,city-history}` (planned; may be empty) · `pages/` · `hooks/` · `context/` (only truly shared state) · `constants/` · `utils/` · `mocks/` (MSW).
 Naming: components/pages `PascalCase.tsx`; hooks `useX.ts`; helpers/api files `camelCase.ts`.
 
 ## Rules

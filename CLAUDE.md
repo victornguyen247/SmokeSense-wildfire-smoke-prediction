@@ -6,20 +6,20 @@ PM2.5 wildfire-smoke forecasting (1–24 h) for California: ingest FIRMS/NCEI/Ai
 
 | Path | What | Guide |
 |---|---|---|
-| `backend/app/` | FastAPI: `api/routes` → `services` → `schemas`/`models`, `core/config.py` | `backend/CLAUDE.md` |
+| `backend/app/` | FastAPI: `api/routes` → `services` (→ `repositories`, once API-01 lands) · `schemas`/`models`, `core/config.py` | `backend/CLAUDE.md` |
 | `backend/ingestion/` | Celery pulls + `normalize.py` (UTC) | `docs/backend.md`, `docs/data-sources.md` |
 | `backend/features/` | spatial/temporal features, shared by training + serving | `docs/ml/serving-contract.md` |
 | `backend/ml/`, `dataset_build/` | training, eval, inference, dataset v1 | `docs/ml.md`, `docs/models/` |
-| `backend/shared/aqi.py` | the ONLY AQI/PM2.5 threshold definition | |
+| `backend/shared/aqi.py` | the single AQI/PM2.5 threshold home. **Currently empty**; spec is the AQI table in `docs/api.md` | `docs/api.md` |
 | `frontend/` | React 19 + TS + Vite + MapLibre | `frontend/CLAUDE.md` |
 | `docs/api/openapi.yaml` | **API contract** (frontend ↔ backend) | `docs/api.md` |
 
 ## Doc index: open on demand, never all
-- Architecture / layer rules: `docs/architecture.md` (114 lines)
-- DB tables: `docs/schema.md` (583 lines, **grep it**, don't read it whole)
+- Architecture / layer rules: `docs/architecture.md`
+- DB tables: `docs/schema.md` (long: **grep it**, don't read it whole)
 - Locked data/model decisions (numbered, dated): `docs/data-decisions.md`
-- Pilot wildfire events: `docs/pilot-events.md` (537 lines, grep by `PE-0xx`)
-- External feeds, keys, quirks: `docs/data-sources.md` (366 lines, grep by source name)
+- Pilot wildfire events: `docs/pilot-events.md` (long: grep by `PE-0xx`)
+- External feeds, keys, quirks: `docs/data-sources.md` (long: grep by source name)
 - Git/PR/CI rules: `CONTRIBUTING.md`
 
 ## Commands
@@ -29,9 +29,9 @@ CI must pass: conventional commits, ruff + pytest, API spec validate, frontend l
 
 ## Hard rules (violations are bugs; details in `.claude/rules/`)
 1. Dependency direction: `frontend → api → services → ml/inference → features → db`. `ml/` and `features/` **never import `app/`**.
-2. Routes thin; logic in services; never return ORM objects (map via schemas); config only via `app/core/config.py` (no `os.getenv`).
+2. Routes thin; logic in services; never return ORM objects; in `app/`, config only via `app/core/config.py` (no `os.getenv`; ingestion/scripts still read env directly, leave them).
 3. All timestamps UTC (`Z`). No future leakage. Splits are by time / event group, **never random**.
-4. AQI/PM2.5 thresholds come only from `backend/shared/aqi.py`; the frontend renders thresholds from `/api/v1/meta`.
+4. AQI/PM2.5 thresholds belong in `backend/shared/aqi.py` (empty today, don't duplicate them elsewhere); the frontend renders thresholds from `/api/v1/meta`.
 5. API contract changes edit `docs/api/openapi.yaml` + fixtures in the same PR (additive-only within v1).
 6. Never log/print request URLs or params (keys are in them). Never commit `.env`, model binaries or `backend/data/*`.
 7. Schema changes via Alembic only.
