@@ -101,7 +101,8 @@ City records used for the History view and as the stable join key replacing frag
 
 ### `zip_codes`
 
-ZIP lookup loaded once from the Census ZCTA Gazetteer file. Maps ZIP code searches on the dashboard to a `forecast_point_id`.
+California ZIP lookup is loaded from Census TIGER/Line ZCTAs. Each California
+ZCTA's Census internal point maps to its containing `grid_cell` forecast point.
 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
@@ -109,7 +110,7 @@ ZIP lookup loaded once from the Census ZCTA Gazetteer file. Maps ZIP code search
 | `state` | TEXT | NOT NULL |  |
 | `geom` | GEOGRAPHY(POINT,4326) |  | Centroid — can be 20+ km from a house in large rural ZIPs |
 | `area_km2` | FLOAT |  | UI warns when ZIP is large |
-| `forecast_point_id` | TEXT | FK → forecast_points(id), nullable | NULL until first requested |
+| `forecast_point_id` | TEXT | FK → forecast_points(id), nullable | Set for every seeded California ZCTA |
 
 **Indexes:** `PRIMARY KEY (zcta)`, `GiST (geom)`
 
