@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True)
 
     # --- API (API-01) ---
+    # Serve docs/api/fixtures instead of the database. Stays on until the database
+    # repository exists; with it off, every data route fails with internal_error.
+    mock_mode: bool = True
     # Browser origins allowed to call the API, comma-separated (docs/api.md, "CORS").
     # Add the staging and production frontend origins here when they exist.
     cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
