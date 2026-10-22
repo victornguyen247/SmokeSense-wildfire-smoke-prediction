@@ -116,24 +116,21 @@ Each component should have a **single responsibility** and stay small enough to 
 
 ## 7. Type sync with the backend
 
-The backend is FastAPI, which auto-generates an OpenAPI schema at `/openapi.json`. To avoid the frontend and backend drifting apart on request/response shapes — a classic mid-project bug — generate frontend types from that schema instead of hand-writing them.
-
-Recommended setup (one person, early):
+The API contract is `docs/api/openapi.yaml` (PM-02). The backend implements it and the frontend generates its types from it, so the two can't drift apart on request/response shapes.
 
 ```bash
-npm install -D openapi-typescript
-# add to package.json scripts:
-#   "gen:types": "openapi-typescript http://localhost:8000/openapi.json -o src/api/types.ts"
-npm run gen:types
+cd frontend
+npm run gen:api     # regenerates src/api/types.ts and src/mocks/fixtures.ts from docs/api/
 ```
 
-Re-run `npm run gen:types` after any backend schema change. Treat `src/api/types.ts` as generated — don't edit it by hand.
-
----
+- Re-run `npm run gen:api` after any change to `docs/api/` and commit the result. CI runs `npm run api:check` and fails if the generated files are out of date.
+- Treat `src/api/types.ts` and `src/mocks/fixtures.ts` as generated; don't edit them by hand.
+- `src/api/models.ts` gives short names to the schemas the UI uses (`Meta`, `PointForecast`, …).
+- Mock mode (`VITE_USE_MOCKS=true`) serves the contract's fixtures from the browser, so the app runs with no backend. See `frontend/README.md`.
 
 ## 8. Code style
 
-- Format with **Prettier**; lint with **ESLint**. Both run in CI (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
+- Lint with **oxlint** (`npm run lint`); it runs in CI with the type-checked build (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 - `console.log` is fine in development but removed before merging to `prod`.
 - Prefer readable names and small focused functions over cleverness.
 

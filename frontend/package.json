@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:api": "node scripts/sync-api.mjs",
+    "api:check": "node scripts/sync-api.mjs --check"
   },
   "dependencies": {
+    "maplibre-gl": "^5.24.0",
+    "openapi-fetch": "^0.16.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -18,8 +22,20 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "msw": "^2.15.0",
+    "openapi-typescript": "^7.13.0",
     "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   }
 }
