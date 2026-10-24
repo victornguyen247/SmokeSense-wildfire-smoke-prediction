@@ -51,6 +51,7 @@ class Observation(Base):
     rh_pct: Mapped[float | None]
     qa_flag: Mapped[str | None]  # ok | suspect | invalid
     data_status: Mapped[str | None]
+    ingestion_run_id: Mapped[str | None]  # live rows only; NULL = historical batch row (0006)
 
     monitor: Mapped["Monitor"] = relationship()
 
@@ -90,6 +91,7 @@ class FireDetection(Base):
     scan_km: Mapped[float | None]
     track_km: Mapped[float | None]
     daynight: Mapped[str | None]
+    ingestion_run_id: Mapped[str | None]  # live rows only; NULL = historical batch row (0006)
 
 
 Index("ix_fire_detections_detected_at", FireDetection.detected_at.desc())
@@ -120,6 +122,7 @@ class WeatherObservation(Base):
     pressure_hpa: Mapped[float | None]
     precip_1h_mm: Mapped[float | None]
     qc_flag: Mapped[str | None]
+    ingestion_run_id: Mapped[str | None]  # live rows only; NULL = historical batch row (0006)
 
 
 Index("ix_weather_obs_valid_at", WeatherObservation.valid_at.desc())

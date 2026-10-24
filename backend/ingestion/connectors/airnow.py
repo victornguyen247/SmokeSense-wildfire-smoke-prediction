@@ -183,8 +183,13 @@ def _request_airnow_rows(
     start: datetime,
     end: datetime,
     verbose: bool = False,
+    client: httpx.Client | None = None,
 ) -> list[dict[str, Any]]:
-    """Make exactly one /aq/data/ request for an inclusive hourly window."""
+    """Make exactly one /aq/data/ request for an inclusive hourly window.
+
+    client lets a caller supply its own (e.g. retrying) client; by default a
+    plain one is opened for this request.
+    """
 
     # The monitoring-site endpoint accepts a geographic bounding box and
     # hourly date range. The historical/state endpoint is a different API
@@ -204,10 +209,13 @@ def _request_airnow_rows(
         "API_KEY": api_key,
     }
 
-    with httpx.Client(
-        timeout=TIMEOUT,
-        follow_redirects=True,
-    ) as client:
+    if client is None:
+        with httpx.Client(
+            timeout=TIMEOUT,
+            follow_redirects=True,
+        ) as own:
+            response = own.get(url, params=params)
+    else:
         response = client.get(url, params=params)
 
     if verbose:
@@ -258,11 +266,12 @@ def _fetch_window(
     start: datetime,
     end: datetime,
     verbose: bool,
+    client: httpx.Client | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch an inclusive hourly window, bisecting it if AirNow's record cap is hit."""
 
     try:
-        return _request_airnow_rows(api_key, bbox, start, end, verbose)
+        return _request_airnow_rows(api_key, bbox, start, end, verbose, client)
     except AirNowRecordLimitError:
         hours = int((end - start).total_seconds() // 3600) + 1
 
@@ -272,8 +281,8 @@ def _fetch_window(
 
         # Halves are [start, mid] and [mid + 1h, end]: contiguous, no overlap.
         mid = start + timedelta(hours=hours // 2 - 1)
-        first = _fetch_window(api_key, bbox, start, mid, verbose)
-        second = _fetch_window(api_key, bbox, mid + timedelta(hours=1), end, verbose)
+        first = _fetch_window(api_key, bbox, start, mid, verbose, client)
+        second = _fetch_window(api_key, bbox, mid + timedelta(hours=1), end, verbose, client)
         return first + second
 
 
@@ -285,6 +294,7 @@ def fetch_airnow_rows(
     end_date: str = DEFAULT_END_DATE,
     end_hour: str = DEFAULT_END_HOUR,
     verbose: bool = False,
+    client: httpx.Client | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch AirNow monitoring-site PM2.5 rows for an inclusive hourly window.
 
@@ -311,7 +321,7 @@ def fetch_airnow_rows(
             f"start {start_date}T{start_hour}"
         )
 
-    return _fetch_window(api_key, bbox, start, end, verbose)
+    return _fetch_window(api_key, bbox, start, end, verbose, client)
 
 
 def normalize_airnow_row(
