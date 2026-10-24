@@ -24,6 +24,12 @@ def beat_schedule() -> dict:
             "schedule": crontab(minute=env_int("LIVE_AIRNOW_MINUTE", 25)),
             "options": {"expires": 3600},
         },
+        # Hourly, a few minutes after the :53 routine METARs most stations send.
+        "live-nws": {
+            "task": "ingestion.live.nws",
+            "schedule": crontab(minute=env_int("LIVE_NWS_MINUTE", 5)),
+            "options": {"expires": 3600},
+        },
         "live-firms": {
             "task": "ingestion.live.firms",
             "schedule": timedelta(minutes=firms_minutes),

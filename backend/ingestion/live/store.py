@@ -251,3 +251,57 @@ def upsert_observations(session: Session, records: Iterable[dict], run_id: str) 
         if r["monitor"]["external_id"] in ids
     ]
     return _executemany(session, _UPSERT_OBSERVATION, params)
+
+
+# ---------------------------------------------------------------------------
+# weather_observations (NWS)
+# ---------------------------------------------------------------------------
+
+_UPSERT_WEATHER = text("""
+    INSERT INTO weather_observations (station_id, valid_at, received_at, geom, wind_speed_ms,
+                                      wind_dir_deg, temp_c, rh_pct, pressure_hpa,
+                                      precip_1h_mm, qc_flag, ingestion_run_id)
+    VALUES (:station_id, :valid_at, :received_at, ST_GeogFromText(:geom), :wind_speed_ms,
+            :wind_dir_deg, :temp_c, :rh_pct, :pressure_hpa, :precip_1h_mm, :qc_flag,
+            :ingestion_run_id)
+    ON CONFLICT (station_id, valid_at) DO UPDATE SET
+        received_at = EXCLUDED.received_at,
+        wind_speed_ms = EXCLUDED.wind_speed_ms,
+        wind_dir_deg = EXCLUDED.wind_dir_deg,
+        temp_c = EXCLUDED.temp_c,
+        rh_pct = EXCLUDED.rh_pct,
+        pressure_hpa = EXCLUDED.pressure_hpa,
+        precip_1h_mm = EXCLUDED.precip_1h_mm,
+        qc_flag = EXCLUDED.qc_flag,
+        ingestion_run_id = EXCLUDED.ingestion_run_id
+    WHERE weather_observations.ingestion_run_id IS NOT NULL
+      AND (weather_observations.wind_speed_ms, weather_observations.wind_dir_deg,
+           weather_observations.temp_c, weather_observations.rh_pct,
+           weather_observations.pressure_hpa, weather_observations.precip_1h_mm,
+           weather_observations.qc_flag)
+          IS DISTINCT FROM
+          (EXCLUDED.wind_speed_ms, EXCLUDED.wind_dir_deg, EXCLUDED.temp_c, EXCLUDED.rh_pct,
+           EXCLUDED.pressure_hpa, EXCLUDED.precip_1h_mm, EXCLUDED.qc_flag)
+""")
+
+
+def upsert_weather(session: Session, records: Iterable[dict], run_id: str) -> int:
+    """Upsert normalized weather records on (station_id, valid_at); rows written."""
+    params = [
+        {
+            "station_id": r["station_id"],
+            "valid_at": r["valid_at"],
+            "received_at": r["received_at"],
+            "geom": point_wkt(r["latitude"], r["longitude"]),
+            "wind_speed_ms": r["wind_speed_ms"],
+            "wind_dir_deg": r["wind_dir_deg"],
+            "temp_c": r["temp_c"],
+            "rh_pct": r["rh_pct"],
+            "pressure_hpa": r["pressure_hpa"],
+            "precip_1h_mm": r["precip_1h_mm"],
+            "qc_flag": r["qc_flag"],
+            "ingestion_run_id": run_id,
+        }
+        for r in records
+    ]
+    return _executemany(session, _UPSERT_WEATHER, params)

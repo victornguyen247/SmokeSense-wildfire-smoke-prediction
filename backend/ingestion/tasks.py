@@ -39,6 +39,7 @@ from ingestion.db import (
 )
 from ingestion.live import airnow as live_airnow
 from ingestion.live import firms as live_firms
+from ingestion.live import nws as live_nws
 from ingestion.live.schedule import beat_schedule
 
 celery_app = Celery(
@@ -243,6 +244,12 @@ def ingest_airnow_live() -> dict:
 def ingest_firms_live() -> dict:
     """FIRMS VIIRS SNPP NRT, California + 200 km."""
     return live_firms.run()
+
+
+@celery_app.task(name="ingestion.live.nws")
+def ingest_nws_live() -> dict:
+    """NWS station observations at the training stations."""
+    return live_nws.run()
 
 
 @celery_app.task(name="ingestion.health")
