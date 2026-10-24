@@ -71,8 +71,13 @@ def fetch_firms_rows(
     bbox: str = DEFAULT_BBOX,
     day_range: int = DEFAULT_DAY_RANGE,
     start_date: str | None = None,
+    client: httpx.Client | None = None,
 ) -> list[dict[str, str]]:
-    """Fetch FIRMS CSV data and return parsed source rows."""
+    """Fetch FIRMS CSV data and return parsed source rows.
+
+    client lets a caller supply its own (e.g. retrying) client; by default a
+    plain one is opened for this request.
+    """
 
     url = build_url(
         map_key=map_key,
@@ -82,7 +87,10 @@ def fetch_firms_rows(
         start_date=start_date,
     )
 
-    with httpx.Client(timeout=TIMEOUT) as client:
+    if client is None:
+        with httpx.Client(timeout=TIMEOUT) as own:
+            response = own.get(url)
+    else:
         response = client.get(url)
 
     if response.status_code != 200:
