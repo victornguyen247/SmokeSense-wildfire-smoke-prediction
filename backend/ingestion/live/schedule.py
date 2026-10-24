@@ -9,12 +9,21 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from celery.schedules import crontab
+
 from ingestion.live.common import env_int
 
 
 def beat_schedule() -> dict:
     firms_minutes = env_int("LIVE_FIRMS_EVERY_MINUTES", 30)
     return {
+        # Hourly, offset after the top of the hour so AirNow has published the hour
+        # that just ended (lag-1 for an issue time H is the reading labelled H - 1 h).
+        "live-airnow": {
+            "task": "ingestion.live.airnow",
+            "schedule": crontab(minute=env_int("LIVE_AIRNOW_MINUTE", 25)),
+            "options": {"expires": 3600},
+        },
         "live-firms": {
             "task": "ingestion.live.firms",
             "schedule": timedelta(minutes=firms_minutes),

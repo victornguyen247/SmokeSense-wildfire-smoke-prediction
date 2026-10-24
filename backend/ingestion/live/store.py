@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.core.ids import uuid7
@@ -105,3 +105,149 @@ def insert_fire_detections(
         for r in records
     ]
     return _executemany(session, _INSERT_FIRE, params)
+
+
+# ---------------------------------------------------------------------------
+# monitors + observations (AirNow, PurpleAir)
+# ---------------------------------------------------------------------------
+
+_SELECT_MONITORS = text(
+    "SELECT external_id, id FROM monitors WHERE source = :source AND external_id IN :ids"
+).bindparams(bindparam("ids", expanding=True))
+
+_INSERT_MONITOR = text("""
+    INSERT INTO monitors (id, source, external_id, aqs_code, name, location_type, geom,
+                          elevation_m, active, first_seen_at, last_seen_at)
+    VALUES (:id, :source, :external_id, :aqs_code, :name, :location_type,
+            ST_GeogFromText(:geom), :elevation_m, :active, :first_seen_at, :last_seen_at)
+    ON CONFLICT (source, external_id) DO NOTHING
+""")
+
+# Same rule as ingestion.db.get_or_create_monitor: an existing monitor only gains a
+# missing aqs_code; last_seen_at moves forward.
+_TOUCH_MONITOR = text("""
+    UPDATE monitors
+    SET last_seen_at = GREATEST(COALESCE(last_seen_at, :last_seen_at), :last_seen_at),
+        aqs_code = COALESCE(aqs_code, :aqs_code)
+    WHERE id = :id
+      AND (last_seen_at IS NULL OR last_seen_at < :last_seen_at
+           OR (aqs_code IS NULL AND CAST(:aqs_code AS TEXT) IS NOT NULL))
+""")
+
+
+def upsert_monitors(session: Session, monitors: Iterable[dict]) -> dict[str, str]:
+    """Create unseen monitors and refresh last_seen_at; returns {external_id: monitors.id}.
+
+    monitors are the "monitor" dicts the AirNow/PurpleAir normalizers build. One
+    source per call. A monitor with no coordinates cannot be created and is left out.
+    """
+    by_external: dict[str, dict] = {}
+    for m in monitors:
+        by_external.setdefault(m["external_id"], m)
+    if not by_external:
+        return {}
+    source = next(iter(by_external.values()))["source"]
+
+    def existing() -> dict[str, str]:
+        found: dict[str, str] = {}
+        ids = list(by_external)
+        for i in range(0, len(ids), CHUNK_ROWS):
+            rows = session.execute(
+                _SELECT_MONITORS, {"source": source, "ids": ids[i : i + CHUNK_ROWS]}
+            )
+            found.update(dict(rows.all()))
+        return found
+
+    ids = existing()
+    new = [
+        {
+            "id": uuid7(),
+            "source": m["source"],
+            "external_id": ext,
+            "aqs_code": m.get("aqs_code"),
+            "name": m["name"],
+            "location_type": m.get("location_type") or "outdoor",
+            "geom": point_wkt(m["latitude"], m["longitude"]),
+            "elevation_m": m.get("elevation_m"),
+            "active": m.get("active", True),
+            "first_seen_at": m["first_seen_at"],
+            "last_seen_at": m["last_seen_at"],
+        }
+        for ext, m in by_external.items()
+        if ext not in ids
+        and m.get("latitude") is not None
+        and m.get("longitude") is not None
+    ]
+    if new:
+        _executemany(session, _INSERT_MONITOR, new)
+        ids = existing()
+
+    touched = [
+        {
+            "id": ids[ext],
+            "last_seen_at": m["last_seen_at"],
+            "aqs_code": m.get("aqs_code"),
+        }
+        for ext, m in by_external.items()
+        if ext in ids
+    ]
+    _executemany(session, _TOUCH_MONITOR, touched)
+    return ids
+
+
+# A live row whose values changed (a late AirNow revision, a newer PurpleAir
+# reading in the same hour) is updated; an unchanged one is left alone, so a
+# re-run writes nothing. Historical rows (ingestion_run_id NULL) are never touched.
+_UPSERT_OBSERVATION = text("""
+    INSERT INTO observations (monitor_id, valid_at, received_at, pm25, correction,
+                              pm25_cf1_a, pm25_cf1_b, rh_pct, qa_flag, data_status,
+                              ingestion_run_id)
+    VALUES (:monitor_id, :valid_at, :received_at, :pm25, :correction, :pm25_cf1_a,
+            :pm25_cf1_b, :rh_pct, :qa_flag, :data_status, :ingestion_run_id)
+    ON CONFLICT (monitor_id, valid_at) DO UPDATE SET
+        received_at = EXCLUDED.received_at,
+        ingested_at = now(),
+        pm25 = EXCLUDED.pm25,
+        correction = EXCLUDED.correction,
+        pm25_cf1_a = EXCLUDED.pm25_cf1_a,
+        pm25_cf1_b = EXCLUDED.pm25_cf1_b,
+        rh_pct = EXCLUDED.rh_pct,
+        qa_flag = EXCLUDED.qa_flag,
+        data_status = EXCLUDED.data_status,
+        ingestion_run_id = EXCLUDED.ingestion_run_id
+    WHERE observations.ingestion_run_id IS NOT NULL
+      AND (observations.pm25, observations.correction, observations.pm25_cf1_a,
+           observations.pm25_cf1_b, observations.rh_pct, observations.qa_flag,
+           observations.data_status)
+          IS DISTINCT FROM
+          (EXCLUDED.pm25, EXCLUDED.correction, EXCLUDED.pm25_cf1_a, EXCLUDED.pm25_cf1_b,
+           EXCLUDED.rh_pct, EXCLUDED.qa_flag, EXCLUDED.data_status)
+""")
+
+
+def upsert_observations(session: Session, records: Iterable[dict], run_id: str) -> int:
+    """Upsert normalized AirNow/PurpleAir records (monitor + observation); rows written.
+
+    Monitors are created or refreshed first. Records whose monitor could not be
+    created (no coordinates) are skipped.
+    """
+    records = list(records)
+    ids = upsert_monitors(session, (r["monitor"] for r in records))
+    params = [
+        {
+            "monitor_id": ids[r["monitor"]["external_id"]],
+            "valid_at": r["observation"]["valid_at"],
+            "received_at": r["observation"]["received_at"],
+            "pm25": r["observation"]["pm25"],
+            "correction": r["observation"]["correction"],
+            "pm25_cf1_a": r["observation"]["pm25_cf1_a"],
+            "pm25_cf1_b": r["observation"]["pm25_cf1_b"],
+            "rh_pct": r["observation"]["rh_pct"],
+            "qa_flag": r["observation"]["qa_flag"],
+            "data_status": r["observation"]["data_status"],
+            "ingestion_run_id": run_id,
+        }
+        for r in records
+        if r["monitor"]["external_id"] in ids
+    ]
+    return _executemany(session, _UPSERT_OBSERVATION, params)

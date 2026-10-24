@@ -259,11 +259,14 @@ def run_job(
     job gets (session, run_id, now) and commits its own writes as it goes; on an
     exception its uncommitted work is rolled back and the run is marked failed.
     """
-    now = now or utc_now()
+    # The run's clock: started_at is `now` and finished_at adds the real elapsed time,
+    # so a run replayed at a fixed time (tests, backfills) has a consistent timeline.
+    wall_start = utc_now()
+    now = now or wall_start
     session = session_factory()
     run = IngestionRun(
         source=source,
-        started_at=utc_now(),
+        started_at=now,
         status="running",
         rows_fetched=0,
         rows_written=0,
@@ -294,7 +297,7 @@ def run_job(
 
     run = session.get(IngestionRun, run_id)
     run.status = status
-    run.finished_at = utc_now()
+    run.finished_at = now + (utc_now() - wall_start)
     run.rows_fetched = result.rows_fetched
     run.rows_written = result.rows_written
     run.watermark = result.watermark
@@ -346,4 +349,4 @@ def lookback_start(
     )
     if last is None:
         return window_start
-    return max(window_start, last - timedelta(hours=overlap_hours))
+    return max(window_start, min(last, now) - timedelta(hours=overlap_hours))

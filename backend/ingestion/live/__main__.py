@@ -19,6 +19,7 @@ import logging
 import sys
 
 JOBS = {
+    "airnow": "ingestion.live.airnow",
     "firms": "ingestion.live.firms",
 }
 

@@ -37,6 +37,7 @@ from ingestion.db import (
     insert_airnow_observations,
     insert_fire_detections,
 )
+from ingestion.live import airnow as live_airnow
 from ingestion.live import firms as live_firms
 from ingestion.live.schedule import beat_schedule
 
@@ -230,6 +231,12 @@ def ingest_airnow_poc() -> dict:
 # DATA-06 live jobs. Each returns its run summary and never raises: a failure is
 # recorded in ingestion_runs and retried by the next scheduled run.
 # ---------------------------------------------------------------------------
+
+
+@celery_app.task(name="ingestion.live.airnow")
+def ingest_airnow_live() -> dict:
+    """AirNow hourly PM2.5 at California monitors."""
+    return live_airnow.run()
 
 
 @celery_app.task(name="ingestion.live.firms")
