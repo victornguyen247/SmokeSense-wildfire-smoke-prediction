@@ -22,6 +22,7 @@ JOBS = {
     "airnow": "ingestion.live.airnow",
     "firms": "ingestion.live.firms",
     "nws": "ingestion.live.nws",
+    "purpleair": "ingestion.live.purpleair",
 }
 
 
