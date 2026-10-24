@@ -1,6 +1,10 @@
 """Celery tasks for SmokeSense data ingestion.
 
-DATA-02 POC:
+DATA-06 live jobs (ingestion.live.*): one task per source, scheduled by beat
+(ingestion/live/schedule.py). Each is also runnable without a worker:
+python -m ingestion.live <source>. See backend/docs/live-ingestion.md.
+
+DATA-02 POC (ingestion.firms_poc / ingestion.airnow_poc, not scheduled):
 - Pull FIRMS fire detections
 - Pull AirNow PM2.5 observations
 - Normalize the records
@@ -33,6 +37,8 @@ from ingestion.db import (
     insert_airnow_observations,
     insert_fire_detections,
 )
+from ingestion.live import firms as live_firms
+from ingestion.live.schedule import beat_schedule
 
 celery_app = Celery(
     "smokesense",
@@ -46,6 +52,7 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
+    beat_schedule=beat_schedule(),
 )
 
 
@@ -217,6 +224,18 @@ def ingest_airnow_poc() -> dict:
 
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# DATA-06 live jobs. Each returns its run summary and never raises: a failure is
+# recorded in ingestion_runs and retried by the next scheduled run.
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(name="ingestion.live.firms")
+def ingest_firms_live() -> dict:
+    """FIRMS VIIRS SNPP NRT, California + 200 km."""
+    return live_firms.run()
 
 
 @celery_app.task(name="ingestion.health")
