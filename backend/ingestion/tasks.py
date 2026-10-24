@@ -41,6 +41,7 @@ from ingestion.live import airnow as live_airnow
 from ingestion.live import firms as live_firms
 from ingestion.live import nws as live_nws
 from ingestion.live import purpleair as live_purpleair
+from ingestion.live import retention as live_retention
 from ingestion.live.schedule import beat_schedule
 
 celery_app = Celery(
@@ -257,6 +258,12 @@ def ingest_nws_live() -> dict:
 def ingest_purpleair_live() -> dict:
     """PurpleAir, EPA-corrected, for the map layer only (not a model input)."""
     return live_purpleair.run()
+
+
+@celery_app.task(name="ingestion.live.retention")
+def enforce_live_retention() -> dict:
+    """Delete live rows older than the window (dry run unless LIVE_RETENTION_DELETE=1)."""
+    return live_retention.run()
 
 
 @celery_app.task(name="ingestion.health")

@@ -42,4 +42,13 @@ def beat_schedule() -> dict:
             "schedule": timedelta(minutes=purpleair_minutes),
             "options": {"expires": purpleair_minutes * 60},
         },
+        # Daily; dry run unless LIVE_RETENTION_DELETE=1.
+        "live-retention": {
+            "task": "ingestion.live.retention",
+            "schedule": crontab(
+                hour=env_int("LIVE_RETENTION_HOUR", 9),
+                minute=env_int("LIVE_RETENTION_MINUTE", 15),
+            ),
+            "options": {"expires": 3600},
+        },
     }
