@@ -39,8 +39,9 @@ CA_BBOX = (-124.5, 32.5, -114.1, 42.1)
 # Live rows older than this are deleted by retention (live rows only).
 DEFAULT_WINDOW_HOURS = 72
 
-# Network calls: generous read timeout, the statewide AirNow and FIRMS pulls are big.
-LIVE_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+# Read timeout per request (LIVE_HTTP_TIMEOUT_S). Generous: AirNow took 40-55 s for
+# even a small box on 2026-10-23, and the statewide FIRMS pull is large.
+DEFAULT_READ_TIMEOUT_S = 120.0
 
 
 def env_int(name: str, default: int) -> int:
@@ -183,9 +184,12 @@ def live_client(
         max_wait_s=env_float("LIVE_HTTP_MAX_WAIT_S", 60.0),
         sleep=sleep,
     )
+    timeout = httpx.Timeout(
+        env_float("LIVE_HTTP_TIMEOUT_S", DEFAULT_READ_TIMEOUT_S), connect=10.0
+    )
     return httpx.Client(
         transport=transport,
-        timeout=LIVE_TIMEOUT,
+        timeout=timeout,
         headers=headers,
         follow_redirects=True,
     )
