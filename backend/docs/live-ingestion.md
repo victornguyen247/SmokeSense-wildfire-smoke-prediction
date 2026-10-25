@@ -80,7 +80,7 @@ Map layer only. It is not a model input (decision #12), and `tests/test_live_pur
 - It is a **dry run by default**: it reports counts only. Set `LIVE_RETENTION_DELETE=1` (or run `retention --delete`) to delete.
 - Rows are deleted, not partitions dropped, because a daily partition can also hold historical rows.
 - Live upserts never modify a row whose `ingestion_run_id` is NULL.
-- The `smokesense_v1` build (`dataset_build/build_v1.py`) reads only rows with `ingestion_run_id IS NULL`. This was checked on 2026-10-25: the DATA-03 release dump was restored into a throwaway database, live rows were added through the live jobs from the test fixtures, and `scripts/reproduce_data04.sh` reproduced the dataset byte for byte. Before the filter, those live rows changed the dataset's sha256.
+- The `smokesense_v1` build (`dataset_build/build_v1.py`) reads only rows with `ingestion_run_id IS NULL`: its query functions take `row_scope` (`"historical"` by default, `"live"` for GEO-03 features from live rows, or `"any"`). This was checked on 2026-10-25: the DATA-03 release dump was restored into a throwaway database, live rows were added through the live jobs from the test fixtures, and `scripts/reproduce_data04.sh` reproduced the dataset byte for byte. Before the filter, those live rows changed the dataset's sha256.
 
 ## Freshness (`/api/v1/meta` → `sources`)
 

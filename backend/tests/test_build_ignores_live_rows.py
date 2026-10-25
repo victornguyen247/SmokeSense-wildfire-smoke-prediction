@@ -1,4 +1,5 @@
-"""smokesense_v1 builds from historical rows only; live DATA-06 rows never leak in.
+"""row_scope in dataset_build.build_v1: smokesense_v1 reads historical rows only by
+default, and GEO-03 can read live rows (or both) through the same functions.
 
 Live rows share observations, fire_detections and weather_observations with the
 DATA-03 rows the dataset is built from (decision #34). Before the build filtered on
@@ -10,9 +11,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import text
 
-from dataset_build.build_v1 import forecast_points, load_inputs
+from dataset_build.build_v1 import forecast_points, load_inputs, scope_sql
 
 BOX = "-122.04,39.59,-120.00,40.81"  # PE-002's bbox
 EVENT = SimpleNamespace(
@@ -79,15 +81,12 @@ def seed(live_db) -> None:
         s.commit()
 
 
-def test_build_queries_read_historical_rows_only(live_db):
-    seed(live_db)
+def read(live_db, **scope) -> tuple[list[str], dict[str, list[int]]]:
+    """(forecast point ids, input hours per frame) for the event, with an optional row_scope."""
     with live_db() as s:
         c = s.connection()
-        points, _ = forecast_points(c, EVENT, registry={})
-        frames = load_inputs(c, EVENT)
-
-    # The live-only monitor is not a forecast point, and no live row is an input.
-    assert list(points["forecast_point_id"]) == ["airnow:hist"]
+        points, _ = forecast_points(c, EVENT, registry={}, **scope)
+        frames = load_inputs(c, EVENT, **scope)
     hours = {
         name: sorted(frames[name][col].dt.hour.tolist())
         for name, col in (
@@ -96,4 +95,42 @@ def test_build_queries_read_historical_rows_only(live_db):
             ("pm25_observations", "valid_at"),
         )
     }
+    return sorted(points["forecast_point_id"]), hours
+
+
+def test_default_reads_historical_rows_only(live_db):
+    """smokesense_v1's build: the live-only monitor is no point and no live row an input."""
+    seed(live_db)
+    assert read(live_db) == read(live_db, row_scope="historical")
+    points, hours = read(live_db)
+    assert points == ["airnow:hist"]
     assert hours == {"fires": [10], "weather": [10], "pm25_observations": [10]}
+
+
+def test_live_scope_reads_live_rows_only(live_db):
+    """GEO-03's case: features from live rows, at historical and live-only monitors."""
+    seed(live_db)
+    points, hours = read(live_db, row_scope="live")
+    assert points == ["airnow:hist", "airnow:live"]
+    assert hours == {
+        "fires": [11, 12],
+        "weather": [11, 12],
+        "pm25_observations": [11, 12],
+    }
+
+
+def test_any_scope_reads_both(live_db):
+    seed(live_db)
+    points, hours = read(live_db, row_scope="any")
+    assert points == ["airnow:hist", "airnow:live"]
+    assert hours == {
+        "fires": [10, 11, 12],
+        "weather": [10, 11, 12],
+        "pm25_observations": [10, 11, 12],
+    }
+
+
+def test_unknown_scope_is_rejected():
+    with pytest.raises(ValueError, match="row_scope"):
+        scope_sql("everything")
+    assert scope_sql("historical", "o") == "o.ingestion_run_id is null"
