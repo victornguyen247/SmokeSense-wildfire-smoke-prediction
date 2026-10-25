@@ -57,3 +57,9 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 | 32 | **`monitors.aqs_code` is the source of truth for AirNow AQS codes** (migration 0003; the connector writes it; `scripts/backfill_monitor_aqs_code.py` fills older rows). `dataset_build/airnow_sites.csv` is only a fallback, used with a warning. | The DB keyed monitors by a hash of the code, so the code itself was not queryable. A committed CSV would drift from the DB as new sites appear. |
 | 33 | **Docs follow the code:** artifacts live in `backend/data/models/<name>/` (`docs/ml.md`). `docs/schema.md` describes observed NCEI weather at issue time (not NWS forecasts), the dataset path `backend/data/datasets/`, and the added columns. | Readers should not have to reconcile the docs with the code to know what a model saw. |
 
+
+## 2026-10-25 — weather missingness and baseline_v2 (owner: Tin, data)
+
+| # | Decision | Reason |
+|---|---|---|
+| 43 | **The live NWS weather missingness gap is accepted for baseline_v2; no retrain or feature change.** In smokesense_v1, `precip_1h_mm` is missing in 58.7% of rows and `pressure_hpa` in 53.9% (live: 87% / 60%). Masking held-out folds up to the live rates (random, 5 seeds), or entirely, did not raise pooled v2 MAE at any horizon (B: −0.003 to −0.017 µg/m³; A: down to −0.11), left F1 at 35.5 unchanged and served the same horizons (`docs/ml/weather-missingness-check.md`). Re-run the check for any retrained model. | The decision rule (MAE rise ≤ 0.15 at every horizon, F1 change ≤ 0.01, same served horizons) was set before the run, and all checks pass. v2 never splits on `precip_1h_mm`; `pressure_hpa` has 1.9% of gain. |
