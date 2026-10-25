@@ -19,7 +19,7 @@ The same jobs are Celery tasks (`ingestion/tasks.py`) scheduled by beat (`ingest
 | FIRMS VIIRS **SNPP NRT** only | `ingestion.live.firms` | `firms` | every 30 min (`LIVE_FIRMS_EVERY_MINUTES`) | California bbox + 200 km; 72 h on a first run, then from 24 h (`LIVE_FIRMS_OVERLAP_HOURS`) before the last success | 5,000 transactions / 10 min; one request per run. Retries 429 and 5xx. |
 | AirNow hourly PM2.5 | `ingestion.live.airnow` | `airdata` | hourly at :25 (`LIVE_AIRNOW_MINUTE`) | California bbox; 72 h, then from 3 h (`LIVE_AIRNOW_OVERLAP_HOURS`) before the last success | 500 requests / hour; one request per run (more only if the record cap makes the connector bisect). **429 is not retried** (no data until the next hour); 5xx are. |
 | NWS station observations | `ingestion.live.nws` | `nws_obs` | hourly at :05 (`LIVE_NWS_MINUTE`) | the 109 training stations; 72 h, then from 3 h (`LIVE_NWS_OVERLAP_HOURS`) before the last success | Unpublished; "retry after ~5 s". One station at a time, `LIVE_NWS_REQUEST_SPACING_S` (0.5 s) apart, ~2 pages per station on a backfill. Retries 429 and 5xx. Sends `NWS_USER_AGENT`. |
-| PurpleAir (map layer only) | `ingestion.live.purpleair` | `purpleair` | every 30 min (`LIVE_PURPLEAIR_EVERY_MINUTES`) | California bbox, sensors seen in the last hour (`LIVE_PURPLEAIR_MAX_AGE_S`) | Points per field per sensor; one `/v1/sensors` call per run, six fields. Retries 429 and 5xx. |
+| PurpleAir (map layer only) | `ingestion.live.purpleair` | `purpleair` | every 120 min (`LIVE_PURPLEAIR_EVERY_MINUTES`; `0` disables it) | California bbox, sensors seen in the last hour (`LIVE_PURPLEAIR_MAX_AGE_S`) | Points per field per sensor; one `/v1/sensors` call per run, six fields. Retries 429 and 5xx. |
 | Retention | `ingestion.live.retention` | (none) | daily 09:15 UTC (`LIVE_RETENTION_HOUR`, `LIVE_RETENTION_MINUTE`) | see below | |
 
 There is no chaining between sources. Each beat entry is separate and has an `expires` equal to its interval, so a stalled worker doesn't pile up a backlog.
@@ -70,16 +70,17 @@ On the first live run (2026-10-23), 107 of the 109 reported. KLHM (Lincoln) and 
 
 Map layer only. It is not a model input (decision #12), and `tests/test_live_purpleair.py` fails if a PurpleAir column enters `FEATURES` / `FEATURES_V2`. Each run makes one `/v1/sensors` call for outdoor sensors in the California box, requesting `latitude, longitude, last_seen, humidity, pm2.5_cf_1_a, pm2.5_cf_1_b`. Readings get A/B channel QA and then the EPA U.S.-wide correction: Barkjohn et al. 2021, `PM2.5 = 0.524·cf1 − 0.0862·RH + 5.75`, https://doi.org/10.5194/amt-14-4617-2021. The value is the sensor's current reading, stored under the hour it falls in, and a later run in the same hour replaces it. It is not an hourly average.
 
-**Cost:** about (sensors returned) × 6 points per run. Check the balance before raising the cadence.
+**Cost:** about (sensors returned) × 6 points per run. The first live run (2026-10-23) returned 7,095 sensors for about **42.6k points**, so the default cadence of 120 min costs about **0.5M points a day** (12 runs). Every 30 min would be about 2M a day. Check the balance before shortening the cadence. `LIVE_PURPLEAIR_EVERY_MINUTES=0` removes the job from the beat schedule entirely, and the map layer then simply has no PurpleAir data.
 
 ## Live vs historical rows, and retention
 
 `observations`, `fire_detections` and `weather_observations` also hold the DATA-03 pilot-event rows that `smokesense_v1` is built from. Those must never be deleted. Migration `0006` adds `ingestion_run_id` to the three tables. Live jobs set it to their run's id, and batch rows keep NULL.
 
-- **Retention** deletes rows older than `LIVE_RETENTION_HOURS` (72) **only where `ingestion_run_id IS NOT NULL`**. A historical row is never deleted, whatever its date. It also prunes `ingestion_runs` older than 90 days, and creates daily partitions three days ahead (eight for `weather_forecasts`) so live rows land in their own partition rather than DEFAULT.
+- **Retention** deletes rows older than `LIVE_RETENTION_HOURS` (72) **only where `ingestion_run_id IS NOT NULL`**. A historical row is never deleted, whatever its date. It also closes orphaned runs: a run still `running` after 6 hours (its worker stopped mid-run) is marked `failed` with error `abandoned (worker stopped)`. It then prunes `ingestion_runs` older than 90 days, and creates daily partitions three days ahead (eight for `weather_forecasts`) so live rows land in their own partition rather than DEFAULT.
 - It is a **dry run by default**: it reports counts only. Set `LIVE_RETENTION_DELETE=1` (or run `retention --delete`) to delete.
 - Rows are deleted, not partitions dropped, because a daily partition can also hold historical rows.
 - Live upserts never modify a row whose `ingestion_run_id` is NULL.
+- The `smokesense_v1` build (`dataset_build/build_v1.py`) reads only rows with `ingestion_run_id IS NULL`. This was checked on 2026-10-25: the DATA-03 release dump was restored into a throwaway database, live rows were added through the live jobs from the test fixtures, and `scripts/reproduce_data04.sh` reproduced the dataset byte for byte. Before the filter, those live rows changed the dataset's sha256.
 
 ## Freshness (`/api/v1/meta` → `sources`)
 
@@ -93,7 +94,25 @@ Map layer only. It is not a model input (decision #12), and `tests/test_live_pur
 | `age_minutes` | now − `latest_data_at` |
 | `stale` | no successful run, or the last one finished more than `stale_after_minutes` ago |
 
-Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about two missed runs: AirNow 150, NWS 150, FIRMS 90, PurpleAir 90. `stale` follows the job, not the data age, because a healthy FIRMS feed can go hours without a detection.
+Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about two missed runs: AirNow 150, NWS 150, FIRMS 90, PurpleAir 270 (2 × 120 min + 30). `stale` follows the job, not the data age, because a healthy FIRMS feed can go hours without a detection.
+
+## Deploying
+
+- **Set `LIVE_RETENTION_DELETE=1` on the deployed worker.** Without it retention only counts rows and nothing is ever deleted, so the live tables grow until the free Neon database is full. Leave it unset locally, where a dry run is the safe default.
+- **Set `NWS_USER_AGENT` to the app name and a real contact**, e.g. `SmokeSense (team-inbox@yourdomain)`. NWS uses it to warn before blocking traffic, and the job refuses any value without an `@` or containing `example.com`.
+- **Keys:** `FIRMS_MAP_KEY`, `AIRNOW_API_KEY` and `PURPLEAIR_API_KEY` in the worker's environment. A missing key fails only that source's runs.
+- **PurpleAir budget:** keep `LIVE_PURPLEAIR_EVERY_MINUTES` at 120 (about 0.5M points a day) or set it to `0` to turn the job off.
+- **No always-on worker?** Every job is a plain command, so cron (or a scheduled GitHub Actions workflow) can run them directly from `backend/` with the same environment. Example crontab (UTC) matching the beat defaults:
+
+  ```cron
+  */30 * * * *  python -m ingestion.live firms
+  25 * * * *    python -m ingestion.live airnow
+  5 * * * *     python -m ingestion.live nws
+  0 */2 * * *   python -m ingestion.live purpleair
+  15 9 * * *    python -m ingestion.live retention
+  ```
+
+  Retention from cron still needs `LIVE_RETENTION_DELETE=1` (or `retention --delete`). Each command exits 1 when its run failed, and the run is recorded in `ingestion_runs` either way.
 
 ## Running locally
 
