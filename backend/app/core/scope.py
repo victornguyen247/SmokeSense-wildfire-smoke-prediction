@@ -16,11 +16,13 @@ CA_TRIBAL_SITES: dict[str, str] = {
 }
 
 
-def in_california_scope(aqs: str) -> bool:
+def in_california_scope(aqs: str | None) -> bool:
     """Whether an AirNow site may be a forecast point.
 
     aqs is the 9-character AQS code, with or without dashes ("060072003",
     "06-007-2003", "TT-582-1016").
     """
+    if not aqs:
+        return False
     code = aqs.replace("-", "").strip()
     return code.startswith(CALIFORNIA_STATE_CODE) or code in CA_TRIBAL_SITES

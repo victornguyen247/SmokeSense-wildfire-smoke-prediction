@@ -1,4 +1,4 @@
-.PHONY: up up-d down build logs migrate revision seed test lint fmt db-check env protect
+.PHONY: up up-d down build logs migrate revision seed seed-grid test lint fmt db-check env protect
 
 # Create local env files from the templates (safe to re-run; never overwrites).
 env:
@@ -33,6 +33,9 @@ revision:
 
 seed:
 	docker compose exec backend python -m app.db.seed
+
+seed-grid:
+	docker compose exec backend python -m app.db.seed_ca_forecast_grid $(ARGS)
 
 # --- Quality ---
 test:
