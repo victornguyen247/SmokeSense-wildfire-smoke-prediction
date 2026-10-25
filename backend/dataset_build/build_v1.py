@@ -48,6 +48,9 @@ CONFIG = BACKEND / "docs" / "pilot_events.json"
 OUT = BACKEND / "data" / "datasets" / "smokesense_v1"
 SNPP = "VIIRS_SNPP"  # fire_detections.satellite for VIIRS SNPP (ingestion/connectors/firms.py)
 LOOKBACK_HOURS = 72.0
+# Historical (DATA-03) rows only: live DATA-06 rows share these tables and carry an
+# ingestion_run_id (decision #34); smokesense_v1 must not change when they arrive.
+HISTORICAL = "ingestion_run_id is null"
 KEY = ["forecast_point_id", "issue_time", "horizon_hours"]
 
 # Column dtypes from the Parquet contract (docs/schema.md); precip_1h_mm follows the other weather floats.
@@ -121,7 +124,7 @@ def forecast_points(c, ev: PilotEvent, registry: dict) -> tuple[pd.DataFrame, li
                ST_Y(m.geom::geometry) as location_lat, ST_X(m.geom::geometry) as location_lon
         from observations o join monitors m on m.id = o.monitor_id
         where m.source = 'airnow' and o.correction = 'regulatory' and o.pm25 is not null
-          and o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
+          and o.{HISTORICAL} and o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
         c, params=dict(lo=utc_day(ev.start_date), hi=utc_day(ev.end_date) + timedelta(days=1), **_box(ev.bbox)))
     rows["aqs_code"] = resolve_aqs(rows, registry, ev.event_id)
     keep = rows["aqs_code"].map(in_california_scope)
@@ -136,7 +139,7 @@ def load_inputs(c, ev: PilotEvent) -> dict[str, pd.DataFrame]:
     fires = pd.read_sql(text(f"""
         select detected_at, ST_Y(geom::geometry) as latitude, ST_X(geom::geometry) as longitude, frp_mw
         from fire_detections
-        where satellite = :sat and detected_at >= :lo and detected_at < :hi
+        where satellite = :sat and {HISTORICAL} and detected_at >= :lo and detected_at < :hi
           and ST_Intersects(geom::geometry, {ENV})"""),
         c, params=dict(sat=SNPP, lo=utc_day(ev.firms_start_date), hi=end, **_box(ev.firms_bbox)))
     obs = pd.read_sql(text(f"""
@@ -144,14 +147,14 @@ def load_inputs(c, ev: PilotEvent) -> dict[str, pd.DataFrame]:
                ST_Y(m.geom::geometry) as latitude, ST_X(m.geom::geometry) as longitude
         from observations o join monitors m on m.id = o.monitor_id
         where m.source = 'airnow' and o.correction = 'regulatory' and o.pm25 is not null
-          and o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
+          and o.{HISTORICAL} and o.valid_at >= :lo and o.valid_at < :hi and ST_Intersects(m.geom::geometry, {ENV})"""),
         c, params=dict(lo=utc_day(ev.airnow_start_date), hi=utc_day(ev.airnow_end_date) + timedelta(days=1),
                        **_box(ev.bbox)))
     weather = pd.read_sql(text(f"""
         select station_id, valid_at, ST_Y(geom::geometry) as latitude, ST_X(geom::geometry) as longitude,
                wind_speed_ms, wind_dir_deg, temp_c, rh_pct, pressure_hpa, precip_1h_mm
         from weather_observations
-        where valid_at >= :lo and valid_at < :hi and ST_Intersects(geom::geometry, {ENV})"""),
+        where {HISTORICAL} and valid_at >= :lo and valid_at < :hi and ST_Intersects(geom::geometry, {ENV})"""),
         c, params=dict(lo=utc_day(ev.ncei_start_date), hi=end, **_box(ev.ncei_bbox)))
     for f, col in ((fires, "detected_at"), (obs, "valid_at"), (weather, "valid_at")):
         f[col] = pd.to_datetime(f[col], utc=True)
