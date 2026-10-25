@@ -146,3 +146,57 @@ def test_old_ingestion_runs_are_pruned_and_partitions_kept_ahead(live_db):
         assert s.scalar(
             text(f"select to_regclass('observations_p{ahead}') is not null")
         )
+
+
+def seed_runs(live_db) -> None:
+    with live_db() as s:
+        s.execute(
+            text("""
+            insert into ingestion_runs (id, source, started_at, finished_at, status)
+            values ('orphan', 'nws_obs', :orphan, null, 'running'),
+                   ('old-orphan', 'firms', :ancient, null, 'running'),
+                   ('busy', 'airdata', :busy, null, 'running'),
+                   ('done', 'firms', :orphan, :orphan, 'success')
+        """),
+            {
+                "orphan": NOW - timedelta(hours=7),  # worker died 7 h ago
+                "ancient": NOW - timedelta(days=95),  # orphaned long ago
+                "busy": NOW - timedelta(minutes=20),  # genuinely still running
+            },
+        )
+        s.commit()
+
+
+def runs(live_db) -> dict[str, tuple]:
+    with live_db() as s:
+        return {
+            r.id: (r.status, r.error, r.finished_at is not None)
+            for r in s.execute(
+                text("select id, status, error, finished_at from ingestion_runs")
+            )
+        }
+
+
+def test_orphaned_running_runs_are_closed_then_pruned(live_db):
+    seed_runs(live_db)
+
+    result = retention.run(session_factory=live_db, now=NOW, delete=True)
+
+    assert result["abandoned_runs"] == 2
+    assert result["rows"]["ingestion_runs"] == 1  # the 95-day-old orphan
+    assert runs(live_db) == {
+        "orphan": ("failed", "abandoned (worker stopped)", True),
+        "busy": ("running", None, False),
+        "done": ("success", None, True),
+    }
+
+
+def test_dry_run_counts_orphans_without_touching_them(live_db, monkeypatch):
+    monkeypatch.delenv("LIVE_RETENTION_DELETE", raising=False)
+    seed_runs(live_db)
+    before = runs(live_db)
+
+    result = retention.run(session_factory=live_db, now=NOW)
+
+    assert (result["abandoned_runs"], result["rows"]["ingestion_runs"]) == (2, 1)
+    assert runs(live_db) == before

@@ -5,7 +5,8 @@ fire_detections and weather_observations, but only rows a live job wrote
 (ingestion_run_id IS NOT NULL, migration 0006). Historical DATA-03 rows, which
 smokesense_v1 is built from, have ingestion_run_id NULL and are never deleted,
 whatever their timestamp. ingestion_runs rows older than 90 days are pruned
-(docs/schema.md).
+(docs/schema.md), after any run still 'running' for more than 6 hours (a worker
+that stopped mid-run) is marked 'failed' with error "abandoned (worker stopped)".
 
 Dry run by default: it only counts what it would delete. Set LIVE_RETENTION_DELETE=1
 (or pass --delete to the CLI) to delete.
@@ -43,6 +44,11 @@ LIVE_TABLES = (
 
 INGESTION_RUNS_RETENTION_DAYS = 90
 
+# A run still 'running' after this long was orphaned by a worker that stopped
+# mid-run (no live job takes close to this); it is closed as failed.
+ABANDONED_AFTER_HOURS = 6
+ABANDONED_ERROR = "abandoned (worker stopped)"
+
 # Days of partitions kept ahead, as in migration 0001's PARTITIONED_TABLES.
 PARTITION_DAYS_AHEAD = {
     "observations": 3,
@@ -66,6 +72,7 @@ def run(
     window_hours = env_int("LIVE_RETENTION_HOURS", DEFAULT_WINDOW_HOURS)
     cutoff = now - timedelta(hours=window_hours)
     runs_cutoff = now - timedelta(days=INGESTION_RUNS_RETENTION_DAYS)
+    abandoned_cutoff = now - timedelta(hours=ABANDONED_AFTER_HOURS)
 
     result = {
         "source": "retention",
@@ -90,16 +97,35 @@ def run(
                 )
             result["rows"][table] = count
 
-        where = "status <> 'running' AND started_at < :cutoff"
+        # Orphaned runs first, so the prune below treats them like any finished run.
+        where = "status = 'running' AND started_at < :abandoned"
+        params = {"abandoned": abandoned_cutoff}
         if delete:
             count = session.execute(
-                text(f"DELETE FROM ingestion_runs WHERE {where}"),
-                {"cutoff": runs_cutoff},
+                text(
+                    "UPDATE ingestion_runs SET status = 'failed', error = :error, "
+                    f"finished_at = :now WHERE {where}"
+                ),
+                {**params, "error": ABANDONED_ERROR, "now": now},
             ).rowcount
         else:
             count = session.scalar(
-                text(f"SELECT count(*) FROM ingestion_runs WHERE {where}"),
-                {"cutoff": runs_cutoff},
+                text(f"SELECT count(*) FROM ingestion_runs WHERE {where}"), params
+            )
+        result["abandoned_runs"] = count
+
+        # A dry run has not closed the orphans, so it counts them as closed.
+        where = (
+            "(status <> 'running' OR started_at < :abandoned) AND started_at < :cutoff"
+        )
+        params = {"abandoned": abandoned_cutoff, "cutoff": runs_cutoff}
+        if delete:
+            count = session.execute(
+                text(f"DELETE FROM ingestion_runs WHERE {where}"), params
+            ).rowcount
+        else:
+            count = session.scalar(
+                text(f"SELECT count(*) FROM ingestion_runs WHERE {where}"), params
             )
         result["rows"]["ingestion_runs"] = count
         session.commit()
