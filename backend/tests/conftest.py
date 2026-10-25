@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import sessionmaker
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -30,6 +30,25 @@ LIVE_TEST_TABLES = (
     "monitors",
     "ingestion_runs",
 )
+
+
+def alembic_env(url: URL) -> dict[str, str]:
+    """Environment for the alembic subprocess: it must migrate `url` and nothing else.
+
+    Alembic reads the URL from app settings, so the test database goes in the
+    POSTGRES_* variables. DATABASE_URL (a cloud database, PR #68) would win over
+    them, even when it is set only in backend/.env, so it is set to "" here: an
+    environment variable beats the .env file, and an empty one means "not set".
+    """
+    return {
+        **os.environ,
+        "DATABASE_URL": "",
+        "POSTGRES_USER": url.username or "",
+        "POSTGRES_PASSWORD": url.password or "",
+        "POSTGRES_HOST": url.host or "localhost",
+        "POSTGRES_PORT": str(url.port or 5432),
+        "POSTGRES_DB": url.database or "",
+    }
 
 
 @pytest.fixture(scope="session")
@@ -49,19 +68,10 @@ def live_db_engine():
         c.execute(text(f'CREATE DATABASE "{url.database}"'))
     admin.dispose()
 
-    # Alembic reads the URL from app settings, so pass it as the POSTGRES_* variables.
-    env = {
-        **os.environ,
-        "POSTGRES_USER": url.username or "",
-        "POSTGRES_PASSWORD": url.password or "",
-        "POSTGRES_HOST": url.host or "localhost",
-        "POSTGRES_PORT": str(url.port or 5432),
-        "POSTGRES_DB": url.database,
-    }
     subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=BACKEND,
-        env=env,
+        env=alembic_env(url),
         check=True,
         capture_output=True,
     )
