@@ -36,7 +36,7 @@ SOURCES = {
 
 DEFAULT_STALE_AFTER_MINUTES = {
     "airnow": 150,  # hourly at :25
-    "purpleair": 90,  # every 30 min
+    "purpleair": 270,  # every 120 min
     "firms": 90,  # every 30 min
     "nws_obs": 150,  # hourly at :05
 }

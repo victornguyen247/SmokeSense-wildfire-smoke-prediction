@@ -8,11 +8,16 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from ingestion.live.freshness import SOURCES, freshness_from_runs, source_freshness
+from ingestion.live.freshness import (
+    SOURCES,
+    freshness_from_runs,
+    source_freshness,
+    stale_after_minutes,
+)
 
 NOW = datetime(2026, 10, 24, 3, 0, tzinfo=timezone.utc)
 SPEC = Path(__file__).resolve().parents[2] / "docs/api/openapi.yaml"
-THRESHOLDS = {"airnow": 150, "purpleair": 90, "firms": 90, "nws_obs": 150}
+THRESHOLDS = {"airnow": 150, "purpleair": 270, "firms": 90, "nws_obs": 150}
 
 
 def source_freshness_schema() -> dict:
@@ -98,6 +103,14 @@ def test_from_ingestion_runs_ignores_failures(live_db):
     schema = source_freshness_schema()
     for item in items.values():
         check_shape(item, schema)
+
+
+def test_default_thresholds_are_about_two_missed_runs(monkeypatch):
+    for name in THRESHOLDS:
+        monkeypatch.delenv(
+            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", raising=False
+        )
+    assert stale_after_minutes() == THRESHOLDS  # PurpleAir: 2 x 120 min + 30
 
 
 def test_thresholds_are_configurable(monkeypatch, live_db):

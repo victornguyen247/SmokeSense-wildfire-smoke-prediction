@@ -20,7 +20,8 @@ FIXTURES = Path(__file__).parent / "fixtures/live"
 NOW = datetime(2026, 10, 24, 2, 40, tzinfo=timezone.utc)
 
 
-def test_each_source_is_its_own_beat_entry():
+def test_each_source_is_its_own_beat_entry(monkeypatch):
+    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
     schedule = beat_schedule()
     assert {e["task"] for e in schedule.values()} == {
         "ingestion.live.firms",
@@ -40,6 +41,20 @@ def test_cadences_come_from_the_environment(monkeypatch):
     schedule = beat_schedule()
     assert schedule["live-firms"]["schedule"].total_seconds() == 600
     assert schedule["live-airnow"]["schedule"].minute == {40}
+
+
+def test_purpleair_defaults_to_every_two_hours(monkeypatch):
+    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+    entry = beat_schedule()["live-purpleair"]
+    assert entry["schedule"].total_seconds() == 120 * 60
+    assert entry["options"]["expires"] == 120 * 60
+
+
+def test_purpleair_zero_disables_the_job(monkeypatch):
+    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "0")
+    schedule = beat_schedule()
+    assert "live-purpleair" not in schedule
+    assert {"live-firms", "live-airnow", "live-nws", "live-retention"} <= set(schedule)
 
 
 def test_tasks_are_registered():
