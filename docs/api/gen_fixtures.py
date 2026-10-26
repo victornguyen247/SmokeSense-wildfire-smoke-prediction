@@ -356,6 +356,8 @@ def main(out):
         "generated_at": iso(NOW), "api_version": "v1", "model_key": MODEL_KEY, "model_status": "production",
         "latest_issued_at": iso(ISSUED), "forecast_age_minutes": 40, "forecast_stale_after_minutes": 120,
         "forecast_stale": False, "horizons": list(HORIZONS), "grid_key": GRID_KEY,
+        # The fixtures are sample data, so a server that returns them as-is is in mock mode.
+        "mock_mode": True,
         "low_confidence_dist_km": LOW_CONFIDENCE_KM, "max_interpolation_dist_km": MAX_IDW_KM,
         "aqi_category_label": AQI_LABEL, "aqi_table_version": AQI_TABLE,
         "aqi_categories": [{"key": k, "label": lab, "color": c, "pm25_min": lo, "pm25_max": hi} for k, lab, c, lo, hi in AQI],
