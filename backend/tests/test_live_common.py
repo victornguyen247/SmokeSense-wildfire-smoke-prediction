@@ -134,6 +134,58 @@ def test_failed_job_is_recorded_logged_without_keys_and_does_not_raise(
     assert "FIRMS-SECRET-5678" not in run.error
 
 
+def test_db_error_recording_the_outcome_is_logged_not_raised(
+    monkeypatch, live_db, caplog
+):
+    """The final commit fails (DB gone mid-run): rolled back, closed, reported as failed."""
+    from sqlalchemy.exc import OperationalError
+
+    monkeypatch.setattr(common.settings, "firms_map_key", "FIRMS-SECRET-9999")
+    caplog.set_level(logging.DEBUG)
+    calls = {"commit": 0, "rollback": 0, "close": 0}
+
+    def factory():
+        session = live_db()
+        real_commit, real_rollback, real_close = (
+            session.commit,
+            session.rollback,
+            session.close,
+        )
+
+        def commit():
+            calls["commit"] += 1
+            if calls["commit"] == 3:  # open run, job, then the outcome
+                raise OperationalError(
+                    "UPDATE ingestion_runs", {}, Exception("FIRMS-SECRET-9999 gone")
+                )
+            real_commit()
+
+        def rollback():
+            calls["rollback"] += 1
+            real_rollback()
+
+        def close():
+            calls["close"] += 1
+            real_close()
+
+        session.commit, session.rollback, session.close = commit, rollback, close
+        return session
+
+    result = run_job(
+        "firms", lambda s, r, n: JobResult(rows_fetched=1), session_factory=factory
+    )
+
+    assert set(result) == {"source", "status", "error"}
+    assert result["source"] == "firms" and result["status"] == "failed"
+    assert result["error"].startswith("OperationalError")
+    assert "FIRMS-SECRET-9999" not in result["error"]
+    assert calls == {"commit": 3, "rollback": 1, "close": 1}
+    assert "could not record the outcome of run" in caplog.text
+    assert "FIRMS-SECRET-9999" not in caplog.text
+    with live_db() as s:  # the run stays 'running' until retention closes it
+        assert s.scalar(text("select status from ingestion_runs")) == "running"
+
+
 def test_partial_job_is_recorded_as_partial(live_db):
     def some_failed(session, run_id, now):
         return JobResult(

@@ -338,15 +338,30 @@ def run_job(
         result = JobResult()
         status, error = "failed", safe_error(exc)
 
-    run = session.get(IngestionRun, run_id)
-    run.status = status
-    run.finished_at = now + (utc_now() - wall_start)
-    run.rows_fetched = result.rows_fetched
-    run.rows_written = result.rows_written
-    run.watermark = result.watermark
-    run.error = error
-    session.commit()
-    session.close()
+    # Recording the outcome can fail too (DB gone mid-run); that must not raise either.
+    # The run row then stays 'running' until retention closes it as abandoned.
+    try:
+        run = session.get(IngestionRun, run_id)
+        run.status = status
+        run.finished_at = now + (utc_now() - wall_start)
+        run.rows_fetched = result.rows_fetched
+        run.rows_written = result.rows_written
+        run.watermark = result.watermark
+        run.error = error
+        session.commit()
+    except Exception as exc:
+        with contextlib.suppress(Exception):
+            session.rollback()
+        message = safe_error(exc)
+        logger.error(
+            "live %s: could not record the outcome of run %s: %s",
+            source,
+            run_id,
+            message,
+        )
+        return {"source": source, "status": "failed", "error": message}
+    finally:
+        session.close()
 
     log = logger.error if status == "failed" else logger.info
     log(
