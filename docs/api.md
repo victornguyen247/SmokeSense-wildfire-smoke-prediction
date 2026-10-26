@@ -86,6 +86,7 @@ Every error, from every endpoint, has the same body:
 | 404 | `out_of_scope` | Location or bbox is outside California |
 | 404 | `zip_not_found` | No ZCTA for that ZIP (e.g. a PO-box-only ZIP) |
 | 404 | `not_found` | Unknown route |
+| 405 | `not_found` | Method other than GET. There is no `method_not_allowed` code yet; it may be added later (additive) |
 | 503 | `forecast_unavailable` | No forecast cycle exists yet |
 | 500 | `internal_error` | Unexpected failure. The message never contains a stack trace |
 
@@ -148,7 +149,7 @@ The category comes from an **hourly** value, while the official AQI uses 24 h or
 
 The grid is GEO-02's: about 3,000 squares of 12.5 km in California Albers (EPSG:3310), clipped to the state boundary. A square cut by the coastline becomes several cells (`-p00`, `-p01`, …).
 
-- `/grid/cells` returns one GeoJSON Polygon per cell (`forecast_points.cell_geom`, WGS84), with only `id` in `properties`. The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The response is sent with `Cache-Control: public, max-age=86400` and an `ETag`. The frontend fetches it once and refetches only when `/meta` `grid_key` differs from the cached one.
+- `/grid/cells` returns one GeoJSON Polygon per cell (`forecast_points.cell_geom`, WGS84), with only `id` in `properties`. The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The response is sent with `Cache-Control: public, max-age=86400` and no `ETag`, since `grid_key` already says when the grid changed. The frontend fetches it once and refetches only when `/meta` `grid_key` differs from the cached one.
 - `/forecast/grid` returns no geometry: per horizon, a list of `{id, pm25, aqi_category, nearest_monitor_dist_km}`. All five horizons come in one response, so the horizon slider is a client-side swap (e.g. `setFeatureState` keyed by `id`).
 - A cell from `/grid/cells` that is missing from a horizon has no forecast at that horizon; draw it as "no data".
 - `method` / `source` (always `interpolated` / `idw`) are sent once on the response.
@@ -205,7 +206,7 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 
 - The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per source (`airnow`, `purpleair`, `firms`, `nws_obs`).
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
-- `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. It is true in `meta.json`, so a server that returns the fixtures as-is reports it automatically.
+- `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
 - **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
 
 ## Fixtures
@@ -241,7 +242,8 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 
 The FastAPI app in `backend/app` implements this contract.
 
-- **Mock mode.** With `MOCK_MODE=true` (the default until the database layer exists), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture.
+- **Mock mode.** With `MOCK_MODE=true` (the default until the database layer exists), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
+- **Set `MOCK_MODE` explicitly in deployments.** It defaults to `true`, so a staging or production deploy that leaves it out silently serves demo data. Staging and production must set `MOCK_MODE=false` once the database layer exists (OPS-03).
 - **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database layer will use the state polygon and ZCTAs.
 - **The spec is served as-is.** `/openapi.json` and `/docs` serve `openapi.yaml`, not a schema generated from the code. `docker compose up backend` mounts `docs/api` read-only for this.
 - **Errors.** Every error, including FastAPI's own (validation, unknown route, unhandled exception), is returned in the shared `Error` shape, and 500s keep their CORS headers.

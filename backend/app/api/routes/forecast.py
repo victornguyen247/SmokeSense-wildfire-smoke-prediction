@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
@@ -19,7 +17,8 @@ router = APIRouter(tags=["forecast"])
 Repo = Annotated[Repository, Depends(get_repository)]
 BboxParam = Annotated[Bbox | None, Depends(bbox_param)]
 
-# The grid only changes when GEO-02 is regenerated (a new grid_key), so clients cache it.
+# The grid only changes when GEO-02 is regenerated (a new grid_key), so clients cache it
+# and refetch when /meta grid_key changes. No ETag: grid_key already says when it changed.
 GRID_CELLS_CACHE_CONTROL = "public, max-age=86400"
 
 
@@ -27,8 +26,6 @@ GRID_CELLS_CACHE_CONTROL = "public, max-age=86400"
 def get_grid_cells(response: Response, repo: Repo, bbox: BboxParam) -> Body:
     body = prediction_service.grid_cells(repo, bbox)
     response.headers["Cache-Control"] = GRID_CELLS_CACHE_CONTROL
-    digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:32]
-    response.headers["ETag"] = f'"{digest}"'
     return body
 
 

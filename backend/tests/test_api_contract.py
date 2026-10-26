@@ -21,7 +21,9 @@ from app.api.deps import get_repository
 from app.core.config import settings
 from app.core.scope import CALIFORNIA_BBOX
 from app.main import app
+from app.repositories.fixtures import FixtureRepository
 from app.schemas.query import Bbox
+from app.services import meta_service
 from app.services.scope_service import resolve_bbox
 
 CONTRACT_DIR = settings.api_contract_dir
@@ -188,6 +190,13 @@ def test_unexpected_error_is_internal_error_with_cors():
     assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
 
 
+def test_meta_mock_mode_comes_from_the_setting(monkeypatch):
+    assert client.get("/api/v1/meta").json()["mock_mode"] is True
+    # The route can't run with MOCK_MODE=false yet (no database repository), so call the service.
+    monkeypatch.setattr(settings, "mock_mode", False)
+    assert meta_service.meta(FixtureRepository(CONTRACT_DIR / "fixtures"))["mock_mode"] is False
+
+
 def test_mock_mode_off_fails_data_routes_but_not_health(monkeypatch):
     monkeypatch.setattr(settings, "mock_mode", False)
     assert_error_shape(client.get("/api/v1/meta"), 500, "internal_error")
@@ -198,10 +207,9 @@ def test_mock_mode_off_fails_data_routes_but_not_health(monkeypatch):
 
 
 def test_grid_cells_are_cacheable():
-    first = client.get("/api/v1/grid/cells")
-    second = client.get("/api/v1/grid/cells")
-    assert first.headers["cache-control"] == "public, max-age=86400"
-    assert first.headers["etag"] == second.headers["etag"]
+    response = client.get("/api/v1/grid/cells")
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    assert "etag" not in response.headers
 
 
 # --- scope rules ---

@@ -45,7 +45,7 @@ paths:
         A square split by the coastline is several cells (`-p00`, `-p01`, …).
 
         The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The
-        response is sent with `Cache-Control: public, max-age=86400` and an `ETag`;
+        response is sent with `Cache-Control: public, max-age=86400` (no `ETag`);
         compare `grid_key` with `/meta` to know when to refetch.
       parameters:
         - $ref: "#/components/parameters/BboxOptional"
