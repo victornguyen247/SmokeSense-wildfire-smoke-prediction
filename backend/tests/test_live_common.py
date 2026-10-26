@@ -115,23 +115,23 @@ def test_safe_error_redacts_configured_keys(monkeypatch):
 def test_failed_job_is_recorded_logged_without_keys_and_does_not_raise(
     monkeypatch, live_db, caplog
 ):
-    monkeypatch.setattr(common.settings, "purpleair_api_key", "PURPLE-SECRET-5678")
+    monkeypatch.setattr(common.settings, "firms_map_key", "FIRMS-SECRET-5678")
     caplog.set_level(logging.DEBUG)
 
     def boom(session, run_id, now):
-        raise RuntimeError("PurpleAir said no to key PURPLE-SECRET-5678")
+        raise RuntimeError("FIRMS said no to key FIRMS-SECRET-5678")
 
-    result = run_job("purpleair", boom, session_factory=live_db, now=NOW)
+    result = run_job("firms", boom, session_factory=live_db, now=NOW)
 
     assert result["status"] == "failed"
-    assert "PURPLE-SECRET-5678" not in caplog.text
-    assert "PURPLE-SECRET-5678" not in result["error"]
+    assert "FIRMS-SECRET-5678" not in caplog.text
+    assert "FIRMS-SECRET-5678" not in result["error"]
     with live_db() as s:
         run = s.execute(
             text("select status, error, finished_at from ingestion_runs")
         ).one()
     assert run.status == "failed" and run.finished_at is not None
-    assert "PURPLE-SECRET-5678" not in run.error
+    assert "FIRMS-SECRET-5678" not in run.error
 
 
 def test_partial_job_is_recorded_as_partial(live_db):

@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import text
 
 from ingestion.live import __main__ as cli
-from ingestion.live import airnow, firms, nws, purpleair
+from ingestion.live import airnow, firms, nws
 from ingestion.live.schedule import beat_schedule
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -21,14 +21,12 @@ FIXTURES = Path(__file__).parent / "fixtures/live"
 NOW = datetime(2026, 10, 24, 2, 40, tzinfo=timezone.utc)
 
 
-def test_each_source_is_its_own_beat_entry(monkeypatch):
-    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "120")
+def test_each_source_is_its_own_beat_entry():
     schedule = beat_schedule()
     assert {e["task"] for e in schedule.values()} == {
         "ingestion.live.firms",
         "ingestion.live.airnow",
         "ingestion.live.nws",
-        "ingestion.live.purpleair",
         "ingestion.live.retention",
     }
     for entry in schedule.values():
@@ -44,38 +42,18 @@ def test_cadences_come_from_the_environment(monkeypatch):
     assert schedule["live-airnow"]["schedule"].minute == {40}
 
 
-@pytest.mark.parametrize("value", [None, "", "0"])
-def test_purpleair_is_off_by_default_and_with_zero(monkeypatch, value):
-    if value is None:
-        monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
-    else:
-        monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", value)
-    schedule = beat_schedule()
-    assert "live-purpleair" not in schedule
-    assert set(schedule) == {"live-firms", "live-airnow", "live-nws", "live-retention"}
-
-
-def test_purpleair_scheduled_when_a_cadence_is_set(monkeypatch):
-    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "120")
-    entry = beat_schedule()["live-purpleair"]
-    assert entry["schedule"].total_seconds() == 120 * 60
-    assert entry["options"]["expires"] == 120 * 60
-
-
-def test_disabled_purpleair_still_runs_when_called_explicitly(monkeypatch, live_db):
-    """Off by default only means "not scheduled": the task and the CLI path still work."""
+def test_purpleair_has_no_live_job():
+    """Team decision 2026-10-26 (#41): no PurpleAir task, beat entry or CLI command."""
     from ingestion.tasks import celery_app
 
-    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
-    monkeypatch.setattr(purpleair.settings, "purpleair_api_key", "k-purple-0001")
-    assert "ingestion.live.purpleair" in celery_app.tasks
-    assert cli.JOBS["purpleair"] == "ingestion.live.purpleair"
-    body = json.loads((FIXTURES / "purpleair_sensors.json").read_text())
-    client = httpx.Client(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=body))
-    )
-    result = purpleair.run(session_factory=live_db, client=client, now=NOW)
-    assert result["status"] == "success" and result["rows_written"] == 3
+    assert "ingestion.live.purpleair" not in celery_app.tasks
+    assert "purpleair" not in cli.JOBS
+    assert set(beat_schedule()) == {
+        "live-firms",
+        "live-airnow",
+        "live-nws",
+        "live-retention",
+    }
 
 
 def test_tasks_are_registered():
@@ -86,10 +64,9 @@ def test_tasks_are_registered():
 
 
 def test_a_failing_source_does_not_block_the_others(monkeypatch, live_db):
-    """AirNow is down (HTTP 503 every time); FIRMS, NWS and PurpleAir still land."""
+    """AirNow is down (HTTP 503 every time); FIRMS and NWS still land."""
     monkeypatch.setattr(firms.settings, "firms_map_key", "k-firms-0001")
     monkeypatch.setattr(airnow.settings, "airnow_api_key", "k-airnow-0001")
-    monkeypatch.setattr(purpleair.settings, "purpleair_api_key", "k-purple-0001")
     monkeypatch.setattr(
         nws.settings, "nws_user_agent", "SmokeSense-test (ops@smokesense.test)"
     )
@@ -103,10 +80,6 @@ def test_a_failing_source_does_not_block_the_others(monkeypatch, live_db):
             )
         if "airnow" in host:
             return httpx.Response(503, text="maintenance")
-        if "purpleair" in host:
-            return httpx.Response(
-                200, json=json.loads((FIXTURES / "purpleair_sensors.json").read_text())
-            )
         return httpx.Response(
             200, json=pages["page2"] if "cursor" in str(request.url) else pages["page1"]
         )
@@ -124,15 +97,13 @@ def test_a_failing_source_does_not_block_the_others(monkeypatch, live_db):
             stations=["KRDD"],
             sleep=lambda s: None,
         ),  # fmt: skip
-        "purpleair": purpleair.run(session_factory=live_db, client=client(), now=NOW),
     }
 
     assert results["airnow"]["status"] == "failed"
-    assert all(results[s]["status"] == "success" for s in ("firms", "nws", "purpleair"))
+    assert all(results[s]["status"] == "success" for s in ("firms", "nws"))
     with live_db() as s:
         runs = dict(s.execute(text("select source, status from ingestion_runs")).all())
-    assert runs == {"airdata": "failed", "firms": "success", "nws_obs": "success",
-                    "purpleair": "success"}  # fmt: skip
+    assert runs == {"airdata": "failed", "firms": "success", "nws_obs": "success"}
 
 
 def test_ingestion_does_not_load_ml_or_pandas():
@@ -156,6 +127,16 @@ def test_smoke_needs_its_env_flag(monkeypatch, capsys):
     monkeypatch.delenv("LIVE_INGEST_SMOKE", raising=False)
     assert cli.main(["smoke"]) == 2
     assert "LIVE_INGEST_SMOKE=1" in capsys.readouterr().out
+
+
+def test_smoke_without_sources_covers_firms_airnow_and_nws(monkeypatch):
+    monkeypatch.setenv("LIVE_INGEST_SMOKE", "1")
+    seen = []
+    monkeypatch.setattr(cli, "smoke", lambda sources: seen.extend(sources) or 0)
+    assert cli.main(["smoke"]) == 0
+    assert sorted(seen) == ["airnow", "firms", "nws"]
+    with pytest.raises(SystemExit):
+        cli.main(["smoke", "purpleair"])
 
 
 def test_smoke_prints_counts_only(monkeypatch, capsys):

@@ -1,7 +1,7 @@
 """Run one live job without a Celery worker (cron, GitHub Actions, by hand).
 
 Run from backend/:
-    python -m ingestion.live firms|airnow|nws|purpleair
+    python -m ingestion.live firms|airnow|nws
     python -m ingestion.live retention [--delete]
     python -m ingestion.live freshness
     LIVE_INGEST_SMOKE=1 python -m ingestion.live smoke [source ...]
@@ -24,7 +24,6 @@ JOBS = {
     "airnow": "ingestion.live.airnow",
     "firms": "ingestion.live.firms",
     "nws": "ingestion.live.nws",
-    "purpleair": "ingestion.live.purpleair",
 }
 
 # Short windows: a smoke run checks the path, not the backfill.
@@ -34,7 +33,7 @@ SMOKE_NWS_STATIONS = ("KSAC", "KRDD", "KLAX")
 
 def smoke(sources: list[str]) -> int:
     """Fetch + normalize each source live, no DB writes; print counts only."""
-    from ingestion.live import airnow, firms, nws, purpleair
+    from ingestion.live import airnow, firms, nws
     from ingestion.live.common import client_scope, safe_error, utc_now
 
     now = utc_now()
@@ -48,9 +47,6 @@ def smoke(sources: list[str]) -> int:
             elif source == "airnow":
                 with client_scope(None, airnow.RETRY_STATUSES) as http:
                     fetched, records = airnow.fetch_records(http, start, now)
-            elif source == "purpleair":
-                with client_scope(None, purpleair.RETRY_STATUSES) as http:
-                    fetched, records = purpleair.fetch_records(http, now)
             else:
                 headers = nws.nws_headers(nws.user_agent())
                 fetched, records = 0, []

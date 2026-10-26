@@ -58,15 +58,6 @@ def env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def purpleair_every_minutes() -> int:
-    """Live PurpleAir cadence in minutes; 0 (the default) means the job is disabled.
-
-    PurpleAir is a map layer only and not needed live, so it is off unless
-    LIVE_PURPLEAIR_EVERY_MINUTES is set. Running it explicitly (task or CLI) still works.
-    """
-    return max(env_int("LIVE_PURPLEAIR_EVERY_MINUTES", 0), 0)
-
-
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 

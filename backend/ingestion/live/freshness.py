@@ -13,12 +13,11 @@ docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
   healthy FIRMS feed can go hours without a detection.
 
 stale_after_minutes per source: FRESHNESS_STALE_AFTER_MINUTES_<SOURCE> (AIRNOW,
-PURPLEAIR, FIRMS, NWS_OBS), defaulting to about two missed runs.
+FIRMS, NWS_OBS), defaulting to about two missed runs.
 
-A disabled source is left out of the array (Meta.sources sets no minimum and requires
-no particular source), so it never shows as permanently stale. Today that is PurpleAir
-unless LIVE_PURPLEAIR_EVERY_MINUTES is set; its default threshold then follows the
-cadence (two runs + 30 min).
+PurpleAir has no live job (decision #41), so it is not reported: Meta.sources sets no
+minimum and requires no particular source, and a source that never runs would always
+show as stale.
 """
 
 from __future__ import annotations
@@ -29,12 +28,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import IngestionRun
-from ingestion.live.common import env_int, purpleair_every_minutes, utc_now
+from ingestion.live.common import env_int, utc_now
 
 # /meta source name -> ingestion_runs.source, in the contract's enum order.
 SOURCES = {
     "airnow": "airdata",
-    "purpleair": "purpleair",
     "firms": "firms",
     "nws_obs": "nws_obs",
 }
@@ -47,15 +45,10 @@ DEFAULT_STALE_AFTER_MINUTES = {
 
 
 def stale_after_minutes() -> dict[str, int]:
-    """{source: minutes} for every ENABLED source; a disabled source has no entry."""
-    defaults = dict(DEFAULT_STALE_AFTER_MINUTES)
-    purpleair = purpleair_every_minutes()
-    if purpleair:
-        defaults["purpleair"] = 2 * purpleair + 30
+    """{source: minutes} for every live source."""
     return {
-        name: env_int(f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", defaults[name])
-        for name in SOURCES
-        if name in defaults
+        name: env_int(f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", default)
+        for name, default in DEFAULT_STALE_AFTER_MINUTES.items()
     }
 
 
@@ -70,14 +63,9 @@ def freshness_from_runs(
     now: datetime,
     thresholds: dict[str, int],
 ) -> list[dict]:
-    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes.
-
-    Only the sources in thresholds (the enabled ones) are reported.
-    """
+    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes."""
     items = []
     for name, run_source in SOURCES.items():
-        if name not in thresholds:
-            continue
         last_success, latest_data = latest.get(run_source, (None, None))
         age = None
         if latest_data is not None:

@@ -195,9 +195,8 @@ def upsert_monitors(session: Session, monitors: Iterable[dict]) -> dict[str, str
     return ids
 
 
-# A live row whose values changed (a late AirNow revision, a newer PurpleAir
-# reading in the same hour) is updated; an unchanged one is left alone, so a
-# re-run writes nothing. Historical rows (ingestion_run_id NULL) are never touched.
+# A live row whose values changed (a late AirNow revision) is updated; an
+# unchanged one is left alone, so a re-run writes nothing. Historical rows (ingestion_run_id NULL) are never touched.
 _UPSERT_OBSERVATION = text("""
     INSERT INTO observations (monitor_id, valid_at, received_at, pm25, correction,
                               pm25_cf1_a, pm25_cf1_b, rh_pct, qa_flag, data_status,

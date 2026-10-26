@@ -1,6 +1,6 @@
 """DATA-06 live ingestion: a rolling ~72 h window of California data.
 
-One job per source (firms, airnow, nws, purpleair), each runnable standalone:
+One job per source (firms, airnow, nws), each runnable standalone:
 
     python -m ingestion.live <source>
 
