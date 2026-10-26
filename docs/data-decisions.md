@@ -57,9 +57,6 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 | 32 | **`monitors.aqs_code` is the source of truth for AirNow AQS codes** (migration 0003; the connector writes it; `scripts/backfill_monitor_aqs_code.py` fills older rows). `dataset_build/airnow_sites.csv` is only a fallback, used with a warning. | The DB keyed monitors by a hash of the code, so the code itself was not queryable. A committed CSV would drift from the DB as new sites appear. |
 | 33 | **Docs follow the code:** artifacts live in `backend/data/models/<name>/` (`docs/ml.md`). `docs/schema.md` describes observed NCEI weather at issue time (not NWS forecasts), the dataset path `backend/data/datasets/`, and the added columns. | Readers should not have to reconcile the docs with the code to know what a model saw. |
 
-
-## 2026-10-23 — live ingestion (DATA-06) (owner: Tin, data)
-
 | # | Decision | Reason |
 |---|---|---|
 | 34 | **Live rows are marked by `ingestion_run_id`** on `observations`, `fire_detections` and `weather_observations` (migration 0006, no FK). Live jobs set it; DATA-03 batch rows keep NULL. Retention deletes only marked rows, and live upserts never modify an unmarked one. | The same tables hold the pilot-event rows `smokesense_v1` is built from, and their timestamps say nothing about where a row came from. A FK with `ON DELETE SET NULL` would turn live rows into "historical" ones when `ingestion_runs` is pruned. |
@@ -76,3 +73,10 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 |---|---|---|
 | 41 | **Live PurpleAir dropped (team decision 2026-10-26).** There is no live PurpleAir job, Celery task, beat entry, CLI command or `LIVE_PURPLEAIR_*` / `FRESHNESS_STALE_AFTER_MINUTES_PURPLEAIR` setting, and `/meta` `sources` leaves PurpleAir out (the schema sets no minimum). Supersedes #39. The batch connector (`connectors/purpleair.py`, `normalize_purpleair_row`, Barkjohn correction) stays for the v1.1 training-label pull, and PurpleAir is still not a model input (#12). | The live map does not need it. Each run was one statewide request (about 42.6k points on 2026-10-23), so even a two-hourly cadence cost about 0.5M points a day for data nothing consumes. A source that never runs would read as permanently stale in `/meta`. |
 | 42 | **A `running` ingestion run older than 6 h is marked `failed`** with error `abandoned (worker stopped)` by the daily retention task, then pruned after 90 days like any other run. | A worker crash leaves its run `running` forever, which retention never pruned and which reads as a job still in progress. No live job takes anywhere near 6 h. |
+
+## 2026-10-25 — weather missingness and baseline_v2 (owner: Tin, data)
+
+| # | Decision | Reason |
+|---|---|---|
+| 43 | **The live NWS weather missingness gap is accepted for baseline_v2; no retrain or feature change.** In smokesense_v1, `precip_1h_mm` is missing in 58.7% of rows and `pressure_hpa` in 53.9% (live: 87% / 60%). Masking held-out folds up to the live rates (random, 5 seeds), or entirely, did not raise pooled v2 MAE at any horizon (B: −0.003 to −0.017 µg/m³; A: down to −0.11), left F1 at 35.5 unchanged and served the same horizons (`docs/ml/weather-missingness-check.md`). Re-run the check for any retrained model. | The decision rule (MAE rise ≤ 0.15 at every horizon, F1 change ≤ 0.01, same served horizons) was set before the run, and all checks pass. v2 never splits on `precip_1h_mm`; `pressure_hpa` has 1.9% of gain. |
+## 2026-10-23 — live ingestion (DATA-06) (owner: Tin, data)
