@@ -5,7 +5,7 @@ Keeps a rolling ~72 h window of live California data in the database for feature
 ```bash
 cd backend
 python -m ingestion.live firms        # or airnow | nws
-python -m ingestion.live retention    # dry run; --delete to delete
+python -m ingestion.live retention    # deletes old live rows; --dry-run to only count
 python -m ingestion.live freshness    # the /meta `sources` array
 LIVE_INGEST_SMOKE=1 python -m ingestion.live smoke firms airnow nws   # live calls, no writes, counts only
 ```
@@ -74,7 +74,7 @@ There is no live PurpleAir job (team decision 2026-10-26, decision #41): the map
 `observations`, `fire_detections` and `weather_observations` also hold the DATA-03 pilot-event rows that `smokesense_v1` is built from. Those must never be deleted. Migration `0006` adds `ingestion_run_id` to the three tables. Live jobs set it to their run's id, and batch rows keep NULL.
 
 - **Retention** deletes rows older than `LIVE_RETENTION_HOURS` (72) **only where `ingestion_run_id IS NOT NULL`**. A historical row is never deleted, whatever its date. It also closes orphaned runs: a run still `running` after 6 hours (its worker stopped mid-run) is marked `failed` with error `abandoned (worker stopped)`. It then prunes `ingestion_runs` older than 90 days, and creates daily partitions three days ahead (eight for `weather_forecasts`) so live rows land in their own partition rather than DEFAULT.
-- It is a **dry run by default**: it reports counts only. Set `LIVE_RETENTION_DELETE=1` (or run `retention --delete`) to delete.
+- It **deletes by default** and logs the deleted counts at INFO. A dry run, which reports counts only, is opt-in: `LIVE_RETENTION_DELETE=0` or `retention --dry-run` (`--delete` is still accepted and forces deletion).
 - Rows are deleted, not partitions dropped, because a daily partition can also hold historical rows.
 - Live upserts never modify a row whose `ingestion_run_id` is NULL.
 - The `smokesense_v1` build (`dataset_build/build_v1.py`) reads only rows with `ingestion_run_id IS NULL`: its query functions take `row_scope` (`"historical"` by default, `"live"` for GEO-03 features from live rows, or `"any"`). This was checked on 2026-10-25: the DATA-03 release dump was restored into a throwaway database, live rows were added through the live jobs from the test fixtures, and `scripts/reproduce_data04.sh` reproduced the dataset byte for byte. Before the filter, those live rows changed the dataset's sha256.
@@ -95,7 +95,7 @@ Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about 
 
 ## Deploying
 
-- **Set `LIVE_RETENTION_DELETE=1` on the deployed worker.** Without it retention only counts rows and nothing is ever deleted, so the live tables grow until the free Neon database is full. Leave it unset locally, where a dry run is the safe default.
+- **Retention deletes by default**, so the live tables stay at about 72 h without any setting. Do not set `LIVE_RETENTION_DELETE=0` on the deployed worker: that makes retention a dry run, and the live tables then grow until the free Neon database is full. Historical rows (`ingestion_run_id` NULL) are never deleted in either mode.
 - **Set `NWS_USER_AGENT` to the app name and a real contact**, e.g. `SmokeSense (team-inbox@yourdomain)`. NWS uses it to warn before blocking traffic, and the job refuses any value without an `@` or containing `example.com`.
 - **Keys:** `FIRMS_MAP_KEY` and `AIRNOW_API_KEY` in the worker's environment. A missing key fails only that source's runs.
 - **No always-on worker?** Every job is a plain command, so cron (or a scheduled GitHub Actions workflow) can run them directly from `backend/` with the same environment. Example crontab (UTC) matching the beat defaults:
@@ -107,7 +107,7 @@ Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about 
   15 9 * * *    python -m ingestion.live retention
   ```
 
-  Retention from cron still needs `LIVE_RETENTION_DELETE=1` (or `retention --delete`). Each command exits 1 when its run failed, and the run is recorded in `ingestion_runs` either way.
+  Retention from cron deletes by default, like the beat task. Each command exits 1 when its run failed, and the run is recorded in `ingestion_runs` either way.
 
 ## Running locally
 

@@ -8,8 +8,8 @@ whatever their timestamp. ingestion_runs rows older than 90 days are pruned
 (docs/schema.md), after any run still 'running' for more than 6 hours (a worker
 that stopped mid-run) is marked 'failed' with error "abandoned (worker stopped)".
 
-Dry run by default: it only counts what it would delete. Set LIVE_RETENTION_DELETE=1
-(or pass --delete to the CLI) to delete.
+It deletes by default. A dry run, which only counts what it would delete, is opt-in:
+LIVE_RETENTION_DELETE=0 (or the CLI's --dry-run).
 
 It also keeps daily partitions created ahead (create_daily_partitions, migration
 0001), so live rows land in their day's partition rather than DEFAULT.
@@ -27,8 +27,8 @@ from sqlalchemy import text
 
 from ingestion.live.common import (
     DEFAULT_WINDOW_HOURS,
-    env_flag,
     env_int,
+    env_off,
     safe_error,
     utc_now,
 )
@@ -68,7 +68,7 @@ def run(
     if session_factory is None:
         from ingestion.db import SessionLocal as session_factory
     now = now or utc_now()
-    delete = env_flag("LIVE_RETENTION_DELETE") if delete is None else delete
+    delete = not env_off("LIVE_RETENTION_DELETE") if delete is None else delete
     window_hours = env_int("LIVE_RETENTION_HOURS", DEFAULT_WINDOW_HOURS)
     cutoff = now - timedelta(hours=window_hours)
     runs_cutoff = now - timedelta(days=INGESTION_RUNS_RETENTION_DAYS)
@@ -161,6 +161,10 @@ def run(
     if result["status"] != "failed":
         verb = "deleted" if delete else "would delete (dry run)"
         logger.info(
-            "retention: %s %s older than %s", verb, result["rows"], cutoff.isoformat()
+            "retention: %s %s older than %s; abandoned runs closed: %d",
+            verb,
+            result["rows"],
+            cutoff.isoformat(),
+            result["abandoned_runs"],
         )
     return result

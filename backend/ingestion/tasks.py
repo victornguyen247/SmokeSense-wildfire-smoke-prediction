@@ -255,7 +255,7 @@ def ingest_nws_live() -> dict:
 
 @celery_app.task(name="ingestion.live.retention")
 def enforce_live_retention() -> dict:
-    """Delete live rows older than the window (dry run unless LIVE_RETENTION_DELETE=1)."""
+    """Delete live rows older than the window (dry run if LIVE_RETENTION_DELETE=0)."""
     return live_retention.run()
 
 

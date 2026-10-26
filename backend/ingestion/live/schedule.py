@@ -35,7 +35,7 @@ def beat_schedule() -> dict:
             "schedule": timedelta(minutes=firms_minutes),
             "options": {"expires": firms_minutes * 60},
         },
-        # Daily; dry run unless LIVE_RETENTION_DELETE=1.
+        # Daily; deletes unless LIVE_RETENTION_DELETE=0 (dry run).
         "live-retention": {
             "task": "ingestion.live.retention",
             "schedule": crontab(

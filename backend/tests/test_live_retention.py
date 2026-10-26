@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from sqlalchemy import text
 
+from ingestion.live import __main__ as cli
 from ingestion.live import retention
 
 NOW = datetime(2026, 10, 24, 9, 15, tzinfo=timezone.utc)
@@ -77,27 +80,14 @@ def counts(live_db) -> dict[str, tuple[int, int]]:
     return out
 
 
-def test_dry_run_by_default_deletes_nothing(live_db, monkeypatch):
+@pytest.fixture(autouse=True)
+def default_env(monkeypatch):
+    """Retention's own defaults: no LIVE_RETENTION_DELETE, 72 h window."""
     monkeypatch.delenv("LIVE_RETENTION_DELETE", raising=False)
-    seed(live_db)
-
-    result = retention.run(session_factory=live_db, now=NOW)
-
-    assert result["status"] == "success" and result["dry_run"] is True
-    assert {t: result["rows"][t] for t, _ in retention.LIVE_TABLES} == {
-        "observations": 1,
-        "fire_detections": 1,
-        "weather_observations": 1,
-    }
-    assert counts(live_db) == {t: (2, 2) for t, _ in retention.LIVE_TABLES}
+    monkeypatch.delenv("LIVE_RETENTION_HOURS", raising=False)
 
 
-def test_delete_enforces_the_window_on_live_rows_only(live_db):
-    seed(live_db)
-
-    result = retention.run(session_factory=live_db, now=NOW, delete=True)
-
-    assert result["dry_run"] is False
+def assert_window_enforced_on_live_rows_only(live_db) -> None:
     # One old live row gone per table; the new live row and both historical rows
     # (the 2021 pilot-event row and one older than the window) survive.
     assert counts(live_db) == {t: (1, 2) for t, _ in retention.LIVE_TABLES}
@@ -114,7 +104,80 @@ def test_delete_enforces_the_window_on_live_rows_only(live_db):
     assert pilot == 1
 
 
-def test_env_flag_enables_deletes_and_window_is_configurable(live_db, monkeypatch):
+def test_default_enforces_the_window_on_live_rows_only(live_db, caplog):
+    seed(live_db)
+    caplog.set_level(logging.INFO, logger="ingestion.live")
+
+    result = retention.run(session_factory=live_db, now=NOW)
+
+    assert result["status"] == "success" and result["dry_run"] is False
+    assert {t: result["rows"][t] for t, _ in retention.LIVE_TABLES} == {
+        "observations": 1,
+        "fire_detections": 1,
+        "weather_observations": 1,
+    }
+    assert_window_enforced_on_live_rows_only(live_db)
+    logged = [
+        r for r in caplog.records if r.getMessage().startswith("retention: deleted")
+    ]
+    assert logged and logged[0].levelno == logging.INFO
+    assert "'observations': 1" in logged[0].getMessage()
+
+
+@pytest.mark.parametrize("value", ["0", "false", "off"])
+def test_dry_run_is_opt_in_and_deletes_nothing(live_db, monkeypatch, value):
+    monkeypatch.setenv("LIVE_RETENTION_DELETE", value)
+    seed(live_db)
+
+    result = retention.run(session_factory=live_db, now=NOW)
+
+    assert result["status"] == "success" and result["dry_run"] is True
+    assert {t: result["rows"][t] for t, _ in retention.LIVE_TABLES} == {
+        "observations": 1,
+        "fire_detections": 1,
+        "weather_observations": 1,
+    }
+    assert counts(live_db) == {t: (2, 2) for t, _ in retention.LIVE_TABLES}
+
+
+def test_explicit_delete_enforces_the_window_on_live_rows_only(live_db, monkeypatch):
+    monkeypatch.setenv("LIVE_RETENTION_DELETE", "0")  # the argument wins over the env
+    seed(live_db)
+
+    result = retention.run(session_factory=live_db, now=NOW, delete=True)
+
+    assert result["dry_run"] is False
+    assert_window_enforced_on_live_rows_only(live_db)
+
+
+@pytest.mark.parametrize(
+    ("args", "env", "delete"),
+    [
+        ([], None, None),  # default: LIVE_RETENTION_DELETE decides (unset = delete)
+        (["--dry-run"], None, False),
+        (["--delete"], "0", True),  # the old flag still works, and wins over the env
+    ],
+)
+def test_cli_retention_flags(monkeypatch, args, env, delete):
+    if env is not None:
+        monkeypatch.setenv("LIVE_RETENTION_DELETE", env)
+    seen = {}
+
+    def fake_run(*, delete=None):
+        seen["delete"] = delete
+        return {"status": "success"}
+
+    monkeypatch.setattr(retention, "run", fake_run)
+    assert cli.main(["retention", *args]) == 0
+    assert seen == {"delete": delete}
+
+
+def test_cli_rejects_dry_run_with_delete():
+    with pytest.raises(SystemExit):
+        cli.main(["retention", "--dry-run", "--delete"])
+
+
+def test_env_one_deletes_and_window_is_configurable(live_db, monkeypatch):
     monkeypatch.setenv("LIVE_RETENTION_DELETE", "1")
     monkeypatch.setenv("LIVE_RETENTION_HOURS", "5")
     seed(live_db)
@@ -180,7 +243,7 @@ def runs(live_db) -> dict[str, tuple]:
 def test_orphaned_running_runs_are_closed_then_pruned(live_db):
     seed_runs(live_db)
 
-    result = retention.run(session_factory=live_db, now=NOW, delete=True)
+    result = retention.run(session_factory=live_db, now=NOW)  # the default deletes
 
     assert result["abandoned_runs"] == 2
     assert result["rows"]["ingestion_runs"] == 1  # the 95-day-old orphan
@@ -192,7 +255,7 @@ def test_orphaned_running_runs_are_closed_then_pruned(live_db):
 
 
 def test_dry_run_counts_orphans_without_touching_them(live_db, monkeypatch):
-    monkeypatch.delenv("LIVE_RETENTION_DELETE", raising=False)
+    monkeypatch.setenv("LIVE_RETENTION_DELETE", "0")
     seed_runs(live_db)
     before = runs(live_db)
 

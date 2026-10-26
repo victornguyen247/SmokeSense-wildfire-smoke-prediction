@@ -58,6 +58,11 @@ def env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def env_off(name: str) -> bool:
+    """Whether a default-on switch is explicitly turned off (0, false, no, off)."""
+    return os.getenv(name, "").strip().lower() in {"0", "false", "no", "off"}
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 

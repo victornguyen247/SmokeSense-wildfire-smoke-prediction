@@ -2,7 +2,7 @@
 
 Run from backend/:
     python -m ingestion.live firms|airnow|nws
-    python -m ingestion.live retention [--delete]
+    python -m ingestion.live retention [--dry-run]
     python -m ingestion.live freshness
     LIVE_INGEST_SMOKE=1 python -m ingestion.live smoke [source ...]
 
@@ -75,8 +75,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "sources", nargs="*", help="smoke only: sources to check (default all)"
     )
-    parser.add_argument(
-        "--delete", action="store_true", help="retention: delete, not dry run"
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="retention: count what would be deleted, delete nothing",
+    )
+    mode.add_argument(
+        "--delete",
+        action="store_true",
+        help="retention: delete (the default; kept as an alias)",
     )
     args = parser.parse_args(argv)
 
@@ -106,7 +114,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "retention":
         from ingestion.live import retention
 
-        result = retention.run(delete=True if args.delete else None)
+        if args.dry_run:
+            delete = False
+        else:
+            delete = True if args.delete else None  # None: LIVE_RETENTION_DELETE
+        result = retention.run(delete=delete)
     else:
         result = importlib.import_module(JOBS[args.command]).run()
     print(json.dumps(result, indent=2, default=str))
