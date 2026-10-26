@@ -42,6 +42,109 @@ def test_cadences_come_from_the_environment(monkeypatch):
     assert schedule["live-airnow"]["schedule"].minute == {40}
 
 
+DEFAULT_CADENCES = {
+    "firms": 30 * 60,
+    "airnow": {25},
+    "nws": {5},
+    "retention": ({9}, {15}),
+}
+
+
+def cadences(schedule: dict) -> dict:
+    retention = schedule["live-retention"]["schedule"]
+    return {
+        "firms": schedule["live-firms"]["schedule"].total_seconds(),
+        "airnow": schedule["live-airnow"]["schedule"].minute,
+        "nws": schedule["live-nws"]["schedule"].minute,
+        "retention": (retention.hour, retention.minute),
+    }
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "problem"),
+    [
+        ("LIVE_FIRMS_EVERY_MINUTES", "30min", "is not a number"),
+        ("LIVE_FIRMS_EVERY_MINUTES", "0", "is below 1"),
+        ("LIVE_AIRNOW_MINUTE", "75", "is above 59"),
+        ("LIVE_NWS_MINUTE", "five", "is not a number"),
+        ("LIVE_RETENTION_HOUR", "24", "is above 23"),
+        ("LIVE_RETENTION_MINUTE", "-1", "is below 0"),
+    ],
+)
+def test_a_bad_cadence_falls_back_without_stopping_beat(
+    monkeypatch, caplog, name, value, problem
+):
+    """Logged as an ERROR naming the variable and value; every other entry keeps its value."""
+    import logging
+
+    for var in ("LIVE_FIRMS_EVERY_MINUTES", "LIVE_AIRNOW_MINUTE", "LIVE_NWS_MINUTE",
+                "LIVE_RETENTION_HOUR", "LIVE_RETENTION_MINUTE"):  # fmt: skip
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv(name, value)
+    caplog.set_level(logging.ERROR, logger="ingestion.live")
+
+    schedule = beat_schedule()
+
+    assert cadences(schedule) == DEFAULT_CADENCES
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1
+    assert f"{name}={value!r} {problem}; using the default" in errors[0].getMessage()
+
+
+def test_a_bad_value_leaves_the_other_sources_alone(monkeypatch):
+    monkeypatch.setenv("LIVE_FIRMS_EVERY_MINUTES", "30min")
+    monkeypatch.setenv("LIVE_AIRNOW_MINUTE", "40")
+    monkeypatch.setenv("LIVE_NWS_MINUTE", "75")
+    monkeypatch.setenv("LIVE_RETENTION_HOUR", "3")
+    monkeypatch.setenv("LIVE_RETENTION_MINUTE", "0")
+    assert cadences(beat_schedule()) == {
+        "firms": 30 * 60,  # default
+        "airnow": {40},
+        "nws": {5},  # default
+        "retention": ({3}, {0}),
+    }
+
+
+@pytest.mark.parametrize("value", ["fast", "nan", "inf", "0.5"])
+def test_env_float_falls_back_on_bad_values(monkeypatch, caplog, value):
+    import logging
+
+    from ingestion.live.common import env_float
+
+    monkeypatch.setenv("LIVE_HTTP_TIMEOUT_S", value)
+    caplog.set_level(logging.ERROR, logger="ingestion.live")
+    assert env_float("LIVE_HTTP_TIMEOUT_S", 120.0, minimum=1) == 120.0
+    assert "LIVE_HTTP_TIMEOUT_S=" in caplog.text and repr(value) in caplog.text
+
+
+def test_worker_and_beat_import_with_bad_values():
+    """ingestion.tasks builds the beat schedule at import; bad values must not break it."""
+    import os
+
+    env = {
+        **os.environ,
+        "LIVE_FIRMS_EVERY_MINUTES": "30min",
+        "LIVE_AIRNOW_MINUTE": "75",
+        "LIVE_NWS_MINUTE": "0x",
+        "LIVE_RETENTION_HOUR": "-3",
+        "LIVE_HTTP_ATTEMPTS": "0",
+    }
+    code = (
+        "from ingestion.tasks import celery_app\n"
+        "print(sorted(celery_app.conf.beat_schedule))"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=BACKEND,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert out.returncode == 0, out.stderr[-500:]
+    assert "live-firms" in out.stdout and "live-retention" in out.stdout
+    assert "LIVE_FIRMS_EVERY_MINUTES='30min' is not a number" in out.stderr
+
+
 def test_purpleair_has_no_live_job():
     """Team decision 2026-10-26 (#41): no PurpleAir task, beat entry or CLI command."""
     from ingestion.tasks import celery_app

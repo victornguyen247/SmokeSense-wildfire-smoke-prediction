@@ -47,7 +47,9 @@ DEFAULT_STALE_AFTER_MINUTES = {
 def stale_after_minutes() -> dict[str, int]:
     """{source: minutes} for every live source."""
     return {
-        name: env_int(f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", default)
+        name: env_int(
+            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", default, minimum=1
+        )
         for name, default in DEFAULT_STALE_AFTER_MINUTES.items()
     }
 

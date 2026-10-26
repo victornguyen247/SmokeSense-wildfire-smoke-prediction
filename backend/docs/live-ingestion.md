@@ -23,6 +23,8 @@ The same jobs are Celery tasks (`ingestion/tasks.py`) scheduled by beat (`ingest
 
 There is no chaining between sources. Each beat entry is separate and has an `expires` equal to its interval, so a stalled worker doesn't pile up a backlog.
 
+**Bad settings never stop the worker or beat.** A `LIVE_*` or `FRESHNESS_*` value that is not a number or is out of range (e.g. `LIVE_FIRMS_EVERY_MINUTES=30min` or `0`, `LIVE_AIRNOW_MINUTE=75`) is logged as an ERROR naming the variable and the value, and that variable's default is used; the other sources are unaffected.
+
 **Retries** (`ingestion/live/common.py`, `RetryTransport`): network errors and the statuses above are retried up to `LIVE_HTTP_ATTEMPTS` (3) times, with a 2 s, 4 s, … backoff (`LIVE_HTTP_BACKOFF_S`). A wait is never shorter than the server's `Retry-After`. A wait longer than `LIVE_HTTP_MAX_WAIT_S` (60 s) is not slept: that run fails and the next scheduled run tries again. The read timeout is `LIVE_HTTP_TIMEOUT_S` (120 s), because AirNow took 40–55 s even for a small box on 2026-10-23.
 
 **Failures.** Every run writes one `ingestion_runs` row: `running` when it starts, then `success`, `partial` (NWS with some stations failing) or `failed`, with `rows_fetched`, `rows_written`, `watermark` (newest data timestamp) and a one-line `error`. A job never raises out of its task, so a failure is logged and recorded, and the next scheduled run is the retry. Because the lookback starts from the last *successful* run, a gap after failed runs is filled automatically.

@@ -75,9 +75,9 @@ def job(
     def _job(session: Session, run_id: str, now: datetime) -> JobResult:
         headers = nws_headers(user_agent())
         start = lookback_start(
-            session, SOURCE, now, env_int("LIVE_NWS_OVERLAP_HOURS", 3)
+            session, SOURCE, now, env_int("LIVE_NWS_OVERLAP_HOURS", 3, minimum=0)
         )
-        spacing = env_float("LIVE_NWS_REQUEST_SPACING_S", 0.5)
+        spacing = env_float("LIVE_NWS_REQUEST_SPACING_S", 0.5, minimum=0)
         result = JobResult()
         failed = 0
         with client_scope(client, RETRY_STATUSES) as http:

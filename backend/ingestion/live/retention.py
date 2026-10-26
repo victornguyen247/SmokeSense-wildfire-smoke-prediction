@@ -69,7 +69,7 @@ def run(
         from ingestion.db import SessionLocal as session_factory
     now = now or utc_now()
     delete = not env_off("LIVE_RETENTION_DELETE") if delete is None else delete
-    window_hours = env_int("LIVE_RETENTION_HOURS", DEFAULT_WINDOW_HOURS)
+    window_hours = env_int("LIVE_RETENTION_HOURS", DEFAULT_WINDOW_HOURS, minimum=1)
     cutoff = now - timedelta(hours=window_hours)
     runs_cutoff = now - timedelta(days=INGESTION_RUNS_RETENTION_DAYS)
     abandoned_cutoff = now - timedelta(hours=ABANDONED_AFTER_HOURS)

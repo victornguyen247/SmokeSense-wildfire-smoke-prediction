@@ -15,19 +15,21 @@ from ingestion.live.common import env_int
 
 
 def beat_schedule() -> dict:
-    firms_minutes = env_int("LIVE_FIRMS_EVERY_MINUTES", 30)
+    # A bad value falls back to its default with an ERROR (env_int never raises), so
+    # beat and the worker always start and the other entries are unaffected.
+    firms_minutes = env_int("LIVE_FIRMS_EVERY_MINUTES", 30, minimum=1)
     return {
         # Hourly, offset after the top of the hour so AirNow has published the hour
         # that just ended (lag-1 for an issue time H is the reading labelled H - 1 h).
         "live-airnow": {
             "task": "ingestion.live.airnow",
-            "schedule": crontab(minute=env_int("LIVE_AIRNOW_MINUTE", 25)),
+            "schedule": crontab(minute=env_int("LIVE_AIRNOW_MINUTE", 25, 0, 59)),
             "options": {"expires": 3600},
         },
         # Hourly, a few minutes after the :53 routine METARs most stations send.
         "live-nws": {
             "task": "ingestion.live.nws",
-            "schedule": crontab(minute=env_int("LIVE_NWS_MINUTE", 5)),
+            "schedule": crontab(minute=env_int("LIVE_NWS_MINUTE", 5, 0, 59)),
             "options": {"expires": 3600},
         },
         "live-firms": {
@@ -39,8 +41,8 @@ def beat_schedule() -> dict:
         "live-retention": {
             "task": "ingestion.live.retention",
             "schedule": crontab(
-                hour=env_int("LIVE_RETENTION_HOUR", 9),
-                minute=env_int("LIVE_RETENTION_MINUTE", 15),
+                hour=env_int("LIVE_RETENTION_HOUR", 9, 0, 23),
+                minute=env_int("LIVE_RETENTION_MINUTE", 15, 0, 59),
             ),
             "options": {"expires": 3600},
         },

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 import os
 import time
 from dataclasses import dataclass, field
@@ -44,14 +45,46 @@ DEFAULT_WINDOW_HOURS = 72
 DEFAULT_READ_TIMEOUT_S = 120.0
 
 
-def env_int(name: str, default: int) -> int:
+def _env_number(name, default, parse, minimum, maximum):
+    """A numeric setting, or its default when blank, unreadable or out of range.
+
+    Never raises: these are read at import (beat_schedule) and by every job, so a bad
+    value must not stop the worker, beat or the other sources. It is logged as an
+    ERROR naming the variable and the value (cadence knobs only, never a key).
+    """
     raw = os.getenv(name, "").strip()
-    return int(raw) if raw else default
+    if not raw:
+        return default
+    try:
+        value = parse(raw)
+    except ValueError:
+        problem = "is not a number"
+    else:
+        if not math.isfinite(value):
+            problem = "is not a finite number"
+        elif minimum is not None and value < minimum:
+            problem = f"is below {minimum}"
+        elif maximum is not None and value > maximum:
+            problem = f"is above {maximum}"
+        else:
+            return value
+    logger.error("%s=%r %s; using the default %s", name, raw[:40], problem, default)
+    return default
 
 
-def env_float(name: str, default: float) -> float:
-    raw = os.getenv(name, "").strip()
-    return float(raw) if raw else default
+def env_int(
+    name: str, default: int, minimum: int | None = None, maximum: int | None = None
+) -> int:
+    return _env_number(name, default, int, minimum, maximum)
+
+
+def env_float(
+    name: str,
+    default: float,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    return _env_number(name, default, float, minimum, maximum)
 
 
 def env_flag(name: str) -> bool:
@@ -184,13 +217,14 @@ def live_client(
     """httpx client for a live job: retrying transport, live timeout, redirects followed."""
     transport = RetryTransport(
         retry_statuses,
-        attempts=env_int("LIVE_HTTP_ATTEMPTS", 3),
-        backoff_s=env_float("LIVE_HTTP_BACKOFF_S", 2.0),
-        max_wait_s=env_float("LIVE_HTTP_MAX_WAIT_S", 60.0),
+        attempts=env_int("LIVE_HTTP_ATTEMPTS", 3, minimum=1),
+        backoff_s=env_float("LIVE_HTTP_BACKOFF_S", 2.0, minimum=0),
+        max_wait_s=env_float("LIVE_HTTP_MAX_WAIT_S", 60.0, minimum=0),
         sleep=sleep,
     )
     timeout = httpx.Timeout(
-        env_float("LIVE_HTTP_TIMEOUT_S", DEFAULT_READ_TIMEOUT_S), connect=10.0
+        env_float("LIVE_HTTP_TIMEOUT_S", DEFAULT_READ_TIMEOUT_S, minimum=1),
+        connect=10.0,
     )
     return httpx.Client(
         transport=transport,

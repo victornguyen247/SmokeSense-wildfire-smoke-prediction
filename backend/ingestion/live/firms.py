@@ -85,7 +85,7 @@ def fetch_records(
 def job(client: httpx.Client | None = None):
     def _job(session: Session, run_id: str, now: datetime) -> JobResult:
         start = lookback_start(
-            session, SOURCE, now, env_int("LIVE_FIRMS_OVERLAP_HOURS", 24)
+            session, SOURCE, now, env_int("LIVE_FIRMS_OVERLAP_HOURS", 24, minimum=0)
         )
         with client_scope(client, RETRY_STATUSES) as http:
             fetched, records = fetch_records(http, start, now)
