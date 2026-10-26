@@ -161,6 +161,59 @@ def test_rerun_is_idempotent(live_db):
         assert s.scalar(text("select count(*) from weather_observations")) == 4
 
 
+def test_weather_upsert_refreshes_received_at_only_when_values_change(live_db):
+    """A changed live row is rewritten with the new run's time; unchanged and historical
+    rows are not touched."""
+    from ingestion.live.store import upsert_weather
+
+    t0 = utc("2021-08-06T16:53:00")
+    base = {
+        "station_id": "KRDD", "valid_at": t0, "latitude": 40.5, "longitude": -122.3,
+        "wind_speed_ms": 3.1, "wind_dir_deg": 270.0, "temp_c": 30.0, "rh_pct": 20.0,
+        "pressure_hpa": 1010.0, "precip_1h_mm": None, "qc_flag": "ok",
+    }  # fmt: skip
+    hist_at = utc("2021-08-06T15:53:00")
+
+    def row(valid_at):
+        with live_db() as s:
+            return s.execute(
+                text(
+                    "select received_at, temp_c, ingestion_run_id from weather_observations "
+                    "where station_id = 'KRDD' and valid_at = :t"
+                ),
+                {"t": valid_at},
+            ).one()
+
+    def upsert(record, run_id):
+        with live_db() as s:
+            n = upsert_weather(s, [record], run_id)
+            s.commit()
+        return n
+
+    with live_db() as s:  # a historical (batch) row: ingestion_run_id NULL
+        s.execute(
+            text(
+                "insert into weather_observations (station_id, valid_at, received_at, geom, "
+                "temp_c) values ('KRDD', :t, :t, ST_GeogFromText('POINT(-122.3 40.5)'), 25)"
+            ),
+            {"t": hist_at},
+        )
+        s.commit()
+
+    assert upsert({**base, "received_at": NOW}, "run-1") == 1
+    later = NOW + timedelta(hours=1)
+    assert upsert({**base, "received_at": later}, "run-2") == 0  # unchanged
+    assert tuple(row(t0)) == (NOW, 30.0, "run-1")
+
+    revised = NOW + timedelta(hours=2)
+    assert upsert({**base, "received_at": revised, "temp_c": 31.0}, "run-3") == 1
+    assert tuple(row(t0)) == (revised, 31.0, "run-3")
+
+    hist = {**base, "valid_at": hist_at, "received_at": revised, "temp_c": 99.0}
+    assert upsert(hist, "run-3") == 0
+    assert tuple(row(hist_at)) == (hist_at, 25.0, None)
+
+
 def test_one_failing_station_makes_the_run_partial(live_db):
     result = nws.run(
         session_factory=live_db, client=mock_client(fail=frozenset({"KBAD"})), now=NOW,

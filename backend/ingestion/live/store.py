@@ -256,6 +256,9 @@ def upsert_observations(session: Session, records: Iterable[dict], run_id: str) 
 # weather_observations (NWS)
 # ---------------------------------------------------------------------------
 
+# weather_observations has no ingested_at column (migration 0001), unlike observations;
+# received_at is the live run's time, so a rewritten row's received_at records when it
+# was rewritten. An unchanged row is left alone, as for observations.
 _UPSERT_WEATHER = text("""
     INSERT INTO weather_observations (station_id, valid_at, received_at, geom, wind_speed_ms,
                                       wind_dir_deg, temp_c, rh_pct, pressure_hpa,
