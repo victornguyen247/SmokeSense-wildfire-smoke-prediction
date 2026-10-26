@@ -114,7 +114,7 @@ Thresholds are at 35.5 unless a cut-off is named.
 - a `release.json` with one entry per horizon (`serve`, `threshold`);
 - a `features.json` with a `features` list.
 
-`manifest.json` (`dataset.data_sha256`), `params.json` and `metrics.json` are optional but fill `training_data_hash`, `hyperparameters` and `backtest_metrics`. All can be derived from `model_metadata.json` and the CSVs. Registering pickles would also mean loading only from the trusted bucket and pinning scikit-learn to the version that wrote them (1.7.2, while the repo pins 1.6.0).
+`manifest.json` (`dataset.data_sha256`), `params.json` and `metrics.json` are optional but fill `training_data_hash`, `hyperparameters` and `backtest_metrics`. All can be derived from `model_metadata.json` and the CSVs. Registering pickles would also mean loading only from the trusted bucket and pinning scikit-learn to the version that wrote them (1.7.2, while the repo pins 1.6.0). The packaging script below generates all five (see **Registry packaging**).
 
 ## Findings
 
@@ -131,4 +131,40 @@ Thresholds are at 35.5 unless a cut-off is named.
 - **Don't merge the two.** They are different splits.
 - **Alerts.** Report F1 at the served cut-offs for v2.
 - **ML-04.** ML-04 (#45) should wrap **`ml.inference.predict_v2.predict`** and add `forecast_point_id`, `issued_at` and `model_key`.
-- **Keep the ML-01 tree as a documented baseline**, not a serving path. Its artifacts need `release.json` and `features.json` (and the scikit-learn pin resolved) before PR #68's registry can hold it.
+- **Keep the ML-01 tree as a documented baseline**, not a serving path. It can be held in PR #68's registry as a shadow-only reference (below); the scikit-learn pin is still unresolved.
+
+## Registry packaging
+
+`ml/tools/package_ml01_for_registry.py` (decision #46) turns the verified release into a model directory that PR #68's registry accepts, without retraining anything:
+
+```bash
+cd backend
+python -m ml.tools.package_ml01_for_registry      # -> data/models/ml01_decision_tree/ (git-ignored)
+```
+
+- **Inputs** (no network): the extracted release (`data/models/ml01_baselines/`), the release ZIP and its `.sha256` (`data/release/ml01-baselines-v1.0.0.{zip,sha256}`), and `smokesense_v1`. It stops unless the ZIP's SHA-256 equals the checksum file (compared directly, so the Windows line endings don't matter) and every release file it reads is byte-identical to the ZIP member. Only then are the pickles loaded. It also stops unless the recomputed metrics equal ML-01's published CSVs (within 1e-4); they do, for validation MAE and every test metric.
+- **Output:** the five `models/decision_tree_{1,3,6,12,24}h.joblib`, copied unchanged (the `models/` layout `ml.inference.ml01_baselines` loads from), plus generated JSON with sorted keys and no timestamps; a re-run gives the same bytes.
+  - `features.json`: the fitted pipelines' column order (`feature_names_in_`), the 8 raw inputs and his 3 engineered features, with a note that `pm25_change_3_6` and `pm25_short_avg` are not in `ml.feature_columns` (`pm25_change_1_3` equals `trend_1_3`).
+  - `params.json`: the hyperparameters chosen on validation (`model_metadata.json`; checked against the fitted trees).
+  - `metrics.json`: MAE, RMSE, precision, recall, F1, AUROC and AUPRC at 35.5 per horizon, for persistence and the tree, on the validation (G-PE-017, G-PE-009) and test (G-PE-018, G-PE-004) groups.
+  - `manifest.json`: `dataset.data_sha256` of `smokesense_v1`, the release tag, the ZIP's SHA-256, the joblib hashes, and scikit-learn 1.7.2 (saved with) vs 1.6.0 (repo pin).
+  - `release.json`: baseline_v2's schema. `ml/evaluation/release.py` (decision #31) is applied to ML-01's **test split** (its two held-out groups, rows with `pm25_lag_1h`), with `basis` naming the split. Threshold 35.5 is provisional, as in ML-01.
+
+| Horizon | serve | pooled skill | macro skill |
+|---|---|---|---|
+| 1 h | persistence | −0.035 | −0.030 |
+| 3 h | persistence | −0.106 | −0.144 |
+| 6 h | persistence | −0.211 | −0.164 |
+| 12 h | persistence | −0.605 | −0.615 |
+| 24 h | persistence | −0.651 | −0.775 |
+
+The rule serves persistence at every horizon, which matches ML-01's own finding. These skills come from 2 held-out groups, not DATA-04's 13-fold CV, so they are not comparable with baseline_v2's `release.json`.
+
+**Register it as shadow only.** It is Baseline B, a reference: never `promote` it. On the PR #68 branch:
+
+```bash
+python -m mlops.registry register data/models/ml01_decision_tree --name ml01_decision_tree \
+    --version v1.0.0 --algorithm decision_tree --notes "ML-01 Baseline B reference; not for serving"
+```
+
+This was checked on 2026-10-26 against PR #68's code, a throwaway `*_test` database and a temporary local registry. The row is `shadow`, with the 11 features, threshold 35.5 at each horizon and the dataset hash. The stored archive's SHA-256 equals `artifact_sha256`, and `materialize` re-extracts all 10 files with identical hashes. Loading the pickles under the pinned scikit-learn 1.6.0 warns (`InconsistentVersionWarning`), but predictions reproduce ML-01's numbers. The pin should be resolved before anything other than a reference use.
