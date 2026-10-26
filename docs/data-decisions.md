@@ -57,3 +57,9 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 | 32 | **`monitors.aqs_code` is the source of truth for AirNow AQS codes** (migration 0003; the connector writes it; `scripts/backfill_monitor_aqs_code.py` fills older rows). `dataset_build/airnow_sites.csv` is only a fallback, used with a warning. | The DB keyed monitors by a hash of the code, so the code itself was not queryable. A committed CSV would drift from the DB as new sites appear. |
 | 33 | **Docs follow the code:** artifacts live in `backend/data/models/<name>/` (`docs/ml.md`). `docs/schema.md` describes observed NCEI weather at issue time (not NWS forecasts), the dataset path `backend/data/datasets/`, and the added columns. | Readers should not have to reconcile the docs with the code to know what a model saw. |
 
+
+## 2026-10-25 — ML-01 baselines vs DATA-04 models (owner: Tin, data)
+
+| # | Decision | Reason |
+|---|---|---|
+| 45 | **Baselines are presented as: persistence (Baseline A), the ML-01 Decision Tree (Baseline B, PR #66), XGBoost v1, and v2 (served).** The main comparison is DATA-04's 13-fold leave-one-group-out CV. ML-01's own split (2 test groups) is shown separately with all four models and is not merged into it. ML-04 wraps `ml.inference.predict_v2.predict`; the ML-01 tree stays a documented baseline, not a serving path. (#45 was the next free number: open PRs #85 use #34–#42 and #44, #86 uses #43, #68 uses none.) | On ML-01's split, ML-01's numbers reproduce exactly. v1 and v2 trained on its 9 training groups beat persistence and the tree on MAE at every horizon (6 h: 4.44 / 4.60 vs 5.79 / 7.01), but the test is 94.6% one low-PM group with 135 exceedances at 6 h (`docs/ml/ml01-vs-data04.md`). The ML-01 artifacts have no release rule, `source`, fallback, `release.json` or `features.json`. |
