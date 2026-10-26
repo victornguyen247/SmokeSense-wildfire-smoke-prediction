@@ -29,6 +29,7 @@ The columns follow the Parquet contract in `docs/schema.md` and `backend/feature
   - VIIRS SNPP fire detections over bbox + 200 km, from 72 h before the start.
   - Regulatory AirNow PM2.5 over the tight bbox, from 24 h before the start to 24 h after the end.
   - NCEI weather over bbox + 50 km, from 24 h before the start.
+  - Historical rows only: every input query takes `row_scope` (default `"historical"`, i.e. `ingestion_run_id IS NULL`), so live DATA-06 rows in the same tables never enter this dataset (#34).
 - **Dedupe (#21):** one row per (point, issue time, horizon). 1,873 rows came from two events; they keep the first event's features, and `event_ids` lists both.
 - **Groups (#21):** `group_id` joins events whose windows overlap, for leave-one-group-out CV (#22).
 
