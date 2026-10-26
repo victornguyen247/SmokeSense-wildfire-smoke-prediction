@@ -281,6 +281,11 @@ def barkjohn_correct(
 
     PM2.5 = 0.524 * PA_cf1 - 0.0862 * RH + 5.75
 
+    Source: Barkjohn, K. K., Gantt, B. and Clements, A. L. (2021), "Development and
+    application of a United States-wide correction for PM2.5 data collected with the
+    PurpleAir sensor", Atmos. Meas. Tech. 14, 4617-4637,
+    https://doi.org/10.5194/amt-14-4617-2021.
+
     cf1 is the mean of the A and B pm2.5_cf_1 channels (µg/m³); rh_pct is the
     sensor's own humidity reading. Negative results are clamped to 0 because
     observations.pm25 has CHECK (pm25 >= 0).

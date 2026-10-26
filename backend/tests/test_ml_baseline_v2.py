@@ -33,6 +33,13 @@ def test_v2_features_exclude_labels_and_identifiers():
     assert FEATURES_V2 == [*FEATURES, *DERIVED] and len(set(FEATURES_V2)) == len(FEATURES_V2)
 
 
+def test_purpleair_is_not_a_model_feature():
+    """Decision #12: PurpleAir is a map layer in v1, never a model input."""
+    for columns in (FEATURES, FEATURES_V2):
+        assert not [c for c in columns if "purple" in c.lower() or c.lower().startswith("pa_")]
+        assert not set(columns) & set(EXCLUDED)
+
+
 def test_add_derived_values_and_fallbacks():
     f = pd.DataFrame({"pm25_lag_1h": [10.0, np.nan, np.nan], "pm25_lag_3h": [4.0, 7.0, np.nan],
                       "pm25_lag_6h": [1.0, 2.0, 3.0], "pm25_lag_24h": [4.0, 1.0, np.nan]})
