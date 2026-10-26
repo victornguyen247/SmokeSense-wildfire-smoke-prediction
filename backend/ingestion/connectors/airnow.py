@@ -21,6 +21,7 @@ from typing import Any
 
 import httpx
 
+from ingestion.connectors._http import client_or_new
 from ingestion.connectors._common import (
     TIMEOUT,
     load_env,
@@ -209,14 +210,8 @@ def _request_airnow_rows(
         "API_KEY": api_key,
     }
 
-    if client is None:
-        with httpx.Client(
-            timeout=TIMEOUT,
-            follow_redirects=True,
-        ) as own:
-            response = own.get(url, params=params)
-    else:
-        response = client.get(url, params=params)
+    with client_or_new(client, timeout=TIMEOUT, follow_redirects=True) as http:
+        response = http.get(url, params=params)
 
     if verbose:
         print("HTTP status:", response.status_code)

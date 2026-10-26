@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 
+from ingestion.connectors._http import client_or_new
 from ingestion.connectors._common import (
     TIMEOUT,
     load_env,
@@ -87,11 +88,8 @@ def fetch_firms_rows(
         start_date=start_date,
     )
 
-    if client is None:
-        with httpx.Client(timeout=TIMEOUT) as own:
-            response = own.get(url)
-    else:
-        response = client.get(url)
+    with client_or_new(client, timeout=TIMEOUT) as http:
+        response = http.get(url)
 
     if response.status_code != 200:
         raise RuntimeError(
