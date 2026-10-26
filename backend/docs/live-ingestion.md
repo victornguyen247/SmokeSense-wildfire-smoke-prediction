@@ -19,7 +19,7 @@ The same jobs are Celery tasks (`ingestion/tasks.py`) scheduled by beat (`ingest
 | FIRMS VIIRS **SNPP NRT** only | `ingestion.live.firms` | `firms` | every 30 min (`LIVE_FIRMS_EVERY_MINUTES`) | California bbox + 200 km; 72 h on a first run, then from 24 h (`LIVE_FIRMS_OVERLAP_HOURS`) before the last success | 5,000 transactions / 10 min; one request per run. Retries 429 and 5xx. |
 | AirNow hourly PM2.5 | `ingestion.live.airnow` | `airdata` | hourly at :25 (`LIVE_AIRNOW_MINUTE`) | California bbox; 72 h, then from 3 h (`LIVE_AIRNOW_OVERLAP_HOURS`) before the last success | 500 requests / hour; one request per run (more only if the record cap makes the connector bisect). **429 is not retried** (no data until the next hour); 5xx are. |
 | NWS station observations | `ingestion.live.nws` | `nws_obs` | hourly at :05 (`LIVE_NWS_MINUTE`) | the 109 training stations; 72 h, then from 3 h (`LIVE_NWS_OVERLAP_HOURS`) before the last success | Unpublished; "retry after ~5 s". One station at a time, `LIVE_NWS_REQUEST_SPACING_S` (0.5 s) apart, ~2 pages per station on a backfill. Retries 429 and 5xx. Sends `NWS_USER_AGENT`. |
-| PurpleAir (map layer only) | `ingestion.live.purpleair` | `purpleair` | every 120 min (`LIVE_PURPLEAIR_EVERY_MINUTES`; `0` disables it) | California bbox, sensors seen in the last hour (`LIVE_PURPLEAIR_MAX_AGE_S`) | Points per field per sensor; one `/v1/sensors` call per run, six fields. Retries 429 and 5xx. |
+| PurpleAir (map layer only) | `ingestion.live.purpleair` | `purpleair` | **off by default**; set `LIVE_PURPLEAIR_EVERY_MINUTES` to schedule it | California bbox, sensors seen in the last hour (`LIVE_PURPLEAIR_MAX_AGE_S`) | Points per field per sensor; one `/v1/sensors` call per run, six fields. Retries 429 and 5xx. |
 | Retention | `ingestion.live.retention` | (none) | daily 09:15 UTC (`LIVE_RETENTION_HOUR`, `LIVE_RETENTION_MINUTE`) | see below | |
 
 There is no chaining between sources. Each beat entry is separate and has an `expires` equal to its interval, so a stalled worker doesn't pile up a backlog.
@@ -68,9 +68,11 @@ On the first live run (2026-10-23), 107 of the 109 reported. KLHM (Lincoln) and 
 
 ### PurpleAir
 
-Map layer only. It is not a model input (decision #12), and `tests/test_live_purpleair.py` fails if a PurpleAir column enters `FEATURES` / `FEATURES_V2`. Each run makes one `/v1/sensors` call for outdoor sensors in the California box, requesting `latitude, longitude, last_seen, humidity, pm2.5_cf_1_a, pm2.5_cf_1_b`. Readings get A/B channel QA and then the EPA U.S.-wide correction: Barkjohn et al. 2021, `PM2.5 = 0.524·cf1 − 0.0862·RH + 5.75`, https://doi.org/10.5194/amt-14-4617-2021. The value is the sensor's current reading, stored under the hour it falls in, and a later run in the same hour replaces it. It is not an hourly average.
+**Off by default** (decision #44): the team decided the live map layer does not need it. It is not scheduled and not reported in `/meta` until `LIVE_PURPLEAIR_EVERY_MINUTES` is set, but the task and `python -m ingestion.live purpleair` still work when run explicitly. Map layer only. It is not a model input (decision #12), and `tests/test_live_purpleair.py` fails if a PurpleAir column enters `FEATURES` / `FEATURES_V2`. Each run makes one `/v1/sensors` call for outdoor sensors in the California box, requesting `latitude, longitude, last_seen, humidity, pm2.5_cf_1_a, pm2.5_cf_1_b`. Readings get A/B channel QA and then the EPA U.S.-wide correction: Barkjohn et al. 2021, `PM2.5 = 0.524·cf1 − 0.0862·RH + 5.75`, https://doi.org/10.5194/amt-14-4617-2021. The value is the sensor's current reading, stored under the hour it falls in, and a later run in the same hour replaces it. It is not an hourly average.
 
-**Cost:** about (sensors returned) × 6 points per run. The first live run (2026-10-23) returned 7,095 sensors for about **42.6k points**, so the default cadence of 120 min costs about **0.5M points a day** (12 runs). Every 30 min would be about 2M a day. Check the balance before shortening the cadence. `LIVE_PURPLEAIR_EVERY_MINUTES=0` removes the job from the beat schedule entirely, and the map layer then simply has no PurpleAir data.
+**Cost:** each run is **one statewide request**, about (sensors returned) × 6 points. The first live run (2026-10-23) returned 7,095 sensors for about **42.6k points**. Cost therefore scales with the cadence, not with the number of grid cells or forecast points: every 120 min is about 0.5M points a day, and every 30 min about 2M. Check the balance before enabling it.
+
+The historical PurpleAir pull for training labels (v1.1, `ingestion/batch/batch_ingest.py` and `connectors/purpleair.py`, per-sensor history capped by `PURPLEAIR_MAX_SENSORS`) is separate and is not affected by this setting.
 
 ## Live vs historical rows, and retention
 
@@ -88,27 +90,26 @@ Map layer only. It is not a model input (decision #12), and `tests/test_live_pur
 
 | Field | From |
 |---|---|
-| `source` | `airnow` (runs as `airdata`), `purpleair`, `firms`, `nws_obs` |
+| `source` | `airnow` (runs as `airdata`), `purpleair` (only when enabled), `firms`, `nws_obs` |
 | `last_success_at` | `finished_at` of the newest `success` or `partial` run |
 | `latest_data_at` | newest `watermark` of those runs |
 | `age_minutes` | now − `latest_data_at` |
 | `stale` | no successful run, or the last one finished more than `stale_after_minutes` ago |
 
-Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about two missed runs: AirNow 150, NWS 150, FIRMS 90, PurpleAir 270 (2 × 120 min + 30). `stale` follows the job, not the data age, because a healthy FIRMS feed can go hours without a detection.
+Thresholds, set with `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>`, default to about two missed runs: AirNow 150, NWS 150, FIRMS 90. A disabled source is left out of `sources` (the schema sets no minimum), so PurpleAir, off by default, is not reported and never shows as stale. When enabled, its default threshold follows the cadence: two runs plus 30 min. `stale` follows the job, not the data age, because a healthy FIRMS feed can go hours without a detection.
 
 ## Deploying
 
 - **Set `LIVE_RETENTION_DELETE=1` on the deployed worker.** Without it retention only counts rows and nothing is ever deleted, so the live tables grow until the free Neon database is full. Leave it unset locally, where a dry run is the safe default.
 - **Set `NWS_USER_AGENT` to the app name and a real contact**, e.g. `SmokeSense (team-inbox@yourdomain)`. NWS uses it to warn before blocking traffic, and the job refuses any value without an `@` or containing `example.com`.
 - **Keys:** `FIRMS_MAP_KEY`, `AIRNOW_API_KEY` and `PURPLEAIR_API_KEY` in the worker's environment. A missing key fails only that source's runs.
-- **PurpleAir budget:** keep `LIVE_PURPLEAIR_EVERY_MINUTES` at 120 (about 0.5M points a day) or set it to `0` to turn the job off.
+- **PurpleAir is off by default.** Leave `LIVE_PURPLEAIR_EVERY_MINUTES` unset (or `0`); setting it to e.g. 120 costs about 0.5M points a day.
 - **No always-on worker?** Every job is a plain command, so cron (or a scheduled GitHub Actions workflow) can run them directly from `backend/` with the same environment. Example crontab (UTC) matching the beat defaults:
 
   ```cron
   */30 * * * *  python -m ingestion.live firms
   25 * * * *    python -m ingestion.live airnow
   5 * * * *     python -m ingestion.live nws
-  0 */2 * * *   python -m ingestion.live purpleair
   15 9 * * *    python -m ingestion.live retention
   ```
 

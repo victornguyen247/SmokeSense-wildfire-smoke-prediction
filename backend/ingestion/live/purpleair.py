@@ -18,8 +18,9 @@ hour replaces it. That is enough for a map of current conditions; it is not a la
 Cost: PurpleAir bills points per field per sensor returned, so a run costs about
 (sensors returned) x (len(FIELDS)) points. Only the fields the map needs are
 requested, slow-moving metadata (name, altitude) is not, and max_age drops offline
-sensors. LIVE_PURPLEAIR_EVERY_MINUTES (default 120; 0 disables the job) is the cost
-knob: ~42.6k points per run on 2026-10-23, so ~0.5M points a day at 120 min.
+sensors. The job is off by default (LIVE_PURPLEAIR_EVERY_MINUTES unset or 0, decision
+#44); run it explicitly, or set a cadence: ~42.6k points per run on 2026-10-23, so
+~0.5M points a day at 120 min.
 """
 
 from __future__ import annotations

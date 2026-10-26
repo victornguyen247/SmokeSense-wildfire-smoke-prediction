@@ -76,3 +76,9 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 |---|---|---|
 | 41 | **PurpleAir live runs every 120 min by default** (`LIVE_PURPLEAIR_EVERY_MINUTES`, was 30), and `0` disables the job (no beat entry). Its `/meta` stale threshold is 270 min (two runs plus 30 min). Supersedes the 30 min in #39 and the PurpleAir 90 in #40. | The first live run cost about 42.6k points (7,095 sensors × 6 fields), so 30 min would be about 2M points a day; 120 min is about 0.5M. The data is a map layer only, so two-hourly current readings are enough. |
 | 42 | **A `running` ingestion run older than 6 h is marked `failed`** with error `abandoned (worker stopped)` by the daily retention task, then pruned after 90 days like any other run. | A worker crash leaves its run `running` forever, which retention never pruned and which reads as a job still in progress. No live job takes anywhere near 6 h. |
+
+## 2026-10-25 — live PurpleAir off by default (owner: Tin, data)
+
+| # | Decision | Reason |
+|---|---|---|
+| 44 | **Live PurpleAir is off by default** (`LIVE_PURPLEAIR_EVERY_MINUTES` unset or 0: no beat entry). The task and `python -m ingestion.live purpleair` still run when called explicitly. While disabled, PurpleAir is left out of `/meta` `sources` (the schema sets no minimum), and once enabled its stale threshold defaults to two runs + 30 min. Supersedes the 120 min default in #41. The historical PurpleAir pull for v1.1 labels is separate and unchanged. | Team decision: PurpleAir is a map layer only and not needed live. Each run is one statewide request (~42.6k points on 2026-10-23), so cost scales with cadence, not with grid cells. Reporting a source that never runs as stale would raise a permanent false alarm. |

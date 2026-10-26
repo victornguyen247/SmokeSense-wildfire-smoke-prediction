@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+import pytest
 from sqlalchemy import text
 
 from ingestion.live import __main__ as cli
@@ -21,7 +22,7 @@ NOW = datetime(2026, 10, 24, 2, 40, tzinfo=timezone.utc)
 
 
 def test_each_source_is_its_own_beat_entry(monkeypatch):
-    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "120")
     schedule = beat_schedule()
     assert {e["task"] for e in schedule.values()} == {
         "ingestion.live.firms",
@@ -43,18 +44,38 @@ def test_cadences_come_from_the_environment(monkeypatch):
     assert schedule["live-airnow"]["schedule"].minute == {40}
 
 
-def test_purpleair_defaults_to_every_two_hours(monkeypatch):
-    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+@pytest.mark.parametrize("value", [None, "", "0"])
+def test_purpleair_is_off_by_default_and_with_zero(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+    else:
+        monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", value)
+    schedule = beat_schedule()
+    assert "live-purpleair" not in schedule
+    assert set(schedule) == {"live-firms", "live-airnow", "live-nws", "live-retention"}
+
+
+def test_purpleair_scheduled_when_a_cadence_is_set(monkeypatch):
+    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "120")
     entry = beat_schedule()["live-purpleair"]
     assert entry["schedule"].total_seconds() == 120 * 60
     assert entry["options"]["expires"] == 120 * 60
 
 
-def test_purpleair_zero_disables_the_job(monkeypatch):
-    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "0")
-    schedule = beat_schedule()
-    assert "live-purpleair" not in schedule
-    assert {"live-firms", "live-airnow", "live-nws", "live-retention"} <= set(schedule)
+def test_disabled_purpleair_still_runs_when_called_explicitly(monkeypatch, live_db):
+    """Off by default only means "not scheduled": the task and the CLI path still work."""
+    from ingestion.tasks import celery_app
+
+    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+    monkeypatch.setattr(purpleair.settings, "purpleair_api_key", "k-purple-0001")
+    assert "ingestion.live.purpleair" in celery_app.tasks
+    assert cli.JOBS["purpleair"] == "ingestion.live.purpleair"
+    body = json.loads((FIXTURES / "purpleair_sensors.json").read_text())
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=body))
+    )
+    result = purpleair.run(session_factory=live_db, client=client, now=NOW)
+    assert result["status"] == "success" and result["rows_written"] == 3
 
 
 def test_tasks_are_registered():

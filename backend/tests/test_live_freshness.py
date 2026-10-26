@@ -17,7 +17,19 @@ from ingestion.live.freshness import (
 
 NOW = datetime(2026, 10, 24, 3, 0, tzinfo=timezone.utc)
 SPEC = Path(__file__).resolve().parents[2] / "docs/api/openapi.yaml"
+# Thresholds with PurpleAir enabled every 120 min (2 x 120 + 30); it is off by default.
 THRESHOLDS = {"airnow": 150, "purpleair": 270, "firms": 90, "nws_obs": 150}
+DEFAULT_THRESHOLDS = {"airnow": 150, "firms": 90, "nws_obs": 150}
+
+
+@pytest.fixture(autouse=True)
+def purpleair_off(monkeypatch):
+    """The default: PurpleAir live disabled, no threshold overrides."""
+    monkeypatch.delenv("LIVE_PURPLEAIR_EVERY_MINUTES", raising=False)
+    for name in THRESHOLDS:
+        monkeypatch.delenv(
+            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", raising=False
+        )
 
 
 def source_freshness_schema() -> dict:
@@ -96,7 +108,7 @@ def test_from_ingestion_runs_ignores_failures(live_db):
         s.commit()
         items = {i["source"]: i for i in source_freshness(s, now=NOW)}
 
-    assert set(items) == set(SOURCES)
+    assert set(items) == set(SOURCES) - {"purpleair"}  # disabled by default
     # The newest successful run, not the later failed one.
     assert items["airnow"]["last_success_at"] == "2026-10-24T02:30:00Z"
     assert items["nws_obs"]["age_minutes"] == 60 and items["nws_obs"]["stale"] is False
@@ -105,12 +117,32 @@ def test_from_ingestion_runs_ignores_failures(live_db):
         check_shape(item, schema)
 
 
-def test_default_thresholds_are_about_two_missed_runs(monkeypatch):
-    for name in THRESHOLDS:
-        monkeypatch.delenv(
-            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", raising=False
-        )
+def test_default_thresholds_are_about_two_missed_runs():
+    # PurpleAir is disabled by default, so it has no threshold and is not reported.
+    assert stale_after_minutes() == DEFAULT_THRESHOLDS
+
+
+def test_enabled_purpleair_threshold_follows_its_cadence(monkeypatch):
+    monkeypatch.setenv("LIVE_PURPLEAIR_EVERY_MINUTES", "120")
     assert stale_after_minutes() == THRESHOLDS  # PurpleAir: 2 x 120 min + 30
+    monkeypatch.setenv("FRESHNESS_STALE_AFTER_MINUTES_PURPLEAIR", "45")
+    assert stale_after_minutes()["purpleair"] == 45
+
+
+def test_disabled_purpleair_is_omitted_not_stale(live_db):
+    """Meta.sources sets no minimum, so a disabled source is left out instead of stale."""
+    items = freshness_from_runs({}, NOW, stale_after_minutes())
+    assert [i["source"] for i in items] == ["airnow", "firms", "nws_obs"]
+    with live_db() as s:
+        assert "purpleair" not in {i["source"] for i in source_freshness(s, now=NOW)}
+
+
+def test_meta_sources_allows_omitting_a_source():
+    yaml = pytest.importorskip("yaml")
+    meta = yaml.safe_load(SPEC.read_text())["components"]["schemas"]["Meta"]
+    sources = meta["properties"]["sources"]
+    assert sources["type"] == "array"
+    assert "minItems" not in sources and "contains" not in sources
 
 
 def test_thresholds_are_configurable(monkeypatch, live_db):
