@@ -199,6 +199,10 @@ jobs:
       - name: Lint (oxlint)
         run: npm run lint
 
+      # src/api/types.ts and src/mocks/fixtures.ts are generated from docs/api/.
+      - name: Generated API files match docs/api/
+        run: npm run api:check
+
       - name: Build
         run: npm run build
 

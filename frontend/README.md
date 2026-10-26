@@ -1,32 +1,84 @@
-# React + TypeScript + Vite
+# SmokeSense frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite. A California map (MapLibre) with a side panel, a typed API client generated from the PM-02 contract, and a mock mode that runs the whole app on the contract's fixtures with no backend.
 
-Currently, two official plugins are available:
+Conventions (folders, naming, state) are in [docs/frontend.md](../docs/frontend.md); the API contract is in [docs/api.md](../docs/api.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run it
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd frontend
+cp .env.example .env     # mock mode is on by default
+npm install
+npm run dev              # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Or with the whole stack: `make up` from the repo root.
+
+## Settings (`.env`)
+
+| Variable | Default | What it does |
+|---|---|---|
+| `VITE_USE_MOCKS` | `true` in `.env.example` | `true`: every API call is answered in the browser from `docs/api/fixtures` (a "Demo data" badge is shown). `false`: calls the real API. |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend origin, e.g. local API-01 or staging. Paths already include `/api/v1`. |
+| `VITE_MAP_STYLE_URL` | OpenFreeMap Positron | MapLibre basemap style. Free and keyless; OpenStreetMap attribution is shown on the map. |
+
+Vite bakes these in when the dev server starts or the app is built, so after changing one, restart `npm run dev` or rebuild. Switching between mock mode, local API-01 and staging never needs a code change.
+
+## Mock mode
+
+[MSW](https://mswjs.io/) intercepts requests in the browser (`src/mocks/`). It loads only when `VITE_USE_MOCKS=true`, so production builds never download it.
+
+To see the other UI states, add a parameter to the page URL:
+
+- `?mock=slow`: every response waits 3 s (loading states)
+- `?mock=error`: every response is a 500 `internal_error` (error states)
+
+The "Demo data" badge also appears when the API itself is in mock mode (`/meta` `mock_mode`, set by API-01's `MOCK_MODE=true`).
+
+Mock responses reject what the real API rejects:
+
+- every endpoint that takes `bbox`: a malformed bbox or min > max returns `400 invalid_bbox`; a bbox entirely outside California returns `404 out_of_scope`
+- `/forecast/point`: empty or non-numeric `lat`/`lon` returns `400 invalid_query`, as does passing both lat/lon and a ZIP, or neither; lat/lon outside California or a non-California ZIP returns `404 out_of_scope`; a point near the Mendocino National Forest fixture returns the "no forecast" case.
+
+## The API contract: `npm run gen:api`
+
+`docs/api/openapi.yaml` is the source of truth. `scripts/sync-api.mjs` generates two committed files from it:
+
+- `src/api/types.ts`: TypeScript types for every path and schema (openapi-typescript)
+- `src/mocks/fixtures.ts`: every `docs/api/fixtures/*.json`, each checked against its response type, so `npm run build` fails if a fixture and the spec disagree
+
+They are committed because the frontend Docker build only sees `frontend/`. Never edit them by hand:
+
+```bash
+npm run gen:api     # after the contract in docs/api/ changes; commit the result
+npm run api:check   # CI runs this and fails if the generated files are out of date
+```
+
+## Calling the API
+
+Components never call `fetch`. They call a function from `src/api/` (`getMeta`, `getGridCells`, `getForecastGrid`, `getForecastPoint`, `getForecastMonitors`, `getActiveFires`, `getLatestPm25`), usually through `useApiQuery`:
+
+```tsx
+const meta = useApiQuery((signal) => getMeta(signal), "meta");
+// The key decides when to refetch: build it from every input, e.g. `point:${lat},${lon}`.
+if (meta.status === "loading") return <Spinner label="Loading…" />;
+if (meta.status === "error") return <ErrorMessage title="…" message={meta.error.message} onRetry={meta.retry} />;
+return <ForecastStatus meta={meta.data} />;
+```
+
+Production builds without `VITE_API_BASE_URL` call the API on the page's own origin (an API behind the same host), never `localhost`.
+
+Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `invalid_query`, …, or `network_error`) and a `message` that is safe to show.
+
+## Map layers
+
+`<MapView>` creates the map. Layers for WEB-02/03 go inside it as children and get the loaded map from `useMap()` (null until the basemap has loaded).
+
+## Checks
+
+```bash
+npm run lint        # oxlint
+npm run build       # type-check + production build
+npm run api:check   # generated API files match docs/api/
+```
