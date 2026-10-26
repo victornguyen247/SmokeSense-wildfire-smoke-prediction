@@ -33,9 +33,9 @@ The daily job order is strict: **(1) build `monitor_daily_pm25`, (2) run `foreca
 
 | Table | Retention | Mechanism |
 | --- | --- | --- |
-| `observations` | \~72 h (4 daily partitions) | Drop partition |
-| `fire_detections` | 7 days (8 daily partitions) | Drop partition |
-| `weather_observations` | \~72 h | Drop partition |
+| `observations` | \~72 h for live rows; historical rows forever | Celery DELETE of live rows (DATA-06) |
+| `fire_detections` | \~72 h for live rows; historical rows forever | Celery DELETE of live rows (DATA-06) |
+| `weather_observations` | \~72 h for live rows; historical rows forever | Celery DELETE of live rows (DATA-06) |
 | `weather_forecasts` | 3 days | Drop partition |
 | `forecasts` | 30 days | Celery DELETE |
 | `ingestion_runs` | 90 days | Celery DELETE |
@@ -43,6 +43,8 @@ The daily job order is strict: **(1) build `monitor_daily_pm25`, (2) run `foreca
 | Everything else | Forever | — |
 
 Partitioned tables use **native Postgres daily range partitioning** (UTC days) on `valid_at` / `detected_at` — no `pg_partman`, so the stock `postgis/postgis` image is enough. The migration creates a `create_daily_partitions(parent, from, to)` SQL function, a `<table>_default` catch-all partition, and `<table>_pYYYYMMDD` partitions covering the table's retention window back from today (so the first ingestion backfill lands in real partitions) plus a few days ahead. The daily Celery job calls `create_daily_partitions()` to keep partitions ahead of incoming data (`weather_forecasts` needs ~8 days ahead because NWS forecasts run ~7 days out) and drops expired ones. Rows should never accumulate in `<table>_default`: Postgres refuses to create a day's partition if that day already has rows in DEFAULT. Dropping a partition is instant and leaves no bloat — a `DELETE WHERE valid_at < now() - interval` on a hot table causes constant dead tuples and autovacuum churn.
+
+**Live vs historical rows (DATA-06, migration 0006).** `observations`, `fire_detections` and `weather_observations` also hold the DATA-03 pilot-event rows that `smokesense_v1` is built from, which must never be deleted. Live jobs set `ingestion_run_id` on every row they write; batch rows leave it NULL. The live retention task deletes only rows with `ingestion_run_id IS NOT NULL` older than the window, and live upserts never modify a row whose `ingestion_run_id` is NULL. Partitions are therefore not dropped while they can hold historical rows (see `backend/docs/live-ingestion.md`).
 
 ---
 
@@ -192,6 +194,7 @@ PurpleAir raw channel values (`pm25_cf1_a`, `pm25_cf1_b`) are stored so the Bark
 | `rh_pct` | FLOAT | CHECK (rh_pct BETWEEN 0 AND 100) | Humidity at sensor — input to Barkjohn correction |
 | `qa_flag` | TEXT |  | Quality flag: `ok`, `suspect`, `invalid`. Gates label eligibility for `purpleair_barkjohn` only (must be `ok`); `regulatory` rows are label-eligible regardless of `qa_flag`. |
 | `data_status` | TEXT | CHECK IN ('preliminary','validated') | `preliminary` = real-time AQS value. `validated` = final quality-assured value. |
+| `ingestion_run_id` | TEXT |  | `ingestion_runs.id` of the live run that last wrote the row (no FK). NULL = historical batch row, never deleted by retention. |
 
 **Primary Key:** `(monitor_id, valid_at)` — replaces UUID PK; this is the natural unique key and avoids a second index.
 
@@ -224,6 +227,7 @@ FIRMS CSV/API rows carry no stable per-detection identifier, so `external_id` is
 | `scan_km` | FLOAT | CHECK (scan_km > 0) | Pixel width in km |
 | `track_km` | FLOAT | CHECK (track_km > 0) | Pixel height in km |
 | `daynight` | TEXT | CHECK IN ('D','N') | Day or night overpass |
+| `ingestion_run_id` | TEXT |  | `ingestion_runs.id` of the live run that wrote the row (no FK). NULL = historical batch row, never deleted by retention. |
 
 **Indexes:** `PRIMARY KEY (id, detected_at)`, `UNIQUE (satellite, external_id, detected_at)`, `GiST (geom)`, `INDEX (detected_at DESC)`
 
@@ -248,6 +252,7 @@ Measured surface weather from NWS stations. One row per station per observation 
 | `pressure_hpa` | FLOAT | CHECK (pressure_hpa > 800) | hPa |
 | `precip_1h_mm` | FLOAT | CHECK (precip_1h_mm >= 0) | mm |
 | `qc_flag` | TEXT |  | NWS quality code. Values other than `V` (verified) or `C` (coerced) need review before use as features. |
+| `ingestion_run_id` | TEXT |  | `ingestion_runs.id` of the live run that last wrote the row (no FK). NULL = historical batch (NCEI) row, never deleted by retention. |
 
 **Primary Key:** `(station_id, valid_at)`
 
