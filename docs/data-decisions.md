@@ -74,6 +74,12 @@ each entry is in `backend/scripts/pilot_verification/` (`rules_final.py`,
 | 41 | **Live PurpleAir dropped (team decision 2026-10-26).** There is no live PurpleAir job, Celery task, beat entry, CLI command or `LIVE_PURPLEAIR_*` / `FRESHNESS_STALE_AFTER_MINUTES_PURPLEAIR` setting, and `/meta` `sources` leaves PurpleAir out (the schema sets no minimum). Supersedes #39. The batch connector (`connectors/purpleair.py`, `normalize_purpleair_row`, Barkjohn correction) stays for the v1.1 training-label pull, and PurpleAir is still not a model input (#12). | The live map does not need it. Each run was one statewide request (about 42.6k points on 2026-10-23), so even a two-hourly cadence cost about 0.5M points a day for data nothing consumes. A source that never runs would read as permanently stale in `/meta`. |
 | 42 | **A `running` ingestion run older than 6 h is marked `failed`** with error `abandoned (worker stopped)` by the daily retention task, then pruned after 90 days like any other run. | A worker crash leaves its run `running` forever, which retention never pruned and which reads as a job still in progress. No live job takes anywhere near 6 h. |
 
+## 2026-10-27 — scope freeze (PM-04) (owner: Tin, PM)
+
+| # | Decision | Reason |
+|---|---|---|
+| 47 | **Scope freeze decisions (2026-10-27)**, full list in [`docs/scope.md`](scope.md) §11. **Retention:** monitor forecasts are kept 30 days; grid-cell forecasts keep only the latest run (OPS-04, #53). **Alert channel:** alerts are in-app only; email/SMS delivery is stretch (shelved #71-#74). **Hosting:** none after Senior Design Day; the demo is recorded (PM-05). **Rain:** the error breakdown by rain in ML-03 (#44) comes first; rain features go into a v2.1 experiment only if it shows an effect. | 30 days of monitor forecasts is what scoring forecasts against observations needs; keeping every grid run would add about 354k rows a day (2,950 cells × 5 horizons × 24 runs) on the Neon free tier. The other items keep the remaining weeks for finishing the MVP before the 11/29 code freeze. |
+
 ## 2026-10-25 — weather missingness and baseline_v2 (owner: Tin, data)
 
 | # | Decision | Reason |
