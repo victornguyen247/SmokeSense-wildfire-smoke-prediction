@@ -146,7 +146,7 @@ def test_bisection_of_padded_window_covers_every_hour_once():
     window = padded_airnow_windows("2021-08-05", "2021-08-11", 1)[0]
     assert window == ("2021-08-04", "23", "2021-08-12", "00")
 
-    def fake_request(api_key, bbox, start, end, verbose=False):
+    def fake_request(api_key, bbox, start, end, verbose=False, client=None):
         hours = int((end - start).total_seconds() // 3600) + 1
         if hours > 24:
             raise AirNowRecordLimitError("over cap")
