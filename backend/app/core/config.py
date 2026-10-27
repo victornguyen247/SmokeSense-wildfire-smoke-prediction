@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     postgres_host: str = "db"
     postgres_port: int = 5432
 
+    # Cloud database (e.g. Neon). When set it replaces the POSTGRES_* settings above;
+    # leave empty to use the local Docker Postgres.
+    cloud_database_url: str = Field(default="", validation_alias="DATABASE_URL")
+
     # --- Redis / Celery ---
     redis_url: str = "redis://redis:6379/0"
 
@@ -46,8 +50,24 @@ class Settings(BaseSettings):
     # capped; set PURPLEAIR_MAX_SENSORS=0 to explicitly remove the cap.
     purpleair_max_sensors: int = 5
 
+    # --- Model registry (mlops/registry.py) ---
+    # "local" keeps archives in a folder; "s3" uses any S3-compatible bucket (Cloudflare R2).
+    # S3 credentials are NOT settings: boto3 reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+    registry_backend: str = "local"  # local | s3
+    registry_local_dir: str = "data/registry"
+    registry_cache_dir: str = "data/registry_cache"
+    registry_s3_bucket: str = "smoke-sense"
+    registry_s3_prefix: str = "models"
+    registry_s3_endpoint_url: str = ""  # R2: https://<account-id>.r2.cloudflarestorage.com
+
     @property
     def database_url(self) -> str:
+        if self.cloud_database_url:
+            url = self.cloud_database_url.strip()
+            for prefix in ("postgresql://", "postgres://"):
+                if url.startswith(prefix):  # pick the psycopg 3 driver the project installs
+                    return "postgresql+psycopg://" + url[len(prefix):]
+            return url
         # Local Docker Postgres has no TLS; add ?sslmode=require only for hosted DBs.
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
