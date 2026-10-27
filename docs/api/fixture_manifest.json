@@ -1,0 +1,19 @@
+{
+  "description": "Which GET response each docs/api/fixtures/*.json file is an example of. Read by docs/api/validate.py and the backend contract tests (backend/tests/test_api_contract.py). Lives outside fixtures/ so CI's regenerate-and-diff check only sees generated files.",
+  "fixtures": {
+    "grid_cells.json": [{ "path": "/api/v1/grid/cells", "status": 200 }],
+    "forecast_grid.json": [{ "path": "/api/v1/forecast/grid", "status": 200 }],
+    "forecast_point.json": [{ "path": "/api/v1/forecast/point", "status": 200 }],
+    "forecast_point_no_forecast.json": [{ "path": "/api/v1/forecast/point", "status": 200 }],
+    "forecast_monitors.json": [{ "path": "/api/v1/forecast/monitors", "status": 200 }],
+    "fires_active.json": [{ "path": "/api/v1/fires/active", "status": 200 }],
+    "observations_pm25_latest.json": [{ "path": "/api/v1/observations/pm25/latest", "status": 200 }],
+    "meta.json": [{ "path": "/api/v1/meta", "status": 200 }],
+    "health.json": [
+      { "path": "/health", "status": 200 },
+      { "path": "/api/v1/health", "status": 200 }
+    ],
+    "error_out_of_scope.json": [{ "path": "/api/v1/forecast/point", "status": 404 }],
+    "error_invalid_query.json": [{ "path": "/api/v1/forecast/point", "status": 400 }]
+  }
+}

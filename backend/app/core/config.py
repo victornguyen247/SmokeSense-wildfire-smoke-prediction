@@ -5,9 +5,14 @@ calling os.getenv directly, so config is typed and validated at startup.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# docs/api/ (the OpenAPI spec and its fixtures), found from this file: <repo>/backend/app/core/
+# locally, and /code/app/core/ in Docker, where docker-compose mounts docs/api at /docs/api.
+DEFAULT_API_CONTRACT_DIR = Path(__file__).resolve().parents[3] / "docs" / "api"
 
 
 class Settings(BaseSettings):
@@ -21,6 +26,15 @@ class Settings(BaseSettings):
     app_name: str = "SmokeSense API"
     environment: str = Field(default="development")  # development | staging | production
     debug: bool = Field(default=True)
+
+    # --- API (API-01) ---
+    # Serve docs/api/fixtures instead of the database. Stays on until the database
+    # repository exists; with it off, every data route fails with internal_error.
+    mock_mode: bool = True
+    # Browser origins allowed to call the API, comma-separated (docs/api.md, "CORS").
+    # Add the staging and production frontend origins here when they exist.
+    cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    api_contract_dir: Path = DEFAULT_API_CONTRACT_DIR
 
     # --- Database (PostGIS) ---
     postgres_user: str = "smokesense"
@@ -59,6 +73,10 @@ class Settings(BaseSettings):
     registry_s3_bucket: str = "smoke-sense"
     registry_s3_prefix: str = "models"
     registry_s3_endpoint_url: str = ""  # R2: https://<account-id>.r2.cloudflarestorage.com
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allowed_origins.split(",") if o.strip()]
 
     @property
     def database_url(self) -> str:

@@ -6,6 +6,7 @@ The yet to be agreed contract between the frontend and backend (PM-02). Both sid
 |---|---|
 | [`api/openapi.yaml`](api/openapi.yaml) | OpenAPI 3.1 spec: every endpoint, parameter, response and error |
 | [`api/fixtures/*.json`](api/fixtures/) | One realistic response per endpoint (Park Fire, see [Fixtures](#fixtures)) |
+| [`api/fixture_manifest.json`](api/fixture_manifest.json) | Which response each fixture is an example of. Read by `validate.py` and the backend contract tests |
 | [`api/validate.py`](api/validate.py) | Validates the spec, then every fixture against it. Runs in CI (`api-spec` job) |
 | [`api/gen_fixtures.py`](api/gen_fixtures.py) | Generates the fixtures. CI reruns it and fails if the output differs from the committed fixtures |
 
@@ -66,7 +67,7 @@ Units are fixed by field name and never sent per value.
 
 ### CORS
 
-The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is needed, and no credentials. API-01 (#54) replaces the hard-coded origin in `backend/app/main.py` with this setting.
+The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is allowed, and no credentials. The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
 
 ### Errors
 
@@ -85,6 +86,7 @@ Every error, from every endpoint, has the same body:
 | 404 | `out_of_scope` | Location or bbox is outside California |
 | 404 | `zip_not_found` | No ZCTA for that ZIP (e.g. a PO-box-only ZIP) |
 | 404 | `not_found` | Unknown route |
+| 405 | `not_found` | Method other than GET. There is no `method_not_allowed` code yet; it may be added later (additive) |
 | 503 | `forecast_unavailable` | No forecast cycle exists yet |
 | 500 | `internal_error` | Unexpected failure. The message never contains a stack trace |
 
@@ -147,7 +149,7 @@ The category comes from an **hourly** value, while the official AQI uses 24 h or
 
 The grid is GEO-02's: about 3,000 squares of 12.5 km in California Albers (EPSG:3310), clipped to the state boundary. A square cut by the coastline becomes several cells (`-p00`, `-p01`, …).
 
-- `/grid/cells` returns one GeoJSON Polygon per cell (`forecast_points.cell_geom`, WGS84), with only `id` in `properties`. The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The response is sent with `Cache-Control: public, max-age=86400` and an `ETag`. The frontend fetches it once and refetches only when `/meta` `grid_key` differs from the cached one.
+- `/grid/cells` returns one GeoJSON Polygon per cell (`forecast_points.cell_geom`, WGS84), with only `id` in `properties`. The grid only changes when GEO-02 is regenerated, which changes `grid_key`. The response is sent with `Cache-Control: public, max-age=86400` and no `ETag`, since `grid_key` already says when the grid changed. The frontend fetches it once and refetches only when `/meta` `grid_key` differs from the cached one.
 - `/forecast/grid` returns no geometry: per horizon, a list of `{id, pm25, aqi_category, nearest_monitor_dist_km}`. All five horizons come in one response, so the horizon slider is a client-side swap (e.g. `setFeatureState` keyed by `id`).
 - A cell from `/grid/cells` that is missing from a horizon has no forecast at that horizon; draw it as "no data".
 - `method` / `source` (always `interpolated` / `idw`) are sent once on the response.
@@ -204,7 +206,7 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 
 - The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per source (`airnow`, `purpleair`, `firms`, `nws_obs`).
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
-- `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. It is true in `meta.json`, so a server that returns the fixtures as-is reports it automatically.
+- `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
 - **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
 
 ## Fixtures
@@ -234,7 +236,24 @@ python docs/api/validate.py
 python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/fixtures
 ```
 
-`validate.py` fails if the spec is invalid, a fixture doesn't match its response schema, a fixture isn't listed in `validate.py`, an endpoint has no 200 fixture, or an error response doesn't use the `Error` schema. When you add or change an endpoint, update `openapi.yaml`, `gen_fixtures.py`, the regenerated fixtures and the `FIXTURES` map in `validate.py` in the same PR.
+`validate.py` fails if the spec is invalid, a fixture doesn't match its response schema, a fixture isn't listed in `fixture_manifest.json`, an endpoint has no 200 fixture, or an error response doesn't use the `Error` schema. When you add or change an endpoint, update `openapi.yaml`, `gen_fixtures.py`, the regenerated fixtures, `fixture_manifest.json` and the backend route in the same PR.
+
+## Backend (API-01)
+
+The FastAPI app in `backend/app` implements this contract.
+
+- **Mock mode.** With `MOCK_MODE=true` (the default until the database layer exists), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
+- **Set `MOCK_MODE` explicitly in deployments.** It defaults to `true`, so a staging or production deploy that leaves it out silently serves demo data. Staging and production must set `MOCK_MODE=false` once the database layer exists (OPS-03).
+- **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database layer will use the state polygon and ZCTAs.
+- **The spec is served as-is.** `/openapi.json` and `/docs` serve `openapi.yaml`, not a schema generated from the code. `docker compose up backend` mounts `docs/api` read-only for this.
+- **Errors.** Every error, including FastAPI's own (validation, unknown route, unhandled exception), is returned in the shared `Error` shape, and 500s keep their CORS headers.
+- **Layers.** `app/api/routes` parse requests, `app/services` apply the scope rules, and `app/repositories` return the data. Real data replaces `FixtureRepository` without touching the other two.
+- **Contract tests.** `backend/tests/test_api_contract.py` validates every response, including errors, against the spec. It also checks that the app serves exactly the spec's paths, so CI's backend job fails on drift.
+
+```bash
+cd backend && pytest tests/test_api_app.py tests/test_api_contract.py
+uvicorn app.main:app --reload   # or: docker compose up backend
+```
 
 ## Open items
 
@@ -244,5 +263,6 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 | `airnow` is not yet an ingestion source in `ingestion_runs` | DATA | Needed before `/meta` can report AirNow freshness |
 | `backend/shared/aqi.py` is empty | TBD | The table above is the spec for it (truncate to 0.1) |
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
-| `CORS_ALLOWED_ORIGINS` setting | API-01 (#54) | Spec'd above; not implemented yet |
+| Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
+| `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
 | Attribution text (AirNow, FIRMS, PurpleAir, NWS) | TBD | Not in v1 of this contract yet |
