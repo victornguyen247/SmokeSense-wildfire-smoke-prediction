@@ -88,4 +88,4 @@ A new request becomes an issue labelled scope-change that names what gets cut or
 - Scope is frozen; changes go through section 8.
 - Rain: the error breakdown by rain in ML-03 (#44) comes first; rain features go into a v2.1 experiment only if that shows an effect.
 - ML-01 trees are re-saved with scikit-learn 1.6.0 (release v1.0.1, not yet published); the repo pin stays.
-- Merge order: #86, #68, #87, #88.
+- Merge order: #86 (merged), then #68, #87, #88.
