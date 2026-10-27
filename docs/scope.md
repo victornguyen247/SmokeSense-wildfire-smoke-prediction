@@ -34,13 +34,13 @@ Status as of 2026-10-27.
 | Vertical-slice demo on staging | #61 | Vuong, Tin | open |
 
 ## 4. In scope after Phase 3 (Phases 4-5)
-| Item | What | Owner | Supports |
-|---|---|---|---|
-| City AQ History | A secondary view: a city's multi-year PM2.5 trend, seasonal smoke pattern and unhealthy-air days per year; needs a backfill of past years from EPA AQS (the rollup tables exist but are empty; today we hold only the pilot-event windows and the ~72 h live window). Fallback if the backfill doesn't fit: show only the cities and years covered by the pilot events | Tin (data), Malije (UI) | Problem and data |
-| Alerts (in-app) | A flag in the app when a forecast exceeds 35.5 ug/m3 (provisional threshold). In-app only; email/SMS delivery is stretch (shelved issues #71-#74). | Shresta (API), Malije (UI) | Live demo |
-| HRRR-Smoke benchmark | An offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster, not a live feature | Miaoqing, Phuong (grid matching) | Model and evaluation |
+| Item | Issue | What | Owner | Supports |
+|---|---|---|---|---|
+| City AQ History | #89 | A secondary view: a city's multi-year PM2.5 trend, seasonal smoke pattern and unhealthy-air days per year; needs a backfill of past years from EPA AQS (the rollup tables exist but are empty; today we hold only the pilot-event windows and the ~72 h live window). Fallback if the backfill doesn't fit: show only the cities and years covered by the pilot events | Tin (data), Malije (UI) | Problem and data |
+| Alerts (in-app) | #90 | A flag in the app when a forecast exceeds 35.5 ug/m3 (provisional threshold). In-app only; email/SMS delivery is stretch (shelved issues #71-#74). | Shresta (API), Malije (UI) | Live demo |
+| HRRR-Smoke benchmark | #91 | An offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster, not a live feature | Miaoqing, Phuong (grid matching) | Model and evaluation |
 
-Each gets an issue before the freeze is announced (drafts are in the PR description).
+Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 
 ## 5. Out of scope
 - EV feature (the electric-vehicle feature in the original proposal): out. It is outside the core question (smoke forecasts for California 1-24 h ahead), would need data sources and design we don't have, and has no owner or time before the 11/29 code freeze.
