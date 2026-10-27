@@ -313,7 +313,15 @@ def read_metadata(model_dir: Path) -> dict[str, Any]:
         raise RegistryError(f"{model_dir} has no release.json; is this a model directory?")
     if not features or not features.get("features"):
         raise RegistryError(f"{model_dir}/features.json is missing or has no 'features' list")
-    thresholds = {h: float(v["threshold"]) for h, v in release.items() if "threshold" in v}
+    thresholds = {}
+    for h, v in release.items():
+        if not (h.isdigit() and isinstance(v, dict) and "threshold" in v):
+            continue  # metadata such as "basis"
+        try:
+            thresholds[h] = float(v["threshold"])
+        except (TypeError, ValueError) as e:
+            raise RegistryError(
+                f"{model_dir}/release.json: horizon {h} threshold {v['threshold']!r} is not a number") from e
     manifest = load("manifest.json") or {}
     return {
         "feature_list": list(features["features"]),

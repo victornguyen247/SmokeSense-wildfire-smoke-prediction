@@ -147,6 +147,26 @@ def test_read_metadata_from_release_json(tmp_path):
     assert meta["backtest_metrics"] is None
 
 
+def test_read_metadata_ignores_non_horizon_keys(tmp_path):
+    d = make_model_dir(tmp_path)
+    release = json.loads((d / "release.json").read_text())
+    release["basis"] = "threshold chosen on the ML-01 split"  # text mentioning "threshold"
+    release["n_rows"] = 12345
+    release["notes"] = {"threshold": 1.0}  # a dict, but not a horizon
+    (d / "release.json").write_text(json.dumps(release))
+    assert read_metadata(d)["thresholds"] == {"1": 30.5, "3": 35.5}
+
+
+@pytest.mark.parametrize("bad", ["high", None, [1]])
+def test_read_metadata_rejects_non_numeric_threshold(tmp_path, bad):
+    d = make_model_dir(tmp_path)
+    release = json.loads((d / "release.json").read_text())
+    release["6"] = {"serve": "v2", "threshold": bad}
+    (d / "release.json").write_text(json.dumps(release))
+    with pytest.raises(RegistryError, match="horizon 6 threshold .* is not a number"):
+        read_metadata(d)
+
+
 def test_read_metadata_rejects_non_model_dir(tmp_path):
     (tmp_path / "empty").mkdir()
     with pytest.raises(RegistryError, match="release.json"):
