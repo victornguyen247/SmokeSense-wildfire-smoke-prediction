@@ -36,13 +36,16 @@ from pathlib import Path
 import pandas as pd
 
 from ml.datasets.load import BACKEND, SMOKESENSE_V1, sha256
+from ml.evaluation.metrics import UNHEALTHY_SG
 from ml.evaluation.release import release
 from ml.feature_columns import FEATURES, FEATURES_V2
 
 HORIZONS = (1, 3, 6, 12, 24)
 MODELS = BACKEND / "data" / "models"
 OUT = MODELS / "packaged"
-PERSISTENCE_THRESHOLD = 35.5  # where persistence is served (as baseline_v2's 1 h)
+PERSISTENCE_THRESHOLD = (
+    UNHEALTHY_SG  # where persistence is served (as baseline_v2's 1 h)
+)
 SERVE_VALUES = {"v2", "persistence"}  # what ml.inference.predict_v2 can serve
 TOLERANCE = 1e-4  # release.json skills are rounded to 4 places
 SPEC = {
