@@ -137,8 +137,15 @@ def predict(features: pd.DataFrame) -> pd.DataFrame: ...
 | `source` | str | `predict_v2`'s `source`: `v2`, `persistence` or `fallback` |
 | `model_key` | str | `model_versions.model_key` of the loaded model |
 | `issued_at` | datetime (UTC) | as in the input |
+| `target_time` | datetime (UTC) | `issued_at + horizon_hours` |
 
-It follows `release.json` per horizon through `ml.inference.predict_v2.predict`; ML-04 (#45) wraps it. Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract. It is only needed for alerts (Phase 4). The per-horizon thresholds (`release.json`: 31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served) are copied into `model_versions.thresholds` when the model is registered, so the API reads them from the database by `model_key` and never opens model files. These are the **model's alert thresholds, tuned for F1**, not the EPA AQI category cutoffs; the UI must not present them as AQI categories. Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
+It follows `release.json` per horizon through `ml.inference.predict_v2.predict`. ML-04 (#45) wraps it as `ml.inference.service.InferenceService` (`from_registry(registry, name=… | model_key=…)` or `from_dir(path, model_key)`, then `.predict(features)`). It checks the input against the loaded model's `features.json`:
+- missing columns are rejected, naming them;
+- the input columns must be in `features.json` order, and a misordered frame is rejected, naming the positions;
+- extra columns are dropped with a warning, including any derived column the caller computed;
+- `issued_at` must be timezone-aware and is converted to UTC.
+
+A model whose `release.json` serves anything other than `v2` or `persistence` is refused at load (decision #48). Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract. It is only needed for alerts (Phase 4). The per-horizon thresholds (`release.json`: 31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served) are copied into `model_versions.thresholds` when the model is registered, so the API reads them from the database by `model_key` and never opens model files. These are the **model's alert thresholds, tuned for F1**, not the EPA AQI category cutoffs; the UI must not present them as AQI categories. Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
 
 The model is always loaded by explicit `model_key`, never "newest".
 
