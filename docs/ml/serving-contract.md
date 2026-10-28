@@ -172,7 +172,7 @@ Local cache: `backend/data/models/{model_name}/{version}/`, which is what `predi
 
 | Column | Value |
 |---|---|
-| `model_key` | `{model_name}/{version}`, e.g. `baseline_v2/1.0.0` |
+| `model_key` | `{model_name}/{version}`, e.g. `baseline/v2` |
 | `model_name`, `version` | `baseline_v2`, set at upload |
 | `algorithm` | `xgboost-residual-on-persistence` |
 | `artifact_uri` | `s3://<bucket>/models/baseline_v2/<version>/` |
@@ -182,6 +182,8 @@ Local cache: `backend/data/models/{model_name}/{version}/`, which is what `predi
 | `hyperparameters`, `backtest_metrics` | from `params.json`, `metrics.json` |
 | `thresholds` | per-horizon alert thresholds from `release.json`, e.g. `{"1": 35.5, "3": 29.5, "6": 25.5, "12": 21.5, "24": 20.0}` |
 | `status` | `shadow` until promoted to `production` (one production row per `model_name`) |
+
+`model_key` is the registry key from `mlops.registry` (`model_name/version`).
 
 ## 7. Schema delta
 

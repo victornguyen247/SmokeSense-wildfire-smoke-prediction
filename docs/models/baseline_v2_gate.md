@@ -14,7 +14,7 @@
 | 1a | Beats persistence at 6 h on MAE | **Pass** | MAE 11.74 vs 12.82 (skill +0.084 pooled, +0.175 macro over groups) |
 | 1b | Beats persistence at 6 h on exceedance recall (≥ 35.5) | **Pass, with the explanation below** | Recall 0.735 vs 0.682 at the shipped 25.5 cut-off. At a fixed 35.5 cut-off it loses (0.567). Precision drops (0.657 vs 0.683), so F1 is about level (0.694 vs 0.683). |
 | 2 | `training_data_hash` matches the `smokesense_v1` manifest | **Pass** | `6799c4052b94549744446a38af36a1b028f43cbe58c8e1bf00ba64c2ea5f5230` in the dataset manifest, the model manifest and both registered rows |
-| 3 | Reproducible with `backend/scripts/reproduce_data04.sh` | **Pass** (last run 2026-10-12) | `REPRODUCED` in 254 s. The artifacts being registered are byte-identical to that run's output. |
+| 3 | Reproducible with `backend/scripts/reproduce_data04.sh` | **Pass** (2026-10-12, re-run 2026-10-25 and 2026-10-26) | `REPRODUCED` each time, including after #85's historical-rows fix with live rows loaded. The artifacts being registered are byte-identical to the 2026-10-12 run's output. |
 
 ## 1. Against persistence at 6 h
 
@@ -79,11 +79,11 @@ for name, alarm in (("persistence", r.persistence >= 35.5), ("v2", r.v2 >= rel["
 
 ## 3. Reproducibility
 
-The last end-to-end run of `backend/scripts/reproduce_data04.sh` was `data/repro/20261012T181847` on 2026-10-12, which ended `REPRODUCED` in 254 s. The checks were: dataset sha256, v1 and v2 `metrics.json` (every number to 1e-9), `release.json` and `thresholds.json`. Since then:
+The original end-to-end run of `backend/scripts/reproduce_data04.sh` was `data/repro/20261012T181847` on 2026-10-12, which ended `REPRODUCED` in 254 s. The checks were: dataset sha256, v1 and v2 `metrics.json` (every number to 1e-9), `release.json` and `thresholds.json`. Since then:
 
+- **Re-run for #85 on 2026-10-25 and 2026-10-26.** Each run used a throwaway database restored from the DATA-03 release dump, with live FIRMS, AirNow and NWS rows loaded from the test fixtures. Both ran after `dataset_build` was changed to read historical rows only (`3c6555e`, then `row_scope` in `6889d1a`), and both printed `REPRODUCED`: dataset sha256 `6799c405…` (141,954 rows), with both models' metrics matching. Sources: the two commit messages and the PR #85 description.
 - `scripts/compare_repro.py data/repro/20261012T181847` still prints `REPRODUCED` (re-run 2026-10-27).
-- The boosters and metadata that went into the package are byte-identical to that run's output (`cmp` on `model_h*.json`, `fallback_h*.json`, `metrics.json`, `release.json`, `thresholds.json`).
-- **Not re-run since #85.** That PR changed `dataset_build` to read historical rows only (`3c6555e`, `6889d1a`), and `tests/test_build_ignores_live_rows.py` covers it. A full re-run reads the main database, so it was not repeated for this gate.
+- The boosters and metadata that went into the package are byte-identical to the 2026-10-12 run's output (`cmp` on `model_h*.json`, `fallback_h*.json`, `metrics.json`, `release.json`, `thresholds.json`).
 
 ## Registry
 
@@ -102,6 +102,6 @@ The thresholds stored in `baseline/v2` are `{"1": 35.5, "3": 29.5, "6": 25.5, "1
 | 1a MAE at 6 h | Pass |
 | 1b Recall at 6 h | Pass with explanation: v2 beats persistence only at the lower shipped cut-off, F1 is level, and recall is lower in the small groups |
 | 2 Training data hash | Pass |
-| 3 Reproducible | Pass (2026-10-12 run; not re-run after #85) |
+| 3 Reproducible | Pass (2026-10-12 run; `REPRODUCED` again on 2026-10-25 and 2026-10-26 after #85) |
 
 Sign-off: Tin
