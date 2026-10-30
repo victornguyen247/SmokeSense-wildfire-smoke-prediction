@@ -609,6 +609,23 @@ def add_pm25_target(
 
     return result
 
+def build_input_features(
+    forecast_points: pd.DataFrame,
+    issue_times: pd.Series,
+    fire_detections: pd.DataFrame,
+    pm25_history: pd.DataFrame,
+    weather_observations: pd.DataFrame,
+    horizons: tuple[int, ...] = ALLOWED_HORIZONS,
+    lookback_hours: float = 72.0,
+) -> pd.DataFrame:
+    """Shared training/serving features; retain rows without future labels."""
+    result = build_feature_times(forecast_points, issue_times, horizons=horizons)
+    result = add_temporal_alignment_features(result)
+    result = add_fire_alignment_features(result, fire_detections, lookback_hours=lookback_hours)
+    result = add_pm25_alignment_features(result, pm25_history)
+    return add_weather_alignment_features(result, weather_observations)
+
+
 def build_feature_dataset(
     forecast_points: pd.DataFrame,
     issue_times: pd.Series,
@@ -638,30 +655,14 @@ def build_feature_dataset(
     lookback_hours controls how far back fire detections are included.
     """
 
-    result = build_feature_times(
+    result = build_input_features(
         forecast_points=forecast_points,
         issue_times=issue_times,
+        fire_detections=fire_detections,
+        pm25_history=pm25_history,
+        weather_observations=weather_observations,
         horizons=horizons,
-    )
-
-    result = add_temporal_alignment_features(
-        result,
-    )
-
-    result = add_fire_alignment_features(
-        result,
-        fire_detections,
         lookback_hours=lookback_hours,
-    )
-
-    result = add_pm25_alignment_features(
-        result,
-        pm25_history,
-    )
-
-    result = add_weather_alignment_features(
-        result,
-        weather_observations,
     )
 
     result = add_pm25_target(
