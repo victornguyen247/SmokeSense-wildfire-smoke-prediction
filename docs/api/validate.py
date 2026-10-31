@@ -2,7 +2,7 @@
 
 Run from anywhere: python docs/api/validate.py
 Fails if the spec is invalid, a fixture does not match its response schema, a fixture
-is not listed in FIXTURES, an operation has no 200 fixture, or an error response does
+is not listed in fixture_manifest.json, an operation has no 200 fixture, or an error response does
 not use the shared Error schema.
 """
 
@@ -23,19 +23,13 @@ SPEC_URI = "urn:smokesense:openapi"
 HTTP_METHODS = {"get", "put", "post", "delete", "patch", "head", "options"}
 ERROR_SCHEMA = {"$ref": "#/components/schemas/Error"}
 
-# fixture file -> (path, method, status); a list when one body serves several operations
+MANIFEST_PATH = HERE / "fixture_manifest.json"
+
+# fixture file -> [(path, method, status)], from the manifest shared with the backend
+# contract tests. Every v1 endpoint is a GET.
 FIXTURES = {
-    "grid_cells.json": ("/api/v1/grid/cells", "get", "200"),
-    "forecast_grid.json": ("/api/v1/forecast/grid", "get", "200"),
-    "forecast_point.json": ("/api/v1/forecast/point", "get", "200"),
-    "forecast_point_no_forecast.json": ("/api/v1/forecast/point", "get", "200"),
-    "forecast_monitors.json": ("/api/v1/forecast/monitors", "get", "200"),
-    "fires_active.json": ("/api/v1/fires/active", "get", "200"),
-    "observations_pm25_latest.json": ("/api/v1/observations/pm25/latest", "get", "200"),
-    "meta.json": ("/api/v1/meta", "get", "200"),
-    "health.json": [("/health", "get", "200"), ("/api/v1/health", "get", "200")],
-    "error_out_of_scope.json": ("/api/v1/forecast/point", "get", "404"),
-    "error_invalid_query.json": ("/api/v1/forecast/point", "get", "400"),
+    name: [(t["path"], "get", str(t["status"])) for t in targets]
+    for name, targets in json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))["fixtures"].items()
 }
 
 
@@ -71,11 +65,11 @@ def main() -> int:
 
     on_disk = {p.name for p in FIXTURE_DIR.glob("*.json")}
     for name in sorted(on_disk - FIXTURES.keys()):
-        errors.append(f"{name}: not listed in FIXTURES in validate.py")
+        errors.append(f"{name}: not listed in fixture_manifest.json")
     for name in sorted(FIXTURES.keys() - on_disk):
-        errors.append(f"{name}: listed in FIXTURES but missing")
+        errors.append(f"{name}: listed in fixture_manifest.json but missing")
 
-    targets = {name: t if isinstance(t, list) else [t] for name, t in FIXTURES.items()}
+    targets = FIXTURES
     covered = {(p, m) for ts in targets.values() for p, m, s in ts if s == "200"}
     for path, ops in spec["paths"].items():
         for method in ops.keys() & HTTP_METHODS:

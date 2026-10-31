@@ -43,6 +43,8 @@ services:
       PYTHONPATH: /code
     volumes:
       - ./backend:/code
+      # The API contract and its fixtures (MOCK_MODE serves them); see app/core/config.py.
+      - ./docs/api:/docs/api:ro
     ports:
       - "8000:8000"
     depends_on:
