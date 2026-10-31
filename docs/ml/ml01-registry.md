@@ -1,6 +1,6 @@
 # ML-01 Decision Tree in the model registry
 
-`backend/ml/tools/package_ml01_for_registry.py` (decision #46) turns the verified `ml01-baselines-v1.0.0` release into a model directory that `mlops.registry` accepts. Nothing is retrained and no network is used.
+`backend/ml/tools/package_ml01_for_registry.py` (decision #44) turns the verified `ml01-baselines-v1.0.0` release into a model directory that `mlops.registry` accepts. Nothing is retrained and no network is used.
 
 - **Checks:** it stops unless the ZIP's SHA-256 equals the `.sha256` file, every release file it reads is byte-identical to the ZIP member (only then are the pickles loaded), and the recomputed metrics equal ML-01's published CSVs within 1e-4.
 - **Output:** the five `models/decision_tree_{1,3,6,12,24}h.joblib` copied unchanged, plus `features.json`, `params.json`, `metrics.json`, `manifest.json` and a `release.json` in baseline_v2's schema. The #31 rule on ML-01's test split (G-PE-018, G-PE-004) serves persistence at every horizon; threshold 35.5, provisional. The JSON has sorted keys and no timestamps, so a re-run gives the same bytes.
@@ -24,14 +24,3 @@ python -m mlops.registry register data/models/ml01_decision_tree --name ml01_dec
 ```
 
 The trees were saved with scikit-learn 1.7.2 and the repo pins 1.6.0. Loading them warns (`InconsistentVersionWarning`), but the predictions still reproduce ML-01's numbers.
-
-## 6 h MAE on ML-01's test split (poster)
-
-ML-01's test groups, 6,193 rows with `pm25_lag_1h` present. v1 and v2 trained on ML-01's 9 training groups. Two low-PM groups, so this is not the main comparison (DATA-04's 13-fold CV is).
-
-| Model | MAE (µg/m³) |
-|---|---|
-| Persistence | 5.792 |
-| Decision Tree (ML-01) | 7.012 |
-| XGBoost v1 | 4.437 |
-| v2 | 4.602 |

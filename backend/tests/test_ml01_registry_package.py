@@ -78,3 +78,69 @@ def test_registry_read_metadata_accepts_the_package(package):
     data_sha = json.loads((SMOKESENSE_V1 / "manifest.json").read_text())["data_sha256"]
     assert meta["training_data_hash"] == data_sha
     assert meta["hyperparameters"]["selected_hyperparameters"]["6"]["max_depth"] == 5
+
+
+def test_a_failed_write_leaves_the_previous_package(tmp_path, monkeypatch):
+    release = tmp_path / "release"
+    (release / "models").mkdir(parents=True)
+    for name in pkg.MODEL_FILES:
+        (release / name).write_bytes(b"tree")
+    out = tmp_path / "ml01_decision_tree"
+    pkg.write(out, release, {name: "old\n" for name in pkg.GENERATED})
+    before = {p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()}
+
+    rename = pkg.Path.rename
+
+    def fail_into_place(self, target):
+        if pkg.Path(target).resolve() == out.resolve() and self.name == "package":
+            raise OSError("disk full")
+        return rename(self, target)
+
+    monkeypatch.setattr(pkg.Path, "rename", fail_into_place)
+    with pytest.raises(OSError, match="disk full"):
+        pkg.write(out, release, {name: "new\n" for name in pkg.GENERATED})
+    after = {p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    assert after == before
+    assert not out.with_name(out.name + ".old").exists()
+
+
+def published(release, horizons):
+    """CSVs in ML-01's layout for `horizons`, and metrics that match them exactly."""
+    model = {"mae": 2.0, "rmse": 3.0, **{k: 0.5 for k in pkg.CLASSIFICATION.values()}}
+    metrics = {
+        split: {
+            h: {
+                "rows": 10,
+                "positives_35_5": 4,
+                "persistence": model,
+                "decision_tree": model,
+            }
+            for h in HORIZONS
+        }
+        for split in ("validation", "test")
+    }
+    release.mkdir()
+    (release / "validation_results.csv").write_text(
+        "Horizon,Persistence MAE,Decision Tree MAE\n"
+        + "".join(f"{h},2.0,2.0\n" for h in horizons)
+    )
+    (release / "test_results.csv").write_text(
+        "Horizon,Samples,Persistence MAE,Tree MAE,Persistence RMSE,Tree RMSE,MAE Improvement %\n"
+        + "".join(f"{h},10,2.0,2.0,3.0,3.0,0.0\n" for h in horizons)
+    )
+    (release / "test_classification.csv").write_text(
+        "Horizon,Model,Positive Cases,Precision,Recall,F1,AUROC,AUPRC\n"
+        + "".join(
+            f"{h},{m},4,0.5,0.5,0.5,0.5,0.5\n"
+            for h in horizons
+            for m in ("Persistence", "Decision Tree")
+        )
+    )
+    return metrics
+
+
+def test_a_truncated_csv_stops_the_package(tmp_path):
+    pkg.check_published(published(tmp_path / "full", HORIZONS), tmp_path / "full")
+    metrics = published(tmp_path / "cut", HORIZONS[:-1])
+    with pytest.raises(pkg.PackageError, match="24 h .*missing"):
+        pkg.check_published(metrics, tmp_path / "cut")

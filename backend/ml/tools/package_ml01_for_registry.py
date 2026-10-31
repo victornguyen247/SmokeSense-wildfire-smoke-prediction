@@ -12,15 +12,16 @@ a git-ignored folder:
     metrics.json    validation and test metrics per horizon on ML-01's split
     manifest.json   dataset hash, source release and ZIP sha256, scikit-learn versions
     release.json    baseline_v2's schema; the release rule (ml/evaluation/release.py) on
-                    ML-01's test split decides serve, threshold 35.5 (provisional)
+                    ML-01's test split decides serve, threshold UNHEALTHY_SG (provisional)
 
 Nothing is trained and no network is used. The script stops unless the ZIP's sha256 equals
 the release's checksum file and every release file it reads is byte-identical to the ZIP
-member, so joblib (a pickle) only ever loads the verified release. It also stops if the
-recomputed metrics differ from ML-01's published CSVs. The generated JSON has sorted keys and
-no timestamps: the same inputs give the same bytes, and re-running replaces the folder.
+member, and each tree's hash is checked again right before it is unpickled. It also stops if
+any published metric is missing or differs from the recomputed one. The generated JSON has
+sorted keys and no timestamps: the same inputs give the same bytes, and re-running replaces
+the folder (the previous package is kept until the new one is in place).
 
-The package is a shadow-only reference (decision #46): not for serving.
+The package is a shadow-only reference (decision #44): not for serving.
 """
 
 from __future__ import annotations
@@ -37,11 +38,12 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 
 from ml.datasets.load import BACKEND, SMOKESENSE_V1, load_dataset, sha256
-from ml.evaluation.metrics import scores
+from ml.evaluation.metrics import UNHEALTHY_SG, scores
 from ml.evaluation.release import release
 from ml.feature_columns import FEATURES_V2, TARGET
 from ml.inference import ml01_baselines as ml01
@@ -58,7 +60,6 @@ METRICS = ("mae", "rmse", "precision_35_5", "recall_35_5", "f1_35_5", "auroc_35_
 RELEASE_DIR = BACKEND / "data" / "release"
 OUT = BACKEND / "data" / "models" / "ml01_decision_tree"
 REQUIREMENTS = BACKEND / "requirements.txt"
-THRESHOLD = 35.5  # ML-01's provisional exceedance cut-off (model_metadata.json)
 TOLERANCE = 1e-4  # recomputed vs published metrics
 MODEL_FILES = [f"models/decision_tree_{h}h.joblib" for h in HORIZONS]
 RESULT_FILES = [
@@ -67,6 +68,8 @@ RESULT_FILES = [
     "test_results.csv",
     "test_classification.csv",
 ]
+CLASSIFICATION = {"Precision": "precision_35_5", "Recall": "recall_35_5", "F1": "f1_35_5",
+                  "AUROC": "auroc_35_5", "AUPRC": "auprc_35_5"}  # fmt: skip
 GENERATED = [
     "features.json",
     "manifest.json",
@@ -115,8 +118,11 @@ def expected_sha256(checksum_file: Path) -> str:
     return found[0]
 
 
-def verify_release(release_dir: Path, zip_path: Path, checksum_file: Path) -> str:
-    """The ZIP's sha256 (checked against the checksum file); every release file must match it."""
+def verify_release(
+    release_dir: Path, zip_path: Path, checksum_file: Path
+) -> tuple[str, dict[str, str]]:
+    """The ZIP's sha256 (checked against the checksum file) and its trees' sha256s; every
+    release file must match the ZIP."""
     if not zip_path.is_file() or not checksum_file.is_file():
         raise PackageError(
             f"need {zip_path.name} and {checksum_file.name} to verify the release"
@@ -134,7 +140,21 @@ def verify_release(release_dir: Path, zip_path: Path, checksum_file: Path) -> st
                 raise PackageError(
                     f"{path} is missing or differs from the verified ZIP"
                 )
-    return got
+        trees = {
+            name: hashlib.sha256(archive.read(name)).hexdigest() for name in MODEL_FILES
+        }
+    return got, trees
+
+
+def load_trees(release_dir: Path, trees: dict[str, str]) -> dict:
+    """{horizon: fitted pipeline}, each file re-hashed right before joblib unpickles it."""
+    models = {}
+    for h, name in zip(HORIZONS, MODEL_FILES):
+        path = release_dir / name
+        if sha256(path) != trees[name]:
+            raise PackageError(f"{path} changed after the release was verified")
+        models[h] = joblib.load(path)
+    return models
 
 
 def ml01_split(df: pd.DataFrame) -> dict[str, list[str]]:
@@ -148,23 +168,25 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(f))
 
 
-def evaluation_rows(
-    df: pd.DataFrame, groups: list[str], release_dir: Path
-) -> pd.DataFrame:
+def evaluation_rows(df: pd.DataFrame, groups: list[str], models: dict) -> pd.DataFrame:
     """ML-01's rows for these groups with persistence and decision_tree predictions."""
     rows = df[df["group_id"].isin(groups) & df["pm25_lag_1h"].notna()].copy()
     rows["persistence"] = np.nan
     rows["decision_tree"] = np.nan
     for h in HORIZONS:
         at = rows["horizon_hours"] == h
-        rows.loc[at, "persistence"] = ml01.predict(
-            rows[at], h, "persistence", release_dir
-        )
-        rows.loc[at, "decision_tree"] = ml01.predict(rows[at], h, "tree", release_dir)
+        rows.loc[at, "persistence"] = ml01.predict(rows[at], h, "persistence")
+        # ml01.predict's tree branch, on the verified model instead of its cached load
+        ml01.validate_input(rows[at], h)
+        x = ml01.add_engineered_features(rows[at])[ml01.MODEL_FEATURES]
+        pred = np.asarray(models[h].predict(x), dtype=float)
+        if not np.isfinite(pred).all():
+            raise PackageError(f"{h} h tree returned invalid predictions")
+        rows.loc[at, "decision_tree"] = np.maximum(pred, 0)
     return rows
 
 
-def split_metrics(rows: pd.DataFrame) -> dict:
+def split_metrics(rows: pd.DataFrame, threshold: float) -> dict:
     """{horizon: {"rows", "positives_35_5", model: {metric: value}}}."""
     out = {}
     for h in HORIZONS:
@@ -172,7 +194,7 @@ def split_metrics(rows: pd.DataFrame) -> dict:
         y = at[TARGET].to_numpy(float)
         out[str(h)] = {
             "rows": int(len(at)),
-            "positives_35_5": int((y >= THRESHOLD).sum()),
+            "positives_35_5": int((y >= threshold).sum()),
         }
         for model in ("persistence", "decision_tree"):
             s = scores(y, at[model].to_numpy(float))
@@ -181,56 +203,65 @@ def split_metrics(rows: pd.DataFrame) -> dict:
 
 
 def check_published(metrics: dict, release_dir: Path) -> None:
-    """Recomputed metrics must equal ML-01's published CSVs."""
+    """Every number ML-01 published for persistence and the tree, at every horizon, must be
+    present and equal the recomputed one."""
     diffs = []
 
-    def check(where: str, got: float, want: str) -> None:
-        if not math.isclose(got, float(want), abs_tol=TOLERANCE):
+    def check(where: str, got: float, row: dict | None, column: str) -> None:
+        want = (row or {}).get(column) or ""
+        if not want.strip():
+            diffs.append(f"{where}: missing")
+        elif not math.isclose(got, float(want), abs_tol=TOLERANCE):
             diffs.append(f"{where}: {got:.6f} != {float(want):.6f}")
 
-    names = {
-        "Persistence": "persistence",
-        "Tree": "decision_tree",
-        "Decision Tree": "decision_tree",
+    val = {r["Horizon"]: r for r in read_csv(release_dir / "validation_results.csv")}
+    test = {r["Horizon"]: r for r in read_csv(release_dir / "test_results.csv")}
+    cls = {
+        (r["Horizon"], r["Model"]): r
+        for r in read_csv(release_dir / "test_classification.csv")
     }
-    for r in read_csv(release_dir / "validation_results.csv"):
-        v = metrics["validation"][r["Horizon"]]
-        check(
-            f"validation {r['Horizon']} h persistence MAE",
-            v["persistence"]["mae"],
-            r["Persistence MAE"],
-        )
-        check(
-            f"validation {r['Horizon']} h tree MAE",
-            v["decision_tree"]["mae"],
-            r["Decision Tree MAE"],
-        )
-    for r in read_csv(release_dir / "test_results.csv"):
-        t = metrics["test"][r["Horizon"]]
-        for label in ("Persistence", "Tree"):
+    for h in map(str, HORIZONS):
+        v, t = metrics["validation"][h], metrics["test"][h]
+        for label, model in (
+            ("Persistence", "persistence"),
+            ("Decision Tree", "decision_tree"),
+        ):
+            check(
+                f"validation {h} h {label} MAE",
+                v[model]["mae"],
+                val.get(h),
+                f"{label} MAE",
+            )
+        check(f"test {h} h Samples", t["rows"], test.get(h), "Samples")
+        for label, model in (("Persistence", "persistence"), ("Tree", "decision_tree")):
             for metric in ("MAE", "RMSE"):
-                check(
-                    f"test {r['Horizon']} h {label} {metric}",
-                    t[names[label]][metric.lower()],
-                    r[f"{label} {metric}"],
-                )
-    columns = {"Precision": "precision_35_5", "Recall": "recall_35_5", "F1": "f1_35_5",
-               "AUROC": "auroc_35_5", "AUPRC": "auprc_35_5"}  # fmt: skip
-    for r in read_csv(release_dir / "test_classification.csv"):
-        t = metrics["test"][r["Horizon"]][names[r["Model"]]]
-        for column, key in columns.items():
-            check(f"test {r['Horizon']} h {r['Model']} {column}", t[key], r[column])
+                check(f"test {h} h {label} {metric}", t[model][metric.lower()],
+                      test.get(h), f"{label} {metric}")  # fmt: skip
+        gain = 100 * (1 - t["decision_tree"]["mae"] / t["persistence"]["mae"])
+        check(f"test {h} h MAE Improvement %", gain, test.get(h), "MAE Improvement %")
+        for label, model in (
+            ("Persistence", "persistence"),
+            ("Decision Tree", "decision_tree"),
+        ):
+            row = cls.get((h, label))
+            check(
+                f"test {h} h {label} Positive Cases",
+                t["positives_35_5"],
+                row,
+                "Positive Cases",
+            )
+            for column, key in CLASSIFICATION.items():
+                check(f"test {h} h {label} {column}", t[model][key], row, column)
     if diffs:
         raise PackageError(
             "recomputed metrics differ from ML-01's CSVs: " + "; ".join(diffs)
         )
 
 
-def check_pipelines(release_dir: Path, selected: dict) -> list[str]:
+def check_pipelines(models: dict, selected: dict) -> list[str]:
     """The fitted pipelines' column order; their tree settings must match model_metadata.json."""
     orders = set()
-    for h in HORIZONS:
-        model = ml01.load_model(h, str(release_dir.resolve()))
+    for h, model in models.items():
         orders.add(tuple(model.feature_names_in_))
         tree = model.named_steps["regressor"].get_params()
         for key, value in selected[str(h)].items():
@@ -246,15 +277,33 @@ def check_pipelines(release_dir: Path, selected: dict) -> list[str]:
 
 
 def sklearn_pin() -> str | None:
+    if not REQUIREMENTS.is_file():
+        raise PackageError(
+            f"{REQUIREMENTS} not found (manifest.json records its scikit-learn pin)"
+        )
     found = re.search(r"^scikit-learn==(\S+)", REQUIREMENTS.read_text(), re.M)
     return found.group(1) if found else None
+
+
+def release_json(test_rows: pd.DataFrame, threshold: float) -> dict:
+    """The #31 rule on ML-01's test split, with `threshold` at every horizon."""
+    rel = release(
+        test_rows, "decision_tree", model_name="decision_tree", horizons=HORIZONS
+    )
+    for h in rel:
+        rel[h]["threshold"] = threshold
+    # No "threshold" key in basis: mlops.registry reads one from every value that has it.
+    rel["basis"] = {**BASIS, "rule": "ml/evaluation/release.py (decision #31) on the test split",
+                    "exceedance_cutoff": f"{threshold} µg/m³, provisional (ML-01)"}  # fmt: skip
+    return rel
 
 
 def build(
     release_dir: Path, zip_path: Path, checksum_file: Path, dataset: Path
 ) -> dict[str, str]:
     """{file name: JSON text} of the generated files."""
-    zip_sha = verify_release(release_dir, zip_path, checksum_file)
+    zip_sha, trees = verify_release(release_dir, zip_path, checksum_file)
+    pin = sklearn_pin()
     meta = json.loads((release_dir / "model_metadata.json").read_text())
     df, data_manifest = load_dataset(dataset)
     if data_manifest["data_sha256"] != meta["dataset_sha256"]:
@@ -264,22 +313,20 @@ def build(
     if split != want:
         raise PackageError(f"ML-01's split did not reproduce: {split}")
 
-    features = check_pipelines(release_dir, meta["selected_hyperparameters"])
-    test_rows = evaluation_rows(df, split["test"], release_dir)
+    models = load_trees(release_dir, trees)
+    features = check_pipelines(models, meta["selected_hyperparameters"])
+    # One prediction pass over validation + test, split afterwards.
+    rows = evaluation_rows(df, split["val"] + split["test"], models)
+    test_rows = rows[rows["group_id"].isin(split["test"])]
+    threshold = UNHEALTHY_SG  # the cut-off scores() uses for precision/recall/F1
     metrics = {
-        "validation": split_metrics(evaluation_rows(df, split["val"], release_dir)),
-        "test": split_metrics(test_rows),
+        "validation": split_metrics(
+            rows[rows["group_id"].isin(split["val"])], threshold
+        ),
+        "test": split_metrics(test_rows, threshold),
     }
     check_published(metrics, release_dir)
-
-    rel = release(
-        test_rows, "decision_tree", model_name="decision_tree", horizons=HORIZONS
-    )
-    for h in rel:
-        rel[h]["threshold"] = THRESHOLD
-    # No "threshold" key in basis: mlops.registry reads one from every value that has it.
-    rel["basis"] = {**BASIS, "rule": "ml/evaluation/release.py (decision #31) on the test split",
-                    "exceedance_cutoff": "35.5 µg/m³, provisional (ML-01)"}  # fmt: skip
+    rel = release_json(test_rows, threshold)
 
     files = {
         "features.json": {
@@ -305,7 +352,7 @@ def build(
         },
         "metrics.json": {
             "basis": BASIS,
-            "threshold": THRESHOLD,
+            "threshold": threshold,
             "source": (
                 "ml.evaluation.metrics.scores on the verified release's trees; equal to ML-01's "
                 f"validation_results.csv, test_results.csv and test_classification.csv within {TOLERANCE}"
@@ -314,7 +361,7 @@ def build(
         },
         "manifest.json": {
             "model": "ml01_decision_tree",
-            "status": "shadow-only reference (decision #46); not for serving",
+            "status": "shadow-only reference (decision #44); not for serving",
             "dataset": {
                 "name": data_manifest.get("name", meta["dataset_name"]),
                 "version": data_manifest.get("version", meta["dataset_version"]),
@@ -325,13 +372,11 @@ def build(
                 "zip_sha256": zip_sha,
                 "task": meta["task"],
                 "author": meta["author"],
-                "model_files_sha256": {
-                    name: sha256(release_dir / name) for name in MODEL_FILES
-                },
+                "model_files_sha256": trees,
             },
             "versions": {
                 "sklearn_saved_with": meta["sklearn_version"],
-                "sklearn_repo_pin": sklearn_pin(),
+                "sklearn_repo_pin": pin,
                 "note": "Loading under the pinned version warns (InconsistentVersionWarning); "
                 "predictions reproduce ML-01's published metrics.",
             },
@@ -340,6 +385,11 @@ def build(
         },
         "release.json": rel,
     }
+    used = {rel[h]["threshold"] for h in map(str, HORIZONS)} | {threshold, UNHEALTHY_SG}
+    if used != {UNHEALTHY_SG}:
+        raise PackageError(
+            f"release.json, metrics.json and scores() thresholds differ: {used}"
+        )
     return {name: dump(clean(obj)) for name, obj in files.items()}
 
 
@@ -355,6 +405,11 @@ def write(out: Path, release_dir: Path, generated: dict[str, str]) -> None:
             raise PackageError(
                 f"{out} holds other files {sorted(present - expected)}; not replacing it"
             )
+    old = out.with_name(out.name + ".old")
+    if old.exists():
+        raise PackageError(
+            f"{old} is left from an interrupted run; restore or remove it"
+        )
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=out.parent) as tmp:
         staging = Path(tmp) / "package"
@@ -363,8 +418,18 @@ def write(out: Path, release_dir: Path, generated: dict[str, str]) -> None:
             shutil.copyfile(release_dir / name, staging / name)
         for name, text in generated.items():
             (staging / name).write_text(text)
-        shutil.rmtree(out, ignore_errors=True)
-        staging.rename(out)
+        # Swap by rename: the previous package stays whole until the new one is in place.
+        replacing = out.exists()
+        if replacing:
+            out.rename(old)
+        try:
+            staging.rename(out)
+        except BaseException:
+            if replacing:
+                old.rename(out)
+            raise
+    if replacing:
+        shutil.rmtree(old)
 
 
 def main(argv: list[str] | None = None) -> int:
