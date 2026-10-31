@@ -20,7 +20,7 @@ member, so joblib (a pickle) only ever loads the verified release. It also stops
 recomputed metrics differ from ML-01's published CSVs. The generated JSON has sorted keys and
 no timestamps: the same inputs give the same bytes, and re-running replaces the folder.
 
-The package is a shadow-only reference (Baseline B, decision #45): not for serving.
+The package is a shadow-only reference (decision #46): not for serving.
 """
 
 from __future__ import annotations
@@ -42,12 +42,19 @@ import pandas as pd
 
 from ml.datasets.load import BACKEND, SMOKESENSE_V1, load_dataset, sha256
 from ml.evaluation.metrics import scores
-from ml.evaluation.ml01_vs_data04 import CONFIG, HORIZONS, METRICS, ml01_split
 from ml.evaluation.release import release
 from ml.feature_columns import FEATURES_V2, TARGET
 from ml.inference import ml01_baselines as ml01
 
 RELEASE_TAG = "ml01-baselines-v1.0.0"
+HORIZONS = (1, 3, 6, 12, 24)
+# ML-01's chronological group split (notebook section 3.4), checked against the data in build().
+TRAIN_GROUPS = ["G-PE-006", "G-PE-016", "G-PE-011", "G-PE-003", "G-PE-010",
+                "G-PE-020", "G-PE-001", "G-PE-002", "G-PE-015"]  # fmt: skip
+VAL_GROUPS = ["G-PE-017", "G-PE-009"]
+TEST_GROUPS = ["G-PE-018", "G-PE-004"]
+METRICS = ("mae", "rmse", "precision_35_5", "recall_35_5", "f1_35_5", "auroc_35_5",
+           "auprc_35_5")  # fmt: skip
 RELEASE_DIR = BACKEND / "data" / "release"
 OUT = BACKEND / "data" / "models" / "ml01_decision_tree"
 REQUIREMENTS = BACKEND / "requirements.txt"
@@ -69,9 +76,9 @@ GENERATED = [
 ]
 BASIS = {
     "split": "ML-01 chronological group split (first issue time): 9 train / 2 validation / 2 test",
-    "train_groups": CONFIG["train_groups"],
-    "validation_groups": CONFIG["val_groups"],
-    "test_groups": CONFIG["test_groups"],
+    "train_groups": TRAIN_GROUPS,
+    "validation_groups": VAL_GROUPS,
+    "test_groups": TEST_GROUPS,
     "rows": "rows with pm25_lag_1h present (ML-01's evaluation rows)",
     "persistence": "pm25_lag_1h, clipped at 0 (ML-01's persistence)",
 }
@@ -128,6 +135,12 @@ def verify_release(release_dir: Path, zip_path: Path, checksum_file: Path) -> st
                     f"{path} is missing or differs from the verified ZIP"
                 )
     return got
+
+
+def ml01_split(df: pd.DataFrame) -> dict[str, list[str]]:
+    """Groups ordered by first issue time, as ML-01 orders them: 9 train / 2 val / rest test."""
+    order = df.groupby("group_id")["issue_time"].min().sort_values().index.tolist()
+    return {"train": order[:9], "val": order[9:11], "test": order[11:]}
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -247,7 +260,8 @@ def build(
     if data_manifest["data_sha256"] != meta["dataset_sha256"]:
         raise PackageError("the dataset is not the one ML-01 was trained on")
     split = ml01_split(df)
-    if [split["val"], split["test"]] != [CONFIG["val_groups"], CONFIG["test_groups"]]:
+    want = {"train": TRAIN_GROUPS, "val": VAL_GROUPS, "test": TEST_GROUPS}
+    if split != want:
         raise PackageError(f"ML-01's split did not reproduce: {split}")
 
     features = check_pipelines(release_dir, meta["selected_hyperparameters"])
@@ -287,7 +301,7 @@ def build(
                 "DecisionTreeRegressor(random_state=42)",
             ],
             "selected_hyperparameters": meta["selected_hyperparameters"],
-            "selection": f"chosen on validation groups {', '.join(CONFIG['val_groups'])} (ML-01)",
+            "selection": f"chosen on validation groups {', '.join(VAL_GROUPS)} (ML-01)",
         },
         "metrics.json": {
             "basis": BASIS,
@@ -300,7 +314,7 @@ def build(
         },
         "manifest.json": {
             "model": "ml01_decision_tree",
-            "status": "shadow-only reference (Baseline B, decision #45); not for serving",
+            "status": "shadow-only reference (decision #46); not for serving",
             "dataset": {
                 "name": data_manifest.get("name", meta["dataset_name"]),
                 "version": data_manifest.get("version", meta["dataset_version"]),
