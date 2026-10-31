@@ -410,7 +410,7 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 
 **Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
 
-**Retention:** 30 days via Celery DELETE. Long enough to verify live accuracy (key capstone demo: "how accurate was the model last week?").
+**Retention:** 30 days via Celery DELETE. Long enough to verify live accuracy (key capstone demo: "how accurate was the model last week?"). Grid-cell forecasts keep only the latest run; monitor forecasts keep 30 days (scope freeze, 2026-10-27).
 
 ---
 
