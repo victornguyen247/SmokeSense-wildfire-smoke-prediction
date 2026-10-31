@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Model | `baseline/v2` in the registry, packaged from `backend/data/models/baseline_v2/` ([model card](baseline_v2.md)) |
-| Rollback | `baseline/v1`, registered and `retired` (serves persistence, decision #48) |
+| Rollback | `baseline/v1`, registered and `retired` (serves persistence, decision #46) |
 | Evidence | The 13-fold leave-one-group-out out-of-fold predictions in `baseline_v2/oof_predictions.parquet`, the card's numbers, and a registry run on a throwaway database (2026-10-28 UTC) |
 | Decided | 2026-10-27 |
 

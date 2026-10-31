@@ -13,7 +13,7 @@ ml.inference.predict_v2:
     v1  fallback_h*.json = v1's model_h*.json unchanged (predict_v2 serves them when
         persistence is missing); features.json and params.json unchanged; metrics.json with
         NaN as null; manifest.json; a generated release.json that serves persistence at
-        every horizon (decision #48)
+        every horizon (decision #46)
 
 oof_predictions.parquet and climatology.json are left out: nothing at inference reads them.
 Nothing is trained and no network is used. The script stops unless the model's dataset hash
@@ -143,7 +143,7 @@ def v2_release(src: Path, rel: dict, oof: pd.DataFrame) -> dict:
 
 
 def v1_release(src: Path, metrics: dict, oof: pd.DataFrame) -> dict:
-    """Persistence at every horizon (decision #48), with v1's own #31 skills recorded."""
+    """Persistence at every horizon (decision #46), with v1's own #31 skills recorded."""
     by_h = metrics["persistence_rows"]["xgb_d4"]["by_horizon_hours"]
     rule = release(oof, "xgb_d4", model_name="v1")
     check_skills(
@@ -164,7 +164,7 @@ def v1_release(src: Path, metrics: dict, oof: pd.DataFrame) -> dict:
         "generated_by": "ml/tools/package_baseline_for_registry.py",
         "rule": "ml/evaluation/release.py (decision #31) on baseline_v1's 13-fold "
         "out-of-fold xgb_d4 predictions; rule_serve is its verdict",
-        "decision": "#48: serve persistence at every horizon. The card says v1 is not "
+        "decision": "#46: serve persistence at every horizon. The card says v1 is not "
         "ready to replace persistence, and predict_v2 and forecasts.source have no "
         "value for a v1-served horizon. The v1 direct model runs only as the fallback "
         "when persistence is missing.",

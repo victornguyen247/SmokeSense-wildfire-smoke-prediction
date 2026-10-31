@@ -88,7 +88,7 @@ The equivalent policy on plain AWS S3 (not needed for R2):
 
 From `backend/`, with the database reachable (`make up` / `POSTGRES_*` in `.env`) and migrations applied (`make migrate`).
 
-The DATA-04 folders (`data/models/baseline_v{1,2}/`) cannot be registered as they are. Their `metrics.json` holds NaN, which JSONB rejects (`Token "NaN" is invalid`), and baseline_v1 has no `release.json`. Package them first. Nothing is retrained (decision #48):
+The DATA-04 folders (`data/models/baseline_v{1,2}/`) cannot be registered as they are. Their `metrics.json` holds NaN, which JSONB rejects (`Token "NaN" is invalid`), and baseline_v1 has no `release.json`. Package them first. Nothing is retrained (decision #46):
 
 ```bash
 # 0. Write registrable copies to data/models/packaged/baseline_v{1,2}/ (git-ignored, deterministic).
@@ -99,7 +99,7 @@ python -m ml.tools.package_baseline_for_registry v2   # boosters and release.jso
 # 1. Register both. Reads thresholds, features, params, metrics and the dataset hash from the directory.
 python -m mlops.registry register data/models/packaged/baseline_v1 --name baseline --version v1 \
     --algorithm xgboost-direct-log1p --training-data-uri data/datasets/smokesense_v1 \
-    --notes "DATA-04 baseline_v1, kept retired for rollback; serves persistence (decision #48)"
+    --notes "DATA-04 baseline_v1, kept retired for rollback; serves persistence (decision #46)"
 python -m mlops.registry register data/models/packaged/baseline_v2 --name baseline --version v2 \
     --algorithm xgboost-residual-on-persistence --training-data-uri data/datasets/smokesense_v1 \
     --notes "DATA-04 baseline_v2, gate docs/models/baseline_v2_gate.md"
