@@ -137,44 +137,64 @@ def predict(features: pd.DataFrame) -> pd.DataFrame: ...
 | `source` | str | `predict_v2`'s `source`: `v2`, `persistence` or `fallback` |
 | `model_key` | str | `model_versions.model_key` of the loaded model |
 | `issued_at` | datetime (UTC) | as in the input |
+| `target_time` | datetime (UTC) | `issued_at + horizon_hours` |
 
-It follows `release.json` per horizon through `ml.inference.predict_v2.predict`; ML-04 (#45) wraps it. Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract. It is only needed for alerts (Phase 4). The per-horizon thresholds (`release.json`: 31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served) are copied into `model_versions.thresholds` when the model is registered, so the API reads them from the database by `model_key` and never opens model files. These are the **model's alert thresholds, tuned for F1**, not the EPA AQI category cutoffs; the UI must not present them as AQI categories. Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
+It follows `release.json` per horizon through `ml.inference.predict_v2.predict`. ML-04 (#45) wraps it as `ml.inference.service.InferenceService` (`from_registry(registry, name=… | model_key=…)` or `from_dir(path, model_key)`, then `.predict(features)`). It checks the input against the loaded model's `features.json`:
+- missing columns are rejected, naming them;
+- the input columns must be in `features.json` order, and a misordered frame is rejected, naming the positions;
+- extra columns are dropped with a warning, including any derived column the caller computed;
+- `issued_at` must be timezone-aware and is converted to UTC.
+
+A model whose `release.json` serves anything other than `v2` or `persistence` is refused at load (decision #46). Rows are not written when `pm25_predicted` is NaN. `exceeds` is not part of the contract. It is only needed for alerts (Phase 4). The per-horizon thresholds (`release.json`: 31.5 / 29.5 / 25.5 / 21.5 / 20.0, with 35.5 where persistence is served) are copied into `model_versions.thresholds` when the model is registered, so the API reads them from the database by `model_key` and never opens model files. These are the **model's alert thresholds, tuned for F1**, not the EPA AQI category cutoffs; the UI must not present them as AQI categories. Stage B (§4) is a separate step that turns these rows into `source = 'idw'` rows.
 
 The model is always loaded by explicit `model_key`, never "newest".
 
 ## 6. Artifact layout
 
-`backend/data/models/baseline_v2/` (not in git) maps to:
+Updated 2026-10-28 to match the OPS-02 registry (PR #68).
+
+The registry (`backend/mlops/registry.py`, [`docs/mlops/registry.md`](../mlops/registry.md)) stores one model directory as one deterministic `.tar.gz` (sorted files, mtime 0, fixed modes, no gzip filename, so the same contents always give the same sha256). For baseline_v2 that directory is `backend/data/models/packaged/baseline_v2/` (not in git, written by `ml.tools.package_baseline_for_registry`):
 
 ```
-s3://<bucket>/models/{model_name}/{version}/
-  release.json          per horizon: serve (v2 or persistence), threshold
-  thresholds.json
-  features.json         the baseline's own feature list
-  params.json
-  metrics.json
-  manifest.json
-  model_h{1,3,6,12,24}.json      residual boosters
-  fallback_h{1,3,6,12,24}.json   v1 direct boosters
-  SHA256SUMS            added at upload: sha256 of every file above, sorted, `sha256sum` format
+release.json          per horizon: serve (v2 or persistence), threshold
+thresholds.json
+features.json         the baseline's own feature list
+params.json
+metrics.json          NaN written as null (JSONB rejects NaN)
+manifest.json         dataset sha256, git commit, package block (source hashes, serve per horizon)
+model_h{1,3,6,12,24}.json      residual boosters
+fallback_h{1,3,6,12,24}.json   v1 direct boosters
 ```
 
-Local cache: `backend/data/models/{model_name}/{version}/`, which is what `predict_v2.predict(..., model_dir=)` receives.
+`register` reads the metadata, packs the folder, and uploads it to the configured backend:
 
-`model_versions` row (table from migration 0001, no change):
+| `REGISTRY_BACKEND` | Archive location (`artifact_uri`) |
+|---|---|
+| `local` (default) | `file://<REGISTRY_LOCAL_DIR>/baseline/v2.tar.gz` (absolute path; default dir `backend/data/registry`) |
+| `s3` (S3 or Cloudflare R2) | `s3://<REGISTRY_S3_BUCKET>/<REGISTRY_S3_PREFIX>/baseline/v2.tar.gz` (defaults `smoke-sense`, `models`) |
+
+Local cache: `<REGISTRY_CACHE_DIR>/<artifact_sha256>/` (default `backend/data/registry_cache`). `materialize` / `load_production` fill it after checking the downloaded archive against `artifact_sha256`, and that folder is what `predict_v2.predict(..., model_dir=)` receives. A damaged cache is discarded and fetched again.
+
+`model_versions` row (table from migration 0001, `thresholds` from 0004; no change):
 
 | Column | Value |
 |---|---|
-| `model_key` | `{model_name}/{version}`, e.g. `baseline_v2/1.0.0` |
-| `model_name`, `version` | `baseline_v2`, set at upload |
-| `algorithm` | `xgboost-residual-on-persistence` |
-| `artifact_uri` | `s3://<bucket>/models/baseline_v2/<version>/` |
-| `artifact_sha256` | sha256 of `SHA256SUMS`; the loader checks every file against it before loading |
-| `feature_list` | `FEATURES_V2` as a JSON array |
-| `training_data_uri` / `training_data_hash` | `smokesense_v1` location and its `manifest.json` `data_sha256` (`6799c405…`) |
-| `hyperparameters`, `backtest_metrics` | from `params.json`, `metrics.json` |
-| `thresholds` | per-horizon alert thresholds from `release.json`, e.g. `{"1": 35.5, "3": 29.5, "6": 25.5, "12": 21.5, "24": 20.0}` |
-| `status` | `shadow` until promoted to `production` (one production row per `model_name`) |
+| `model_key` | `{model_name}/{version}`, e.g. `baseline/v2` |
+| `model_name`, `version` | `baseline`, `v2` (`--name`, `--version`; letters, digits, `.`, `_`, `-` only) |
+| `algorithm` | `--algorithm`, here `xgboost-residual-on-persistence` |
+| `artifact_uri` | where the registry stored the archive (table above) |
+| `artifact_sha256` | sha256 of the `.tar.gz` archive; checked on every load and before `promote` / `rollback` |
+| `feature_list` | `features.json` → `features` (required) |
+| `thresholds` | each horizon's `threshold` in `release.json` (required), e.g. `{"1": 35.5, "3": 29.5, "6": 25.5, "12": 21.5, "24": 20.0}` |
+| `hyperparameters` | `params.json` |
+| `backtest_metrics` | `metrics.json` |
+| `training_data_hash` | `manifest.json` → `dataset.data_sha256` (`6799c405…`) |
+| `training_data_uri`, `notes` | `--training-data-uri` (`data/datasets/smokesense_v1`), `--notes` |
+| `status` | `shadow` when registered → `production` on `promote` → `retired` when another version is promoted; `rollback` returns the latest retired version to `production` and the replaced one to `shadow`. At most one `production` row per `model_name` (unique index `one_production`). |
+
+The columns from `feature_list` to `training_data_hash` are filled by `mlops.registry.read_metadata` from the model folder.
+
+`model_key` is the registry key from `mlops.registry` (`model_name/version`).
 
 ## 7. Schema delta
 
