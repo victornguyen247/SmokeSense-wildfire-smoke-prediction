@@ -36,14 +36,14 @@ Status as of 2026-10-27.
 ## 4. In scope after Phase 3 (Phases 4-5)
 | Item | Issue | What | Owner | Supports |
 |---|---|---|---|---|
-| City AQ History | #89 | A secondary view: a city's multi-year PM2.5 trend, seasonal smoke pattern and unhealthy-air days per year; needs a backfill of past years from EPA AQS (the rollup tables exist but are empty; today we hold only the pilot-event windows and the ~72 h live window). Fallback if the backfill doesn't fit: show only the cities and years covered by the pilot events | Tin (data), Malije (UI) | Problem and data |
-| Alerts (in-app) | #90 | A flag in the app when a forecast exceeds 35.5 ug/m3 (provisional threshold). In-app only; email/SMS delivery is stretch (shelved issues #71-#74). | Shresta (API), Malije (UI) | Live demo |
-| HRRR-Smoke benchmark | #91 | An offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster, not a live feature | Miaoqing, Phuong (grid matching) | Model and evaluation |
+| City AQ History | #89 | Monthly average PM2.5 per city, recomputed every 2 weeks from grid points within 15-20 miles of the city, kept in a small monthly table updated as data arrives (raw live data is kept 72 h). No EPA AQS backfill | Tin (data), Malije (UI) | Problem and data |
+| Email alerts | #90 | Email alerts for registered users: a user registers an email and location; the system emails them when their location is forecast unhealthy (>= 35.5 ug/m3, provisional) at 1, 3, 6, 12 or 24 h. The public statewide map stays. | Shresta (API), Malije (UI) | Live demo |
 
 Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 
 ## 5. Out of scope
 - EV feature (the electric-vehicle feature in the original proposal): out. It is outside the core question (smoke forecasts for California 1-24 h ahead), would need data sources and design we don't have, and has no owner or time before the 11/29 code freeze.
+- SMS alerts.
 - Live PurpleAir (dropped 2026-10-26, decision #41). It is not a model input and not served live. A one-off historical pull for training labels stays a stretch item.
 - MLflow or a model-serving platform. Models are versioned in S3/R2 plus model_versions (OPS-02, #49).
 - Anywhere outside California. Horizons other than 1, 3, 6, 12 and 24 h.
@@ -51,13 +51,12 @@ Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 - Hosting after Senior Design Day: out. The demo is recorded (PM-05) instead.
 
 ## 6. Stretch (dropped before any in-scope item; if time is short, drop in this order)
-1. Gridded rain source (radar or HRRR): needs a 2016+ archive and the same source live.
-2. Email/SMS alert delivery (shelved issues #71-#74, API-04 to API-07).
+1. HRRR-Smoke benchmark (#91): an offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster (Miaoqing, Phuong). Moved 2026-10-30 to make room for email alerts (change rule, section 8).
+2. Gridded rain source (radar or HRRR): needs a 2016+ archive and the same source live.
 3. Rain accumulation features in a v2.1 experiment, only if the rain breakdown in ML-03 shows errors in rain hours.
 4. Dataset v1.1: PurpleAir labels to fill monitor gaps, more high-smoke events outside 2020, validated AQS labels.
 5. Model v2.1: wider alert cut-off grid, max(persistence, v2) for alerts, a loss that targets severe smoke (v2 under-predicts at 125.5 ug/m3 and above, and 2020 is 44% of the rows).
-6. HRRR-Smoke benchmark, if the team moves it here from section 4.
-7. Grid-native model replacing interpolation, only if ML-02 wins.
+6. Grid-native model replacing interpolation, only if ML-02 wins.
 
 ## 7. Traceability: poster and demo
 | Poster / demo section | Items |
@@ -78,14 +77,13 @@ A new request becomes an issue labelled scope-change that names what gets cut or
 - The live chain depends on merges: DATA-06 (#85) and GEO-02 (#65) are merged; what is left is #48 (GEO-03) then #53, with #68 before #45 and #46.
 - Cost: staging on AWS with short test deploys, and the Neon free-tier size. Decided: monitor forecasts are kept 30 days (docs/schema.md; needed to score forecasts against observations); grid forecasts keep only the latest run (about 354k rows a day otherwise). OPS-04 (#53) implements this.
 - Review capacity: 17 open issues, and pair reviews are needed.
-- City AQ History depends on an EPA AQS multi-year backfill (owner Tin); if it is not done by about 11/20, use the fallback.
 
 ## 11. Decisions taken with this freeze
 - Forecast retention: monitor forecasts are kept 30 days (docs/schema.md; needed to score forecasts against observations); grid forecasts keep only the latest run (about 354k rows a day otherwise). OPS-04 (#53) implements this.
 - Phase 4-5 owners: City AQ History: Tin, Malije; Alerts: Shresta, Malije; HRRR-Smoke benchmark: Miaoqing, Phuong.
-- Alerts are in-app only; email/SMS delivery is stretch.
 - No hosting after Senior Design Day; the demo is recorded.
 - Scope is frozen; changes go through section 8.
 - Rain: the error breakdown by rain in ML-03 (#44) comes first; rain features go into a v2.1 experiment only if that shows an effect.
 - ML-01 trees are re-saved with scikit-learn 1.6.0 (release v1.0.1, not yet published); the repo pin stays.
+- 2026-10-30 (Vuong's review of #88): email alerts for registered users are in scope (SMS out); City AQ History uses monthly city averages from grid points, no EPA AQS backfill; the HRRR-Smoke benchmark moves to stretch.
 - Merge order: #86 (merged), then #68, #87, #88.
