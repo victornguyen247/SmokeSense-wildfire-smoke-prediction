@@ -1,6 +1,10 @@
 # --- Env / secrets ---
+# `.env` and `*.env` miss suffixed variants (.env.local, .env.production) and
+# backups (.env.bak), which are the ones that actually leak. `.env.*` covers them;
+# the negation keeps the committed templates visible.
 .env
 *.env
+.env.*
 !.env.example
 
 # --- Python ---
@@ -23,6 +27,7 @@ yarn-error.log*
 backend/data/raw/
 backend/data/processed/
 backend/ml/artifacts/
+backend/data/*
 !backend/data/samples/
 
 # --- OS / editor ---
@@ -30,3 +35,13 @@ backend/ml/artifacts/
 .idea/
 .vscode/
 *.swp
+# pilot verification scripts: local caches and generated outputs
+backend/scripts/pilot_verification/.cache/
+backend/scripts/pilot_verification/out/
+backend/scripts/pilot_verification/out_pr21/
+backend/scripts/pilot_verification/out_final/
+backend/scripts/pilot_verification/out_candidates/
+
+# --- Claude Code (local-only) ---
+.claude/settings.local.json
+CLAUDE.local.md

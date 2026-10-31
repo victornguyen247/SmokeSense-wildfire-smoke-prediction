@@ -19,7 +19,7 @@ backend/
     core/
       config.py           typed settings (pydantic-settings) — single source of config
       database.py         engine, session, PostGIS setup
-      logging.py          structured logging
+      logging.py          logging defaults (quiets httpx/httpcore so request URLs with keys aren't logged)
     api/
       routes/             one file per domain: predictions, locations, alerts, city_history
     schemas/              pydantic request/response models (the API contract)
@@ -105,7 +105,7 @@ make migrate                              # apply migrations
 - Use appropriate HTTP status codes (200, 201, 400, 404, 422, 500). FastAPI + pydantic handle validation errors (422) for you.
 - Keep response shapes consistent within a domain, driven by the response schema.
 - **Never expose internals** in error messages — no stack traces, raw SQL, or config details. Log the detail server-side; return a safe message.
-- Label forecasts clearly as model predictions (experimental), not official warnings — this is a product requirement, enforced in the response text/flags.
+- Label forecasts clearly as model predictions (experimental), not official warnings — this is a product requirement, enforced in the frontend's forecast/alert display components and notification text (no DB or response flag).
 
 ---
 

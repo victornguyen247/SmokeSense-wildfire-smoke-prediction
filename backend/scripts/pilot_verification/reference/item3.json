@@ -1,0 +1,541 @@
+{
+ "PE-001": {
+  "tier": "high",
+  "best": "06-021-0003",
+  "best_name": "Willows-Colusa",
+  "best_peak": 145.2,
+  "best_day": "2020-09-11",
+  "best_tier": "high",
+  "max_site": "06-021-0003",
+  "max_name": "Willows-Colusa",
+  "max_peak": 145.2,
+  "max_day": "2020-09-11",
+  "max_tier": "high",
+  "sites": {
+   "06-103-0007": {
+    "name": "Red Bluff - Walnut office",
+    "hours": 1788,
+    "peak": 142.95833333333334,
+    "peak_day": "2020-09-13",
+    "complete_days": 71,
+    "days": 88
+   },
+   "06-021-0003": {
+    "name": "Willows-Colusa",
+    "hours": 2099,
+    "peak": 145.25,
+    "peak_day": "2020-09-11",
+    "complete_days": 88,
+    "days": 88
+   }
+  }
+ },
+ "PE-002": {
+  "tier": "high",
+  "best": "06-007-0008",
+  "best_name": "Chico - East",
+  "best_peak": 102.8,
+  "best_day": "2021-08-07",
+  "best_tier": "high-medium",
+  "max_site": "06-007-0008",
+  "max_name": "Chico - East",
+  "max_peak": 102.8,
+  "max_day": "2021-08-07",
+  "max_tier": "high-medium",
+  "sites": {
+   "06-007-0008": {
+    "name": "Chico - East",
+    "hours": 2409,
+    "peak": 102.79166666666667,
+    "peak_day": "2021-08-07",
+    "complete_days": 100,
+    "days": 105
+   }
+  }
+ },
+ "PE-003": {
+  "tier": "high",
+  "best": "06-045-0006",
+  "best_name": "Ukiah Library",
+  "best_peak": 59.5,
+  "best_day": "2018-08-08",
+  "best_tier": "high-medium",
+  "max_site": "06-045-0006",
+  "max_name": "Ukiah Library",
+  "max_peak": 59.5,
+  "max_day": "2018-08-08",
+  "max_tier": "high-medium",
+  "sites": {
+   "06-045-0006": {
+    "name": "Ukiah Library",
+    "hours": 1250,
+    "peak": 59.541666666666664,
+    "peak_day": "2018-08-08",
+    "complete_days": 52,
+    "days": 54
+   }
+  }
+ },
+ "PE-004": {
+  "tier": "high",
+  "best": "06-007-0008",
+  "best_name": "Chico - East",
+  "best_peak": 85.2,
+  "best_day": "2024-08-02",
+  "best_tier": "high-medium",
+  "max_site": "06-007-2003",
+  "max_name": "Paradise - Clark Road",
+  "max_peak": 138.1,
+  "max_day": "2024-07-31",
+  "max_tier": "high",
+  "sites": {
+   "06-103-0007": {
+    "name": "Red Bluff - Walnut office",
+    "hours": 2099,
+    "peak": 40.3,
+    "peak_day": "2024-10-14",
+    "complete_days": 91,
+    "days": 93
+   },
+   "06-007-0008": {
+    "name": "Chico - East",
+    "hours": 2211,
+    "peak": 85.25,
+    "peak_day": "2024-08-02",
+    "complete_days": 93,
+    "days": 93
+   },
+   "06-007-2003": {
+    "name": "Paradise - Clark Road",
+    "hours": 1664,
+    "peak": 138.05217391304348,
+    "peak_day": "2024-07-31",
+    "complete_days": 70,
+    "days": 93
+   }
+  }
+ },
+ "PE-005": {
+  "tier": "high",
+  "best": "06-077-3005",
+  "best_name": "TracyAP",
+  "best_peak": 117.5,
+  "best_day": "2020-08-24",
+  "best_tier": "high-medium",
+  "max_site": "06-085-0006",
+  "max_name": "San Jose - Knox Ave",
+  "max_peak": 123.1,
+  "max_day": "2020-09-11",
+  "max_tier": "high-medium",
+  "sites": {
+   "06-087-0007": {
+    "name": "Santa Cruz AMS",
+    "hours": 856,
+    "peak": 90.45833333333333,
+    "peak_day": "2020-09-14",
+    "complete_days": 36,
+    "days": 36
+   },
+   "06-085-0005": {
+    "name": "San Jose - Jackson St.",
+    "hours": 859,
+    "peak": 120.54166666666667,
+    "peak_day": "2020-09-11",
+    "complete_days": 36,
+    "days": 36
+   },
+   "06-085-0006": {
+    "name": "San Jose - Knox Ave",
+    "hours": 856,
+    "peak": 123.125,
+    "peak_day": "2020-09-11",
+    "complete_days": 36,
+    "days": 36
+   },
+   "06-085-0002": {
+    "name": "Gilroy - 9th Street",
+    "hours": 855,
+    "peak": 102.54166666666667,
+    "peak_day": "2020-09-14",
+    "complete_days": 36,
+    "days": 36
+   },
+   "06-077-3005": {
+    "name": "TracyAP",
+    "hours": 858,
+    "peak": 117.54166666666667,
+    "peak_day": "2020-08-24",
+    "complete_days": 36,
+    "days": 36
+   },
+   "06-099-0005": {
+    "name": "Modesto - 14th Street",
+    "hours": 859,
+    "peak": 114.91666666666667,
+    "peak_day": "2020-09-13",
+    "complete_days": 36,
+    "days": 36
+   }
+  }
+ },
+ "PE-006": {
+  "tier": "high-medium",
+  "best": "06-097-0004",
+  "best_name": "Sebastopol",
+  "best_peak": 7.3,
+  "best_day": "2015-09-21",
+  "best_tier": "low",
+  "max_site": "06-097-0004",
+  "max_name": "Sebastopol",
+  "max_peak": 7.3,
+  "max_day": "2015-09-21",
+  "max_tier": "low",
+  "sites": {
+   "06-097-0004": {
+    "name": "Sebastopol",
+    "hours": 250,
+    "peak": 7.333333333333333,
+    "peak_day": "2015-09-21",
+    "complete_days": 10,
+    "days": 11
+   }
+  }
+ },
+ "PE-007": {
+  "tier": "high-medium",
+  "best": "06-097-0004",
+  "best_name": "Sebastopol",
+  "best_peak": 58.9,
+  "best_day": "2020-10-01",
+  "best_tier": "high-medium",
+  "max_site": "06-097-0004",
+  "max_name": "Sebastopol",
+  "max_peak": 58.9,
+  "max_day": "2020-10-01",
+  "max_tier": "high-medium",
+  "sites": {
+   "06-097-0004": {
+    "name": "Sebastopol",
+    "hours": 571,
+    "peak": 58.916666666666664,
+    "peak_day": "2020-10-01",
+    "complete_days": 24,
+    "days": 24
+   }
+  }
+ },
+ "PE-008": {
+  "tier": "high-medium",
+  "best": "06-105-0002",
+  "best_name": "Weaverville",
+  "best_peak": 134.0,
+  "best_day": "2018-08-08",
+  "best_tier": "high",
+  "max_site": "06-105-0002",
+  "max_name": "Weaverville",
+  "max_peak": 134.0,
+  "max_day": "2018-08-08",
+  "max_tier": "high",
+  "sites": {
+   "06-105-0002": {
+    "name": "Weaverville",
+    "hours": 701,
+    "peak": 133.95833333333334,
+    "peak_day": "2018-08-08",
+    "complete_days": 28,
+    "days": 39
+   }
+  }
+ },
+ "PE-009": {
+  "tier": "high-medium",
+  "best": null
+ },
+ "PE-010": {
+  "tier": "high-medium",
+  "best": "06-111-3001",
+  "best_name": "El Rio - Rio Mesa School #2",
+  "best_peak": 41.2,
+  "best_day": "2018-11-11",
+  "best_tier": "medium-low",
+  "max_site": "06-037-1201",
+  "max_name": "Reseda",
+  "max_peak": 42.1,
+  "max_day": "2018-11-10",
+  "max_tier": "medium-low",
+  "sites": {
+   "06-111-3001": {
+    "name": "El Rio - Rio Mesa School #2",
+    "hours": 335,
+    "peak": 41.208333333333336,
+    "peak_day": "2018-11-11",
+    "complete_days": 14,
+    "days": 14
+   },
+   "06-111-0007": {
+    "name": "Thousand Oaks - Moorpark Road",
+    "hours": 334,
+    "peak": 41.5,
+    "peak_day": "2018-11-10",
+    "complete_days": 14,
+    "days": 14
+   },
+   "06-111-0009": {
+    "name": "Piru - Pacific",
+    "hours": 328,
+    "peak": 18.083333333333332,
+    "peak_day": "2018-11-17",
+    "complete_days": 13,
+    "days": 14
+   },
+   "06-111-2002": {
+    "name": "Simi Valley - Cochran Street",
+    "hours": 333,
+    "peak": 22.791666666666668,
+    "peak_day": "2018-11-18",
+    "complete_days": 14,
+    "days": 14
+   },
+   "06-037-1201": {
+    "name": "Reseda",
+    "hours": 331,
+    "peak": 42.11666666666667,
+    "peak_day": "2018-11-10",
+    "complete_days": 14,
+    "days": 14
+   },
+   "06-037-6012": {
+    "name": "Santa Clarita",
+    "hours": 329,
+    "peak": 11.6,
+    "peak_day": "2018-11-17",
+    "complete_days": 14,
+    "days": 14
+   }
+  }
+ },
+ "PE-011": {
+  "tier": "medium-low",
+  "best": "06-097-0004",
+  "best_name": "Sebastopol",
+  "best_peak": 28.0,
+  "best_day": "2019-10-25",
+  "best_tier": "low",
+  "max_site": "06-097-0004",
+  "max_name": "Sebastopol",
+  "max_peak": 28.0,
+  "max_day": "2019-10-25",
+  "max_tier": "low",
+  "sites": {
+   "06-097-0004": {
+    "name": "Sebastopol",
+    "hours": 262,
+    "peak": 28.041666666666668,
+    "peak_day": "2019-10-25",
+    "complete_days": 11,
+    "days": 15
+   }
+  }
+ },
+ "PE-012": {
+  "tier": "high-medium",
+  "best": "06-019-5001",
+  "best_name": "Clovis - N. Villa Ave",
+  "best_peak": 193.8,
+  "best_day": "2020-09-14",
+  "best_tier": "high",
+  "max_site": "06-043-1001",
+  "max_name": "Yosemite Village - Visitor Center",
+  "max_peak": 613.2,
+  "max_day": "2020-09-17",
+  "max_tier": "high",
+  "sites": {
+   "06-019-5001": {
+    "name": "Clovis - N. Villa Ave",
+    "hours": 2676,
+    "peak": 193.75,
+    "peak_day": "2020-09-14",
+    "complete_days": 112,
+    "days": 112
+   },
+   "06-043-1001": {
+    "name": "Yosemite Village - Visitor Center",
+    "hours": 2655,
+    "peak": 613.1666666666666,
+    "peak_day": "2020-09-17",
+    "complete_days": 112,
+    "days": 112
+   }
+  }
+ },
+ "PE-013": {
+  "tier": "medium-low",
+  "best": "06-105-0002",
+  "best_name": "Weaverville",
+  "best_peak": 125.8,
+  "best_day": "2020-10-02",
+  "best_tier": "high",
+  "max_site": "06-105-0002",
+  "max_name": "Weaverville",
+  "max_peak": 125.8,
+  "max_day": "2020-10-02",
+  "max_tier": "high",
+  "sites": {
+   "06-105-0002": {
+    "name": "Weaverville",
+    "hours": 398,
+    "peak": 125.83333333333333,
+    "peak_day": "2020-10-02",
+    "complete_days": 18,
+    "days": 19
+   },
+   "06-103-0007": {
+    "name": "Red Bluff - Walnut office",
+    "hours": 375,
+    "peak": 104.45833333333333,
+    "peak_day": "2020-09-30",
+    "complete_days": 15,
+    "days": 19
+   }
+  }
+ },
+ "PE-014": {
+  "tier": "low",
+  "best": "06-061-0003",
+  "best_name": "Auburn",
+  "best_peak": 127.3,
+  "best_day": "2021-08-07",
+  "best_tier": "high",
+  "max_site": "06-061-0004",
+  "max_name": "Colfax",
+  "max_peak": 165.3,
+  "max_day": "2021-08-06",
+  "max_tier": "high",
+  "sites": {
+   "06-061-0003": {
+    "name": "Auburn",
+    "hours": 120,
+    "peak": 127.29166666666667,
+    "peak_day": "2021-08-07",
+    "complete_days": 5,
+    "days": 5
+   },
+   "06-061-0004": {
+    "name": "Colfax",
+    "hours": 113,
+    "peak": 165.35,
+    "peak_day": "2021-08-06",
+    "complete_days": 5,
+    "days": 5
+   }
+  }
+ },
+ "PE-015": {
+  "tier": "medium-low",
+  "best": "06-071-0306",
+  "best_name": "Victorville - Park Avenue",
+  "best_peak": 12.4,
+  "best_day": "2022-06-14",
+  "best_tier": "low",
+  "max_site": "06-071-0306",
+  "max_name": "Victorville - Park Avenue",
+  "max_peak": 12.4,
+  "max_day": "2022-06-14",
+  "max_tier": "low",
+  "sites": {
+   "06-037-0016": {
+    "name": "Glendora - Laurel",
+    "hours": 96,
+    "peak": 12.3375,
+    "peak_day": "2022-06-11",
+    "complete_days": 4,
+    "days": 4
+   },
+   "06-071-0306": {
+    "name": "Victorville - Park Avenue",
+    "hours": 96,
+    "peak": 12.375,
+    "peak_day": "2022-06-14",
+    "complete_days": 4,
+    "days": 4
+   }
+  }
+ },
+ "PE-016": {
+  "tier": "low",
+  "best": "06-093-2002",
+  "best_name": "Mt Shasta",
+  "best_peak": 107.9,
+  "best_day": "2021-08-15",
+  "best_tier": "high-medium",
+  "max_site": "06-093-2002",
+  "max_name": "Mt Shasta",
+  "max_peak": 107.9,
+  "max_day": "2021-08-15",
+  "max_tier": "high-medium",
+  "sites": {
+   "06-093-2002": {
+    "name": "Mt Shasta",
+    "hours": 704,
+    "peak": 107.88260869565217,
+    "peak_day": "2021-08-15",
+    "complete_days": 31,
+    "days": 31
+   }
+  }
+ },
+ "PE-017": {
+  "tier": "low",
+  "best": null
+ },
+ "PE-018": {
+  "tier": "low",
+  "best": "06-105-0002",
+  "best_name": "Weaverville",
+  "best_peak": 685.5,
+  "best_day": "2021-08-07",
+  "best_tier": "high",
+  "max_site": "06-105-0002",
+  "max_name": "Weaverville",
+  "max_peak": 685.5,
+  "max_day": "2021-08-07",
+  "max_tier": "high",
+  "sites": {
+   "06-105-0002": {
+    "name": "Weaverville",
+    "hours": 2072,
+    "peak": 685.5454545454545,
+    "peak_day": "2021-08-07",
+    "complete_days": 86,
+    "days": 89
+   }
+  }
+ },
+ "PE-019": {
+  "tier": "low",
+  "best": "06-095-3003",
+  "best_name": "Vacaville",
+  "best_peak": 52.9,
+  "best_day": "2020-08-18",
+  "best_tier": "medium-low",
+  "max_site": "06-095-3003",
+  "max_name": "Vacaville",
+  "max_peak": 52.9,
+  "max_day": "2020-08-18",
+  "max_tier": "medium-low",
+  "sites": {
+   "06-095-3003": {
+    "name": "Vacaville",
+    "hours": 48,
+    "peak": 52.916666666666664,
+    "peak_day": "2020-08-18",
+    "complete_days": 2,
+    "days": 2
+   }
+  }
+ },
+ "PE-020": {
+  "tier": "low",
+  "best": null
+ }
+}

@@ -4,63 +4,332 @@ SmokeSense combines four kinds of public U.S. data: active fires, weather, air q
 
 All ingestion connectors live in `backend/ingestion/connectors/`. Every source's timestamps are normalized to **UTC** on the way in.
 
+**Verifying access:** each source has a credential smoke test in `backend/ingestion/connectors/validate_<source>.py`. Run them after filling in `backend/.env` — see [§8 Validating credentials](#8-validating-credentials).
+
+> **Two dates to know.** The details below were verified against the live APIs on **2026-09-20**.
+> - AirNow retires its legacy zip/lat-long web services on **2026-09-30**. We already target the replacements — see [§3](#3-air-quality-regulatory--epa-airnow--airdata).
+> - FIRMS near-real-time data only reaches back ~3 months. Historical training data needs the standard-processing products — see [§1](#1-active-fires--nasa-firms).
+
 ---
 
 ## 1. Active fires — NASA FIRMS
 
 - **Provides:** satellite active-fire detections — latitude/longitude, detection time, sensor, confidence, and fire radiative power where available.
-- **Sensors:** MODIS (long history), VIIRS (S-NPP, NOAA-20, NOAA-21) for higher resolution.
-- **Access:** FIRMS US/Canada API. Requires a free **MAP_KEY** → `FIRMS_MAP_KEY` in `backend/.env`.
-- **Latency:** real-time service within ~60 minutes of overpass; ultra-real-time can be under a minute for parts of the US/Canada.
+- **Sensors:** MODIS (long history), VIIRS (S-NPP, NOAA-20, NOAA-21) for higher resolution, plus LANDSAT and GOES products.
 - **Role:** the primary live fire signal and the source of historical fire events.
-- **Note:** these are *detections* (points), not fire *perimeters*. They can be noisy or intermittent — keep detection-level data separate from any incident/perimeter data and aggregate carefully over time.
+
+### Access
+
+| | |
+|---|---|
+| **Base URL** | `https://firms.modaps.eosdis.nasa.gov/api/` |
+| **Auth** | `MAP_KEY` embedded **in the URL path** (not a header, not a query param) |
+| **Get a key** | <https://firms.modaps.eosdis.nasa.gov/api/map_key/> — free, issued instantly by email |
+| **Env var** | `FIRMS_MAP_KEY` |
+| **Rate limit** | **5,000 transactions per 10-minute rolling window.** Large queries count as more than one transaction. |
+| **Key status** | `https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey_status/?MAP_KEY=<key>` returns your current transaction count |
+
+**Area endpoint** (what we use):
+
+```
+https://firms.modaps.eosdis.nasa.gov/api/area/csv/{MAP_KEY}/{SOURCE}/{west,south,east,north}/{day_range}[/{start_date}]
+```
+
+Bounding-box order is **west, south, east, north**. CONUS is `-125,24,-66.5,49.5`.
+
+### Gotchas
+
+- **Do not use the country endpoint for the USA.** FIRMS documents `/api/country/` as unreliable for large countries (USA, Canada, China, Russia) — the polygon is complex enough that the query times out. Use the area endpoint with a bounding box.
+- **`day_range` is 1–5.** Anything larger returns `Invalid day range. Expects [1..5].` as a plain-text body under HTTP 200.
+- **`day_range=1` means "the current UTC day so far"**, which is routinely *empty* in the early UTC hours and looks exactly like a broken key. Our validation script uses `2` for this reason.
+- **An invalid MAP_KEY returns HTTP 200** with an error sentence in the body instead of CSV. Status code alone never proves the key works — inspect the body.
+- **`confidence` has two formats.** VIIRS reports letter codes (`l`/`n`/`h`); MODIS reports a number 0–100. We store the value as-is in `confidence_raw` and normalize to `low`/`nominal`/`high` in `confidence_level` using the standard FIRMS thresholds: **<30 low, 30–79 nominal, 80+ high** (`ingestion/normalize.py::normalize_confidence`). `confidence_level` is NOT NULL, so an unrecognized value must be treated as a bad row, not inserted.
+- These are *detections* (points), not fire *perimeters*. They are noisy and intermittent; keep detection-level data separate from any incident/perimeter data and aggregate carefully over time.
+
+### NRT vs. SP — this shapes our training set
+
+`https://firms.modaps.eosdis.nasa.gov/api/data_availability/csv/{MAP_KEY}/all` returns the window each product covers. As of 2026-09-20:
+
+| Product | Coverage | Use |
+|---|---|---|
+| `VIIRS_SNPP_NRT`, `VIIRS_NOAA20_NRT` | 2026-07-01 → today | Live signal |
+| `VIIRS_NOAA21_NRT` | 2024-01-17 → today | Live signal |
+| `MODIS_NRT` | 2026-07-01 → today | Live signal |
+| `GOES_NRT` | 2022-08-09 → today | Geostationary, high temporal resolution |
+| `MODIS_SP` | 2000-11-01 → 2026-06-30 | **History** |
+| `VIIRS_SNPP_SP` | 2012-01-20 → 2026-06-30 | **History** |
+| `VIIRS_NOAA20_SP` | 2018-04-01 → 2026-06-30 | **History** |
+
+**The near-real-time archive is a rolling ~3-month window.** Anything older must come from the standard-processing (`_SP`) products, which lag roughly 2–3 months behind today. Plan any backfill around that seam — you cannot train on years of `_NRT` data.
+
+**`_SP` and `_NRT` don't always use the same `satellite` codes.** Verified 2026-10-03 against real responses: `VIIRS_SNPP_SP` sends `N` (same as NRT), `MODIS_SP` sends `Terra`/`Aqua`, but `VIIRS_NOAA20_SP` sends `N20`, where `VIIRS_NOAA20_NRT` sends `J`. `normalize_firms_row` maps both to `VIIRS_NOAA20`. NOAA-21 has no `_SP` product yet, so its archive code is unconfirmed and deliberately unmapped; check a real response before adding one.
+
+**Null vs. intentionally missing, for the coverage report's `null_counts`.** The VIIRS CSV has no `bright_t31` column (it sends `bright_ti5` instead), so `bright_t31_k` is null on every VIIRS row by design. The report counts it over MODIS rows only, where a null is a real gap: on the 2026-10-03 PE-002 window, a plain count would have shown 14,881 nulls out of 16,609 detections, all of them VIIRS. `confidence_level` is counted too, but it's `NOT NULL` in `fire_detections`: in a report that got written it's always 0, and an unrecognized confidence value instead fails the FIRMS source with that error.
+
+### Terms & attribution
+
+FIRMS data is open and free. NASA asks for acknowledgement in publications and products:
+
+> We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (<https://earthdata.nasa.gov/firms>), part of NASA's Earth Observing System Data and Information System (EOSDIS).
 
 ---
 
 ## 2. Weather — NOAA / National Weather Service
 
 - **Provides:** current observations and point-based hourly forecasts — wind speed/direction, temperature, humidity, pressure, precipitation.
-- **Access:** NWS API (`api.weather.gov`). **No API key**, but it requires a descriptive **User-Agent** identifying our app and a contact → `NWS_USER_AGENT` in `backend/.env`.
 - **Role:** the driver of smoke transport and dispersion. Wind direction relative to a fire is one of our most important features.
-- **Historical:** for historical weather, NOAA NCEI provides climate/weather data access.
+
+### Access
+
+| | |
+|---|---|
+| **Base URL** | `https://api.weather.gov` |
+| **Auth** | **No API key.** A descriptive `User-Agent` header is required instead. |
+| **Env var** | `NWS_USER_AGENT` |
+| **Rate limit** | Not published. Exceeding it returns an error that may be retried after ~5 seconds. Cache aggressively. |
+| **Format** | GeoJSON by default; send `Accept: application/geo+json` |
+
+**User-Agent format.** NWS asks for an application identifier *and* a contact address, so they can warn you before blocking traffic:
+
+```
+SmokeSense (dev@smokesense.local)
+```
+
+Use an address someone actually reads — NWS uses it to warn you before blocking traffic.
+
+A bare email works, but the app-name form is what the docs ask for. Our validation script rejects a value with no `@` in it. It also rejects anything containing **`example.com`**, which is the natural first guess: that domain is one of the placeholder markers in `_common.py`, there to catch an `.env` copied from `.env.example` and never filled in.
+
+**Point forecasts take two calls.** `/points/{lat},{lon}` resolves a coordinate to a forecast grid and returns URLs in `properties`:
+
+- `forecast` — 12-hour periods, ~7 days
+- `forecastHourly` — hourly periods, ~7 days
+- `forecastGridData` — raw grid values
+
+Cache the `/points` result (grids change rarely) but re-check periodically, as the docs advise.
+
+### Gotchas
+
+- US-only. A coordinate outside NWS coverage returns a `/points` response with no `forecast` URL.
+- For **historical** weather, `api.weather.gov` is not the right tool — NOAA NCEI provides the climate/weather archive.
+
+### Historical weather — NCEI Global Hourly
+
+Connector: `backend/ingestion/connectors/ncei.py`. No key.
+
+- **Station list:** `https://www.ncei.noaa.gov/pub/data/noaa/isd-history.csv` (ICAO code, USAF+WBAN ID, coordinates, active dates).
+- **Data:** `https://www.ncei.noaa.gov/access/services/data/v1?dataset=global-hourly&stations=<USAF+WBAN>&startDate=...&endDate=...&format=csv`. Times are already UTC.
+- Values are packed ISD strings: `WND = "270,1,N,0046,1"` (direction °, quality, type, speed in m/s ×10, quality), `TMP`/`DEW = "+0250,1"` (°C ×10), `SLP = "10132,1"` (hPa ×10), `AA1 = "01,0005,9,1"` (period h, precip mm ×10). Missing values are all-9s.
+- Quality codes `2, 3, 6, 7` are suspect or erroneous. The connector drops those values and sets `qc_flag = 'suspect'`.
+- There's no RH field, so the connector derives RH from temperature and dew point.
+- Only routine hourly reports (`FM-15`, `FM-12`, `SAO`) are kept. `FM-16` specials and `SOD`/`SOM` summaries are skipped.
+- `station_id` is the ICAO code (e.g. `KRDD`) when one exists, so historical rows line up with live NWS observations.
+
+### Terms & attribution
+
+Public U.S. Government data — open, free for any purpose, no usage fees and no attribution requirement stated.
 
 ---
 
 ## 3. Air quality (regulatory) — EPA AirNow / AirData
 
-- **Provides:** PM2.5 from regulatory monitors, station coordinates, timestamps, AQI-derived labels.
-- **Access:** AirNow API for current/forecast (requires `AIRNOW_API_KEY`); EPA AirData for historical monitoring data.
+- **Provides:** PM2.5 and other pollutants from regulatory monitors, reporting-area metadata, NowCast AQI values and categories.
 - **Role:** the **target variable** (what we predict) and live validation, plus the City Air Quality History view.
-- **Note:** regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally). Not enough label density on their own in fire-prone areas — which is why we add PurpleAir below.
+
+### ⚠️ Service migration — legacy endpoints retire 2026-09-30
+
+AirNow released six replacement web services in June 2026 and retires six older ones on **2026-09-30**. Our connectors target the replacements. Three differences will bite anyone porting old sample code:
+
+| | Legacy (retiring) | Current |
+|---|---|---|
+| Observations by zip | `/aq/observation/zipCode/current/` | `/aq/observation/current/ziplatLong` |
+| Key parameter | `API_KEY` | `api_key` (lowercase) |
+| `distance` param | accepted | **removed** — each reporting area has a fixed search radius |
+| Response fields | `ParameterName`, `AQI`, `Category.Name`, `Latitude`, `Longitude` | `parameterName`, `nowcastAQI`, `aqiCategoryName` — **and no lat/lon at all** |
+
+Losing `Latitude`/`Longitude` matters: monitor coordinates now have to come from reporting-area metadata or the monitoring-site services.
+
+### Access
+
+| | |
+|---|---|
+| **Base URL** | `https://www.airnowapi.org/aq` — **always https**; the API 301-redirects http, which would send the key over the wire in plaintext first |
+| **Auth** | `api_key` query parameter |
+| **Get a key** | <https://docs.airnowapi.org/account/request/> — free, email confirmation |
+| **Env var** | `AIRNOW_API_KEY` |
+| **Rate limit** | **500 requests per hour** for most endpoints. Over the limit you get no data until the next hour. Limits are **not adjustable**. |
+
+Current services we care about:
+
+- `/observation/current/ziplatLong` — by `zipCode`, or by `latitude` + `longitude`
+- `/observation/current/racode` — by reporting-area code
+- `/observation/historical/state` — historical by state
+- `/aq/dailydata/` — daily observations by monitoring site, bounding box
+
+### Gotchas
+
+- **Errors arrive under HTTP 200.** AirNow reports problems as `{"WebServiceError":[{"Message":"..."}]}` with a 2xx status. Always check for that envelope.
+- `hourObserved` labels an hour by its **end**: `23:00` means the period 22:00–22:59, local to the reporting area. `localTimeZone` is an abbreviation (`PDT`) that Python cannot parse directly.
+- Observations for the previous hour post **10–30 minutes past the hour**.
+- **`/aq/data/` (monitoring sites by bounding box) has a per-query record cap, so long ranges must be chunked.** Over the cap it fails loudly — HTTP 400 with `This query exceeds the record query limit. Please narrow the date range and/or area of interest.` — it does not truncate silently. Measured 2026-10-02 for PM2.5: the Sacramento box (~400 rows/day) passed at 20 days (8,275 rows) and failed at 21; latency is ~1 s per day of data, so multi-week windows also approach our 30 s client timeout. The cap is row-based, so dense areas hit it sooner. The connector chunks to ≤7 days (`split_airnow_range`) and, if a window still trips the cap, bisects it automatically.
+- **`Value` is the NowCast; `pm25` stores `RawConcentration`, the 1-hour average.** With `dataType=C`, `/aq/data/` returns both fields. `Value` is EPA's PM2.5 NowCast, a 12-hour weighted average used for AQI display. `RawConcentration` (sent with `includerawconcentrations=1`) is the hourly measurement. Verified 2026-10-05 against AQS hourly PM2.5 (AirData `hourly_88101_2021`), PE-002 window 2021-08-05..06:
+  - NowCast recomputed from the AQS hourly values reproduces AirNow's `Value` exactly: Chico – East 48/48 hours, Red Bluff 45/45 (within 0.1, rounding).
+  - `RawConcentration` equals the AQS hourly value exactly: Chico 48/48. Red Bluff matches 45/46 once its one-hour UTC offset is applied (next bullet).
+  - The difference is large in smoke: Red Bluff's hourly 204.0 µg/m³ (2021-08-06, AirNow 17:00 UTC) has a NowCast of 117.8. Storing `Value` would smooth and delay every label and lag.
+
+  `normalize_airnow_row` never falls back to `Value`. A row without a usable `RawConcentration` raises a `ValueError`: it was present on all 7,065 rows of a 48-hour California pull (2026-10-05), so a missing value means the request is wrong.
+- **Negative `RawConcentration`:** `-999` means "no reading for this hour", and the row is dropped. Other negatives are instrument noise near zero: from −5 up to 0 they're clamped to 0, below −5 the row is dropped (`RAW_NEGATIVE_FLOOR`; `observations.pm25` has `CHECK (pm25 >= 0)`). The 48-hour pull had 70 raw `-999` rows (on 70 of them `Value` still had a NowCast, from earlier hours) and 256 other negatives, all between −4.8 and −1.0. A `-999` in `Value` alone doesn't drop the hour: Red Bluff, 2021-08-05 19:00 UTC, had `Value: -999.0` because the two previous hours were missing, but `RawConcentration: 12.0`, which matches AQS.
+- **Red Bluff – Walnut office (AQS 061030007): AirNow's UTC timestamps are wrong by ±1 h for long stretches.** `normalize_airnow_row` corrects the scanned periods from a per-site config (see *AirNow time-offset config* below).
+  - **Sign convention.** "Late" means AirNow labels a reading 1 h after the AQS hour, so the true hour is the label **minus 1 h**. Example: AirNow `2021-08-06T17:00`, `RawConcentration` 204.0 is AQS Date GMT `2021-08-06`, Time GMT `16:00`, 204.0. "Early" is the reverse: true hour = label + 1 h.
+  - **History**, from comparing AirNow `RawConcentration` with AQS 88101 (GMT columns) hour by hour over 2017–2023. Boundaries are the last hour clearly at the old offset and the first clearly at the new one.
+
+    | Period (UTC) | AirNow vs true hour |
+    | --- | --- |
+    | Jan 3 – Feb 10 2017 (earliest data checked) | 1 h early |
+    | 2017-08-31 23:00 – 2021-09-14 15:00 (Aug 31 19:00–21:00 are correct) | 1 h late: 18,699 of 18,700 unambiguous hours, every year 2017–2021 |
+    | 2021-09-14 16:00 – 2022-08-24 16:00 | correct |
+    | 2022-08-24 ~17:00–20:00 – 2022-09-26 13:00 | 1 h late |
+    | 2022-09-26 23:00 – 2022-10-01 06:00 | 1 h early |
+    | 2022-10-01 08:00 – 2023-01-01 06:00 | correct |
+    | Jan 2023 (switch inside the Jan 1–3 gap) – 2023-04-01 06:00 | 1 h late |
+    | 2023-04-01 ~08:00–09:00 onward (checked to Dec 31 2023) | correct |
+
+    This shows which source is off *relative to* the other, not which one changed. We align to AQS as the reference because AQS is the validated archive, and AirNow agrees with it at about 99% of checkable site-windows statewide (599 of 605 in the six sampled windows). That is a convention we chose, not proof of which clock is right: cross-correlating with neighboring sites could not tell.
+  - **AirNow archive gaps** for this site (no rows): Feb 11 – Aug 30 2017; Jan 2 – Apr 24 2018; Jan 23 – Apr 18 2019; 5–6-day gaps in Nov 2018 and Jan/Feb, Apr and Dec 2020; Jan 2 and Jan 4–10 2022 (Jan 1, 3 and 11–13 have only 1–8 rows); Apr 11 – May 8 2023 (partial days Apr 10 and May 9).
+  - **AQS 88101 stores this site's values truncated toward zero from 2023-05-09 to 2023-06-30.** Example: AirNow `2023-05-10T00:00` = 3.6, AQS GMT `00:00` = 3.0. In that period, truncated AirNow equals AQS on 994/994 hours, and no AQS value is fractional. From Jul 2 2023 they match exactly (3,869/3,869 hours, 90% fractional in both).
+  - **Other sites:** in the 2-day windows checked (2020–2023 for Chico; Jan and Aug 2021 for the 88502 sites), Chico, Redding, Willows-Colusa, Gridley and Weaverville match AQS with no shift. AirData's "local" date/time columns are local *standard* time all year (GMT − local = 8 h even in summer), so always match on the GMT columns.
+  - **Seen but not encoded.** Lone Pine Paiute/Shoshone looked +1 h in the 2023-09 window (r 0.998), after matching at 0 in four earlier windows. Tahoe City looked probably +1 h in 2023-01 (r 0.963, with AirNow running a steady 4–5 µg/m³ above AQS). Neither is in the config, because neither has hour-by-hour evidence.
+- **AirNow time-offset config.** `backend/ingestion/connectors/airnow_time_offsets.py` holds `AIRNOW_TIME_OFFSETS`, a map from station id to a list of `OffsetPeriod(start_utc, end_utc, shift_hours, evidence)`. `normalize_airnow_row` adds the matching `shift_hours` to `valid_at` right after parsing it, so the stored `valid_at`, `source_timestamp` and everything downstream use the true hour. Stations and hours not covered are unchanged.
+  - **Key:** the `station_id` the connector already derives for monitor identity (`StationID`, then `AQSID`, then `FullAQSCode`, …). For `/aq/data/` rows that is `FullAQSCode`, which for Red Bluff is the 9-digit `061030007`, not `IntlAQSCode` `840061030007`. Some sites send a 12-digit `FullAQSCode` (CarpPM: `840060839001`), so key on exactly what the row sends.
+  - **Sign:** `shift_hours` is added to AirNow's UTC label to get the true hour. AirNow `2021-08-06T17:00` (204.0) is AQS GMT `16:00`, so true = label − 1 h and that period has `shift_hours = -1`.
+  - **Bounds:** `start_utc` inclusive, `end_utc` exclusive, both compared against the AirNow label, not the corrected hour. Periods for one station must not overlap (a test checks this).
+  - **Red Bluff, encoded** (AirNow label, UTC):
+
+    | From (inclusive) | To (exclusive) | `shift_hours` |
+    | --- | --- | --- |
+    | 2017-01-03 15:00 | 2017-02-10 22:00 | +1 |
+    | 2017-08-31 22:00 | 2021-09-14 16:00 | −1 |
+    | 2022-08-24 17:00 | 2022-09-26 14:00 | −1 |
+    | 2022-09-26 14:00 | 2022-10-01 07:00 | +1 |
+    | 2023-01-01 07:00 | 2023-04-01 07:00 | −1 |
+
+    Only 2021-09-14 has rows right on both sides of the switch (15:00 late, 16:00 correct). Every other switch falls where AirNow has no rows, or where values fit two shifts, so the exact hour is uncertain:
+
+    | Switch | Last hour clearly old | First hour clearly new | Boundary chosen |
+    | --- | --- | --- | --- |
+    | 0 → −1 (2017) | 08-31 21:00 | 08-31 23:00 | 08-31 22:00 (no row) |
+    | 0 → −1 (2022) | 08-24 16:00 | 08-24 20:00 | 08-24 17:00 (17:00–19:00 no rows) |
+    | −1 → +1 | 09-26 13:00 | 09-26 23:00 | 09-26 14:00 (14:00–22:00 no rows in AirNow or AQS) |
+    | +1 → 0 | 10-01 05:00 (04:00–05:00 rule out 0) | 10-01 08:00 | 10-01 07:00 (no row) |
+    | 0 → −1 (2023) | 01-01 06:00 | 01-04 01:00 | 01-01 07:00 (no rows until 01-04 00:00, which fits −1 or 0) |
+    | −1 → 0 | 04-01 06:00 | 04-01 09:00 | 04-01 07:00 (no row; 08:00 fits −1 or 0 and both give 6.0) |
+
+    Any boundary inside those intervals stores the same rows. Putting it on a missing label also keeps two readings from landing on the same true hour.
+  - **Red Bluff, not encoded:** anything before 2017-01-03 15:00 (the 8 rows on Jan 1–3 have no AQS match, and nothing before 2017 was checked); single hours that disagree with their period but aren't periods: 2021-08-16 19:00 (AirNow repeats 127.0 at 19:00 and 20:00), 2021-12-22 23:00 and 12-23 00:00 (late, right after a 9-hour AirNow gap, inside the correct period), 2022-06-23 02:00 (next to missing AQS hours).
+  - **Side effects.** A late → correct switch leaves a true hour with no reading (2021-09-14 15:00; AQS 38.0). Batch windows are fetched by AirNow label, so the batch pads each event's AirNow window by the largest `|shift_hours|` in the config (`max_abs_shift_hours()`, 1 h today) on both ends, then keeps only rows whose corrected `valid_at` is inside the event. A shifted site keeps the event's first and last hours, and unshifted sites store exactly what they did before. `rows_fetched` and `pm25_missing_station_hours` count only those in-window rows.
+  - **Adding a site:**
+    1. Pull the site's AirNow rows (`fetch_airnow_rows` on a small bbox around it, chunked with `split_airnow_range`) and the AirData hourly file for the same site (`hourly_88101_<year>` or `hourly_88502_<year>`), and match on the **GMT** columns.
+    2. For each AirNow hour, compare `RawConcentration` with AQS at the label hour, one hour before and one hour after. Keep only hours that match at exactly one shift. Runs of the same shift are the periods. Ignore isolated hours.
+    3. Put each boundary inside its uncertain interval, on a missing label where there is one. A 0 → −1 or +1 → 0 switch on two present labels would put two readings on the same true hour.
+    4. Add `OffsetPeriod`s under the station id the connector derives, with an `evidence` note (window, method, hour counts, date checked), and update the tables here.
+    5. Add tests with real rows on both sides of each boundary, asserting the true hour and that `RawConcentration` equals AQS there (`tests/test_airnow_time_offsets.py`).
+    6. Stored rows aren't rewritten: delete the affected AirNow observations and the `airnow` row in `batch_ingestion_progress` for those events, then rerun with `--resume`.
+- **AirNow's `null_counts` is missing station-hours, not column nulls.** Every nullable column AirNow fills is null by design: `pm25_cf1_a`, `pm25_cf1_b`, `rh_pct` and `qa_flag` are PurpleAir-only fields, and `/aq/data/` never sends elevation. Gaps show up as hours with no row instead. `pm25_missing_station_hours` counts, for each site that reported at least once, the hours in the window it has no reading for, whether AirNow never sent them or they were dropped (raw `-999`, or below −5). A site that sent nothing in the window isn't in the response, so it can't be counted. Same PE-002 window: 4 — Red Bluff (true hours, after its −1 h correction) Aug 5 15:00 (label 16:00, raw `-999`), 16:00 and 17:00 (labels 17:00 and 18:00, never sent), and Willows-Colusa Aug 5 21:00 (raw `-999`).
+- Regulatory monitors are spatially **sparse** (~1,000–1,400 sites nationally) — not enough label density on their own in fire-prone areas, which is why we add PurpleAir below.
+
+### Terms & attribution — [EPA AirNow Data Exchange Guidelines](https://www.airnowapi.org/docs/DataUseGuidelines.pdf)
+
+These are real obligations, and several of them constrain our UI, not just our ingestion:
+
+1. **AirNow data are preliminary.** They are "not fully verified or validated… subject to change." They must not be used to support regulation, ascertain trends, or act as guidance. Validated regulatory data lives in EPA's Air Quality System (AQS).
+2. **Products must say so.** "If observational data are used for analyses, displayed on web pages, or used for other programs or products, the analysis results, displays, or products must indicate that these data are preliminary." → the dashboard and City History view need a visible "preliminary data" notice.
+3. **Credit the agency first**, then EPA AirNow. The owners of the data are the federal/state/local/tribal air quality agencies — the `reportingAgency` field names them. Agency list: <https://www.airnow.gov/partners/>
+4. **Do not alter values.** Air quality data, forecast values, and advisory statements "should not be altered in any way and should be disseminated as received." Our *predictions* are clearly our own model output and must be labelled distinctly from reported AirNow observations.
+5. **Use the official AQI colors** when displaying AQI values, per EPA's AQI Technical Assistance Document.
+6. The API is "designed for end-user queries of specific areas, not for automated database population through loops of multiple requests." Cache; do not hammer it.
+7. EPA asks that users notify them when products rely on these data, and return a signed acknowledgement form to `dmc@airnowtech.org`.
 
 ---
 
 ## 4. Air quality (low-cost) — PurpleAir
 
-- **Provides:** dense PM2.5 from low-cost sensors, coordinates, timestamps.
-- **Access:** PurpleAir API → `PURPLEAIR_API_KEY` in `backend/.env`.
+- **Provides:** dense PM2.5 from low-cost sensors, coordinates, timestamps, humidity/temperature.
 - **Role:** fills in label density in fire-prone regions where regulatory monitors are sparse.
-- **Critical note:** raw PurpleAir readings **over-report** during heavy wildfire smoke. Apply the **EPA (Barkjohn) correction** before use — the same correction EPA uses for the AirNow Fire and Smoke Map. Never train on raw uncorrected PurpleAir data.
+
+### Access
+
+| | |
+|---|---|
+| **Base URL** | `https://api.purpleair.com/v1` |
+| **Auth** | `X-API-Key` **request header** |
+| **Get a key** | <https://develop.purpleair.com/> — request a **READ** key |
+| **Env var** | `PURPLEAIR_API_KEY` |
+| **Rate limit** | **Points-based billing**, not a request count — see below |
+
+**Read vs. write keys are different.** A write key authenticates fine and then fails with **403** on `/v1/sensors`. If you get a 403 with a valid-looking key, you probably have the wrong kind.
+
+**Sensors endpoint:**
+
+```
+GET /v1/sensors?fields=<csv>&location_type=0&nwlng=&nwlat=&selng=&selat=&max_age=
+```
+
+- `fields` is **required**.
+- `location_type`: `0` = outside, `1` = inside. Only outdoor sensors are useful to us.
+- Bounding box: `nwlng`/`nwlat` = north-west corner, `selng`/`selat` = south-east corner.
+- `max_age` (seconds) drops sensors that have not reported recently.
+- Response is **columnar**: a `fields` list plus a `data` array of positional rows. Zip them before use.
+
+### Cost & rate limits
+
+PurpleAir bills **points per field per sensor**, so a query's cost scales with how many fields you ask for. Per their [API Use Guidelines](https://community.purpleair.com/t/api-use-guidelines/1589):
+
+- Request only the fields you need; per-field costs are on the pricing tab at <https://develop.purpleair.com/>.
+- Sensors report every **two minutes** — polling faster than once a minute is wasted spend.
+- Use `modified_since` to fetch only changed data.
+- Do not re-query slow-moving metadata (name, coordinates, hardware, firmware).
+- Space requests evenly rather than bursting.
+- Large historical pulls across thousands of sensors: **contact PurpleAir** rather than looping the API.
+- Running afoul of these can cost you API access outright.
+- Sensor owners can query their own sensors for free.
+
+**`PURPLEAIR_MAX_SENSORS` keeps the sensors nearest the bbox center, not the first ones the API returns.** The `/sensors` response comes in no useful order, so a plain truncation kept arbitrary sensors (in the 2026-10-03 PE-002 test, the first 3 returned for a five-county box). `nearest_to_bbox_center` ranks sensors by squared lat/lon difference from the center, with longitude scaled by `cos(latitude)`. It's a ranking heuristic only, not used for any actual distance decision, and the bbox center stands in for "near the smoke", so keep event bboxes centered on the fire. The cap limits the per-sensor history calls only: the `/sensors` lookup still returns, and bills, every sensor in the bbox. That 2-day, 3-sensor run cost 4,983 points, of which the history should be only about 432.
+
+### Critical: correct before training
+
+Raw PurpleAir readings **over-report** during heavy wildfire smoke — exactly the regime we care about. Apply the **EPA (Barkjohn) correction** before use, the same correction EPA applies for the AirNow Fire and Smoke Map. **Never train on raw uncorrected PurpleAir data.**
+
+Implemented in `backend/ingestion/connectors/purpleair.py` (`barkjohn_correct` in `ingestion/normalize.py`), using the U.S.-wide equation `PM2.5 = 0.524 × PA_cf1 − 0.0862 × RH + 5.75`, where `PA_cf1` is the mean of channels A and B:
+
+- **A/B channel check:** a reading is `invalid` when the channels differ by more than 5 µg/m³ **and** by more than 70%. It's `suspect` when only one channel reported.
+- **Missing humidity:** the row is stored as `purpleair_raw`, which is never label-eligible.
+- **Recomputing:** raw channels and RH are stored, so rows can be recomputed if we adopt EPA's extended high-concentration correction.
+- **Historical pulls:** these need `max_age=0` on `/v1/sensors`, or sensors that went offline more than 7 days ago are hidden. History requests are capped at 14 days per call at 60-minute averages.
+
+### Terms & attribution
+
+- [Data License](https://www.purpleair.com/license) and [Data Attribution](https://www.purpleair.com/attribution).
+- API and database use requires a **link back to purpleair.com** plus **text attribution**; PurpleAir publishes logo files and an attribution PDF for format guidance.
+- Attribution applies to any use of PurpleAir visual data or the API — including our dashboard.
 
 ---
 
 ## 5. Benchmark — NOAA HRRR-Smoke
 
 - **Provides:** an operational U.S. smoke-concentration forecast (cycles extend to 48 hours).
-- **Access:** NOAA HRRR-Smoke products.
+- **Access:** NOAA HRRR-Smoke products. No key; distributed as gridded model output rather than a JSON API.
 - **Role:** an **external benchmark** to compare against — *not* part of our core algorithm. We are not reproducing it; we compare our student-built forecast to it where fields can be aligned.
 
 ---
 
 ## 6. Summary table
 
-| Data | Source | Key needed | Role |
-|---|---|---|---|
-| Active fires | NASA FIRMS | `FIRMS_MAP_KEY` | Primary live fire signal + history |
-| Weather | NOAA / NWS | User-Agent only | Smoke transport driver |
-| Air quality (regulatory) | EPA AirNow / AirData | `AIRNOW_API_KEY` | Target variable + validation + history |
-| Air quality (low-cost) | PurpleAir (EPA-corrected) | `PURPLEAIR_API_KEY` | Label density in fire-prone areas |
-| Smoke benchmark | NOAA HRRR-Smoke | — | Comparison only |
+| Data | Source | Base URL | Auth | Key / env var | Rate limit |
+|---|---|---|---|---|---|
+| Active fires | NASA FIRMS | `firms.modaps.eosdis.nasa.gov/api/` | key in URL path | `FIRMS_MAP_KEY` | 5,000 / 10 min |
+| Weather | NOAA / NWS | `api.weather.gov` | `User-Agent` header | `NWS_USER_AGENT` | unpublished; cache |
+| Air quality (regulatory) | EPA AirNow | `www.airnowapi.org/aq` | `api_key` query param | `AIRNOW_API_KEY` | 500 / hour |
+| Air quality (low-cost) | PurpleAir | `api.purpleair.com/v1` | `X-API-Key` header | `PURPLEAIR_API_KEY` | points-based |
+| Smoke benchmark | NOAA HRRR-Smoke | — | none | — | — |
 
 ---
 
@@ -72,5 +341,26 @@ Live APIs change, rate-limit, and occasionally go down. Every connector should:
 - **Retry with backoff** on transient failures.
 - **Validate** fields on the way in and record source timestamps + identifiers, so we can audit exactly what was available at prediction time.
 - **Normalize timestamps to UTC** — always.
+- **Never trust the status code alone.** Both FIRMS and AirNow report failures under HTTP 200.
 
-Keys never get committed. Add each key to `backend/.env.example` with a placeholder when you introduce a connector, so teammates know it's required.
+Keys never get committed. Add each key to `backend/.env.example` with a blank placeholder when you introduce a connector, so teammates know it's required.
+
+---
+
+## 8. Validating credentials
+
+Each source has a standalone smoke test that loads `backend/.env`, makes one live call, prints the status code and a readable sample, and exits non-zero with a fixable message if anything is wrong.
+
+```bash
+cd backend
+cp .env.example .env        # then fill in the four keys
+
+python -m ingestion.connectors.validate_firms
+python -m ingestion.connectors.validate_nws
+python -m ingestion.connectors.validate_airnow
+python -m ingestion.connectors.validate_purpleair
+```
+
+Inside Docker, substitute `docker compose exec backend python -m ingestion.connectors.validate_firms`.
+
+These scripts prove connectivity only — they build no connector state and write nothing to the database. They mask credentials in all output, so their logs are safe to paste into an issue.

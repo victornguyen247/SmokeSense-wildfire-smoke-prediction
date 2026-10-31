@@ -1,0 +1,4 @@
+# Every script here puts this folder and backend/ on sys.path before importing
+# its sibling modules and ingestion.*, so module imports cannot all sit at the
+# top of the file.
+lint.ignore = ["E402"]

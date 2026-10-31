@@ -1,0 +1,70 @@
+{
+ "event_id": "CREWS",
+ "name": "Crews Fire (PR #21)",
+ "bbox": [
+  -121.79,
+  36.77,
+  -121.11,
+  37.26
+ ],
+ "start": "2020-07-05",
+ "end": "2020-07-13",
+ "width_km": 60,
+ "height_km": 55,
+ "firms_counts": {
+  "MODIS_SP": 14,
+  "VIIRS_SNPP_SP": 141,
+  "VIIRS_NOAA20_SP": 117
+ },
+ "fire_detections": 226,
+ "other_detections": 46,
+ "other_frp_share": 0.192,
+ "other_clusters": [
+  {
+   "n": 32,
+   "frp": 312,
+   "lat": 37.157,
+   "lon": -121.577,
+   "first": "2020-07-05",
+   "last": "2020-07-05"
+  },
+  {
+   "n": 4,
+   "frp": 61,
+   "lat": 36.928,
+   "lon": -121.714,
+   "first": "2020-07-09",
+   "last": "2020-07-09"
+  }
+ ],
+ "centroid": [
+  37.011,
+  -121.449
+ ],
+ "total_hours": 216,
+ "airnow_raw_rows": 430,
+ "sites": [
+  {
+   "aqs": "06-085-0002",
+   "name": "Gilroy - 9th Street",
+   "lat": 36.999571,
+   "lon": -121.574684,
+   "agency": "Bay Area Air District",
+   "hours": 213,
+   "pct_hours": 98.6,
+   "dist_centroid_km": 11.2,
+   "dist_fire_km": 6.7
+  },
+  {
+   "aqs": "06-069-0002",
+   "name": "Hollister AMS",
+   "lat": 36.843425,
+   "lon": -121.3621,
+   "agency": "Monterey Bay Unified APCD",
+   "hours": 214,
+   "pct_hours": 99.1,
+   "dist_centroid_km": 20.2,
+   "dist_fire_km": 18.2
+  }
+ ]
+}

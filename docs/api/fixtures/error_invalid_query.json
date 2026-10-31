@@ -1,0 +1,4 @@
+{
+  "code": "invalid_query",
+  "message": "Pass either lat and lon, or zip, not both."
+}

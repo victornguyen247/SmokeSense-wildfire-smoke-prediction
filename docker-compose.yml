@@ -12,6 +12,8 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Runs on first start of an empty volume: guarantees the PostGIS extension.
+      - ./infra/postgres/init/20-enable-postgis.sql:/docker-entrypoint-initdb.d/20-enable-postgis.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smokesense}"]
       interval: 5s
@@ -36,9 +38,13 @@ services:
     # 0.0.0.0 is required so published ports are reachable from the host.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     env_file:
-      - ./backend/.env
+      - ./backend/.env    
+    environment:
+      PYTHONPATH: /code
     volumes:
       - ./backend:/code
+      # The API contract and its fixtures (MOCK_MODE serves them); see app/core/config.py.
+      - ./docs/api:/docs/api:ro
     ports:
       - "8000:8000"
     depends_on:
@@ -54,6 +60,8 @@ services:
     command: celery -A ingestion.tasks worker --beat --loglevel=info
     env_file:
       - ./backend/.env
+    environment:
+      PYTHONPATH: /code
     volumes:
       - ./backend:/code
     depends_on:

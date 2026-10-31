@@ -28,21 +28,17 @@ Start here, then read the doc for the area you're working in:
 
 ## Quickstart (local)
 
-You need Docker and Docker Compose installed.
+You need Docker and Docker Compose installed. Nothing else — Python and Node run
+inside the containers.
 
 ```bash
 # 1. Clone and enter the repo
-git clone <repo-url>
-cd SmokeSense
+git clone https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction.git
+cd SmokeSense-wildfire-smoke-prediction
 
-# 2. Create local env files from the templates
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# 3. Scaffold the frontend (first time only)
-npm create vite@latest frontend -- --template react-ts
-
-# 4. Start the stack (Postgres+PostGIS, Redis, backend, worker, frontend)
+# 2. Start the stack (Postgres+PostGIS, Redis, backend, worker, frontend)
+#    `make up` creates .env, backend/.env and frontend/.env from the .env.example
+#    templates on first run, then brings everything up.
 make up
 ```
 
@@ -52,6 +48,18 @@ Then open:
 - API docs (auto-generated): http://localhost:8000/docs
 - Frontend: http://localhost:5173
 
+The stack runs without API keys; ingestion of live feeds needs them. Add yours to
+`backend/.env` (see [docs/data-sources.md](docs/data-sources.md)) and restart.
+
+Verify the database came up with PostGIS enabled:
+
+```bash
+make db-check     # prints POSTGIS="3.4.x" ...
+```
+
+Ports on the host: Postgres `5433`, Redis `6380`, API `8000`, frontend `5173`.
+The non-default database ports avoid clashing with a local Postgres or Redis.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the common `make` commands (migrations, tests, linting).
 
 ## Repository layout
@@ -60,8 +68,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the common `make` commands (migration
 SmokeSense/
 ├── backend/      FastAPI app, ingestion, features, ML
 ├── frontend/     React + Vite dashboard
-├── infra/        Dockerfiles, deployment, CI config
+├── infra/        Dockerfiles, Postgres init scripts, deployment config
 ├── docs/         Architecture and area guides
+├── scripts/      Repo administration (branch protection)
+├── .github/      CI workflow, PR template
 └── docker-compose.yml
 ```
 
