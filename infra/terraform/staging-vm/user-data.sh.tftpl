@@ -3,6 +3,28 @@
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
+# --- Login first: if a later step (apt, Docker repo) fails, the box must still be reachable,
+# because user_data does not run again. Key-only SSH, no root login. ---
+useradd --create-home --shell /bin/bash deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+cat > /home/deploy/.ssh/authorized_keys <<'KEYS'
+%{ for key in ssh_public_keys ~}
+${key}
+%{ endfor ~}
+KEYS
+chown deploy:deploy /home/deploy/.ssh/authorized_keys
+chmod 600 /home/deploy/.ssh/authorized_keys
+
+install -d -m 755 -o deploy -g deploy /opt/smokesense
+
+# sshd keeps the FIRST value it reads and reads drop-ins in name order, so this must sort
+# before cloud-init's 50-cloud-init.conf to win.
+cat > /etc/ssh/sshd_config.d/00-hardening.conf <<'SSHD'
+PasswordAuthentication no
+PermitRootLogin no
+SSHD
+systemctl reload ssh
+
 # --- Swap: the 2 GB plan is tight for two pandas/xgboost processes ---
 fallocate -l 2G /swapfile
 chmod 600 /swapfile
@@ -22,25 +44,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 systemctl enable --now docker
-
-# --- deploy user: the only login. Key-only SSH, no root login. ---
-useradd --create-home --shell /bin/bash --groups docker deploy
-install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-cat > /home/deploy/.ssh/authorized_keys <<'KEYS'
-%{ for key in ssh_public_keys ~}
-${key}
-%{ endfor ~}
-KEYS
-chown deploy:deploy /home/deploy/.ssh/authorized_keys
-chmod 600 /home/deploy/.ssh/authorized_keys
-
-install -d -m 755 -o deploy -g deploy /opt/smokesense
-
-cat > /etc/ssh/sshd_config.d/99-hardening.conf <<'SSHD'
-PasswordAuthentication no
-PermitRootLogin no
-SSHD
-systemctl reload ssh
+usermod -aG docker deploy
 
 systemctl enable --now fail2ban
 systemctl enable --now unattended-upgrades

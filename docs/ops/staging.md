@@ -80,21 +80,33 @@ remove in a later release).
 
 ## Neon storage
 
-Neon's free tier is about 0.5 GB per project and the worker ingests FIRMS, AirNow, PurpleAir and
-weather continuously. Do not wait for it to fill:
+Neon's free tier is about 0.5 GB per project and the worker ingests FIRMS, AirNow and NWS
+weather continuously. Growth is already capped: the daily `ingestion.live.retention` task deletes
+live rows (the ones written by live jobs) older than `LIVE_RETENTION_HOURS`, default 72, from
+`observations`, `fire_detections` and `weather_observations`, and prunes `ingestion_runs` after 90
+days. Historical DATA-03 rows are never deleted. Set `LIVE_RETENTION_HOURS` in the box's `.env`
+to keep more, and `LIVE_RETENTION_DELETE=0` for a dry run (see `.env.example`).
 
 1. After the first week, record the size of the largest tables (`SELECT relname,
    pg_size_pretty(pg_total_relation_size(oid)) FROM pg_class WHERE relkind='r' ORDER BY
-   pg_total_relation_size(oid) DESC LIMIT 10;`) and extrapolate per month.
-2. If it will not fit, add a retention job for raw tables on staging (for example keep 30-60
-   days) or move staging to a paid Neon plan.
-3. Data that training needs must not live only in staging; use a separate project or branch.
+   pg_total_relation_size(oid) DESC LIMIT 10;`) and check the total fits with the 72 h window
+   plus the historical data you loaded.
+2. If it will not fit, shorten `LIVE_RETENTION_HOURS` or move staging to a paid Neon plan.
+3. Data that training needs must not live only in staging: live rows are deleted after the
+   window. Use a separate project or branch.
 
 ## Operating notes
 
 - **Memory:** backend and worker both import pandas/xgboost; the box has a 2 GB swapfile. Check
   `ssh deploy@<host> 'free -m; docker stats --no-stream'` after the first deploys. If services
   get OOM-killed, change `bundle_id` to the 4 GB plan.
+- **Worker slot:** the worker runs one Celery slot to save memory. If a slow source holds it, the
+  next scheduled runs can be dropped (`expires`). Watch `ingestion_runs` for gaps, and if they
+  happen try `--pool=threads --concurrency=3` (ingestion is I/O-bound; test it first) before
+  adding processes or upgrading the plan.
+- **Deploy checks:** `deploy.sh` waits for the backend to be healthy and for a worker to answer a
+  Celery ping, so a green deploy means ingestion is up too. A failed pull or migration leaves
+  `image.env` on the previous tag.
 - **Updates:** unattended-upgrades is on. Reboot after kernel updates (`sudo reboot`);
   containers restart on their own.
 - **Secrets:** rotate by editing `/opt/smokesense/.env` on the box, then re-run the deploy.
