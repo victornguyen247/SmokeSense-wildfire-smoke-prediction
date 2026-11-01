@@ -1,6 +1,8 @@
 #!/bin/bash
 # First-boot setup for the staging VM (Ubuntu 24.04). Runs once as root; log: /var/log/cloud-init-output.log
-set -euxo pipefail
+# Lightsail puts its own lines before this script, so the shebang above is NOT line 1 and
+# cloud-init runs this with sh (dash). Keep it POSIX: no `pipefail`, no [[ ]], no arrays.
+set -eux
 export DEBIAN_FRONTEND=noninteractive
 
 # --- Login first: if a later step (apt, Docker repo) fails, the box must still be reachable,
