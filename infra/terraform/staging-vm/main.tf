@@ -88,13 +88,25 @@ resource "aws_lightsail_instance" "staging" {
   }
 }
 
+# Both of these point at the instance by NAME, which stays the same when the instance is
+# replaced, so Terraform would not notice the new box and the static IP and firewall rules would
+# be left on the deleted one. created_at changes on every new instance, which forces them to be
+# redone.
 resource "aws_lightsail_static_ip_attachment" "staging" {
   static_ip_name = aws_lightsail_static_ip.staging.name
   instance_name  = aws_lightsail_instance.staging.name
+
+  lifecycle {
+    replace_triggered_by = [aws_lightsail_instance.staging.created_at]
+  }
 }
 
 resource "aws_lightsail_instance_public_ports" "staging" {
   instance_name = aws_lightsail_instance.staging.name
+
+  lifecycle {
+    replace_triggered_by = [aws_lightsail_instance.staging.created_at]
+  }
 
   port_info {
     protocol  = "tcp"

@@ -25,7 +25,10 @@ cat > /etc/ssh/sshd_config.d/00-hardening.conf <<'SSHD'
 PasswordAuthentication no
 PermitRootLogin no
 SSHD
-systemctl reload ssh
+# Ubuntu 24.04 starts sshd per connection through ssh.socket, so ssh.service is often not
+# running yet and a plain `reload` fails (and `set -e` would abort the whole script). The
+# drop-in is read by every new connection anyway; this only reloads sshd if it is running.
+systemctl try-reload-or-restart ssh || true
 
 # --- Swap: the 2 GB plan is tight for two pandas/xgboost processes ---
 fallocate -l 2G /swapfile
