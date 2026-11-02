@@ -36,8 +36,7 @@ Status as of 2026-10-27.
 ## 4. In scope after Phase 3 (Phases 4-5)
 | Item | Issue | What | Owner | Supports |
 |---|---|---|---|---|
-| City AQ History | #89 | Monthly average PM2.5 per city, recomputed every 2 weeks from grid points within 15-20 miles of the city, kept in a small monthly table updated as data arrives (raw live data is kept 72 h). No EPA AQS backfill | Tin (data), Malije (UI) | Problem and data |
-| Email alerts | #90 | Email alerts for registered users: a user registers an email and location; the system emails them when their location is forecast unhealthy (>= 35.5 ug/m3, provisional) at 1, 3, 6, 12 or 24 h. The public statewide map stays. | Shresta (API), Malije (UI) | Live demo |
+| Email alerts | #90 | Email alerts for registered users: a user registers an email and location; the system emails them when their location is forecast Unhealthy for Sensitive Groups (PM2.5 >= 35.5 ug/m3, EPA 2024 AQI) at 1, 3, 6, 12 or 24 h. The trigger threshold (fixed 35.5 or the per-horizon release.json cut-offs) is to be decided by team vote. Minimal design: a subscriptions table (email, ZIP or rounded point, confirmed, token); subscribe, double opt-in confirm, one-click unsubscribe; one job after each hourly run, at most one email per user per episode; console mail backend on staging and the demo, a real provider only if time allows; subscriber data deleted at teardown; fallback: an in-app warning on the location card. The public statewide map stays. | Tin (backend), Malije (UI) | Live demo |
 
 Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 
@@ -51,17 +50,18 @@ Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 - Hosting after Senior Design Day: out. The demo is recorded (PM-05) instead.
 
 ## 6. Stretch (dropped before any in-scope item; if time is short, drop in this order)
-1. HRRR-Smoke benchmark (#91): an offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster (Miaoqing, Phuong). Moved 2026-10-30 to make room for email alerts (change rule, section 8).
-2. Gridded rain source (radar or HRRR): needs a 2016+ archive and the same source live.
-3. Rain accumulation features in a v2.1 experiment, only if the rain breakdown in ML-03 shows errors in rain hours.
-4. Dataset v1.1: PurpleAir labels to fill monitor gaps, more high-smoke events outside 2020, validated AQS labels.
-5. Model v2.1: wider alert cut-off grid, max(persistence, v2) for alerts, a loss that targets severe smoke (v2 under-predicts at 125.5 ug/m3 and above, and 2020 is 44% of the rows).
-6. Grid-native model replacing interpolation, only if ML-02 wins.
+1. City AQ History (#89): monthly average PM2.5 per city from grid points (Tin, Malije). Moved 2026-10-31: a live-only view would hold about 1 month of model estimates by 12/8, and the poster's "Problem and data" uses the observed pilot-event AirNow data.
+2. HRRR-Smoke benchmark (#91): an offline comparison with NOAA's HRRR-Smoke forecast for a few events, for the report and poster (Miaoqing, Phuong). Moved 2026-10-30 to make room for email alerts (change rule, section 8).
+3. Gridded rain source (radar or HRRR): needs a 2016+ archive and the same source live.
+4. Rain accumulation features in a v2.1 experiment, only if the rain breakdown in ML-03 shows errors in rain hours.
+5. Dataset v1.1: PurpleAir labels to fill monitor gaps, more high-smoke events outside 2020, validated AQS labels.
+6. Model v2.1: wider alert cut-off grid, max(persistence, v2) for alerts, a loss that targets severe smoke (v2 under-predicts at 125.5 ug/m3 and above, and 2020 is 44% of the rows).
+7. Grid-native model replacing interpolation, only if ML-02 wins.
 
 ## 7. Traceability: poster and demo
 | Poster / demo section | Items |
 |---|---|
-| Problem and data | DATA-03/04 (done), DATA-06, City AQ History |
+| Problem and data | DATA-03/04 (done), DATA-06, observed AirNow data for the pilot events |
 | Model and evaluation | baseline_v2, ML-01 as Baseline B (PR #66 merged, PR #87 open), ML-03 figures, ML-05 gate. Headline: 6 h, 13-fold leave-one-group-out, against persistence |
 | Live system demo | Staging, API, map, pipeline, alerts, the recorded demo (PM-05) |
 | Limits we state | Severe smoke is under-predicted, 2020 is 44% of the rows, AirNow labels are preliminary, the ML-01 test split is thin: 94.6% of test rows are one event (PR #87, open) |
@@ -77,6 +77,8 @@ A new request becomes an issue labelled scope-change that names what gets cut or
 - The live chain depends on merges: DATA-06 (#85) and GEO-02 (#65) are merged; what is left is #48 (GEO-03) then #53, with #68 before #45 and #46.
 - Cost: staging on AWS with short test deploys, and the Neon free-tier size. Decided: monitor forecasts are kept 30 days (docs/schema.md; needed to score forecasts against observations); grid forecasts keep only the latest run (about 354k rows a day otherwise). OPS-04 (#53) implements this.
 - Review capacity: 17 open issues, and pair reviews are needed.
+- Email alerts store personal data (email + location): minimal design, delete on teardown.
+- If email slips: in-app warning fallback.
 
 ## 11. Decisions taken with this freeze
 - Forecast retention: monitor forecasts are kept 30 days (docs/schema.md; needed to score forecasts against observations); grid forecasts keep only the latest run (about 354k rows a day otherwise). OPS-04 (#53) implements this.
@@ -86,4 +88,5 @@ A new request becomes an issue labelled scope-change that names what gets cut or
 - Rain: the error breakdown by rain in ML-03 (#44) comes first; rain features go into a v2.1 experiment only if that shows an effect.
 - ML-01 trees are re-saved with scikit-learn 1.6.0 (release v1.0.1, not yet published); the repo pin stays.
 - 2026-10-30 (Vuong's review of #88): email alerts for registered users are in scope (SMS out); City AQ History uses monthly city averages from grid points, no EPA AQS backfill; the HRRR-Smoke benchmark moves to stretch.
+- 2026-10-31 (agreed with Vuong): City AQ History moves to stretch; email alerts get the minimal design in section 4, owners Tin (backend) and Malije (UI); the alert threshold is to be decided by team vote.
 - Merge order: #86 (merged), then #68, #87, #88.
