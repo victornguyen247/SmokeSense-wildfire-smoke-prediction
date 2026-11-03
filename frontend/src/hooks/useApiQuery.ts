@@ -23,13 +23,16 @@ function toApiError(err: unknown): ApiError {
  * aborted when the component unmounts or the key changes, and `retry()` refetches after
  * an error. Server data stays in the component that asked for it (docs/frontend.md,
  * "State management").
+ *
+ * A `null` key means "not yet": nothing is fetched and the state stays loading, e.g. until
+ * `/meta` has said which grid to load.
  */
 export function useApiQuery<T>(
   fetcher: (signal: AbortSignal) => Promise<T>,
-  key: string,
+  key: string | null,
 ): QueryState<T> & { retry: () => void } {
   const [attempt, setAttempt] = useState(0);
-  const requestKey = `${key}#${attempt}`;
+  const requestKey = key === null ? null : `${key}#${attempt}`;
   const [settled, setSettled] = useState<{ key: string; state: Settled<T> } | null>(null);
 
   // Always call the latest fetcher without making it an effect dependency: callers
@@ -40,6 +43,7 @@ export function useApiQuery<T>(
   });
 
   useEffect(() => {
+    if (requestKey === null) return;
     const controller = new AbortController();
     fetcherRef.current(controller.signal).then(
       (data) => {
@@ -60,6 +64,6 @@ export function useApiQuery<T>(
 
   // Until the current request settles, report loading rather than the previous result.
   const state: QueryState<T> =
-    settled?.key === requestKey ? settled.state : { status: "loading" };
+    requestKey !== null && settled?.key === requestKey ? settled.state : { status: "loading" };
   return { ...state, retry };
 }
