@@ -109,7 +109,7 @@ Inputs are the Stage A forecasts for the same `issued_at` and `horizon_hours`. E
 |---|---|---|
 | Distance | great-circle, haversine, R = 6371.008 km (the same as `features/spatial.py`), to the cell centroid | |
 | Eligible monitors | Stage A rows with `source ∈ {'v2', 'persistence'}` | `fallback` monitors have no reading in the last 6 h, so they are likely offline and would project stale conditions. They keep their own forecast but never feed a cell. |
-| Max radius | **50 km** | |
+| Max radius | **50 km** | The implementation accepts `distance_km <= 50 + 1e-9` for floating-point roundoff at the boundary. |
 | k | **4** nearest eligible monitors within the radius | |
 | Weights | `w = 1 / d²`, with `d = max(distance_km, 1.0)` | The 1 km floor stops a division by ~0. |
 | Value | `Σ wᵢ·pm25ᵢ / Σ wᵢ`, in linear µg/m³ | |
@@ -117,6 +117,8 @@ Inputs are the Stage A forecasts for the same `issued_at` and `horizon_hours`. E
 | **No monitor in range** | **No forecast.** No `forecasts` row is written, the API returns "no forecast" for the cell, and the map leaves it empty. There is no low-confidence fallback. | |
 
 Output row: `source = 'idw'`, `model_key` = the Stage A model's key, `nearest_monitor_dist_km` = distance to the nearest *eligible* monitor in range (the real distance, not the 1 km floor), and `feature_snapshot = {"monitors": [{"id", "distance_km", "weight", "pm25", "source"}, …]}` so the "Why?" panel and debugging can see the inputs. The UI treats `nearest_monitor_dist_km > 25` as lower confidence (`docs/schema.md`).
+
+Output also includes UTC `issued_at`, `horizon_hours` and `target_time = issued_at + horizon_hours`. A supplied Stage A `target_time` must agree with that formula; when absent it is derived.
 
 The defaults above are a starting point. GEO-03 may tune them against leave-one-monitor-out error, but any change is a revision of this document. ML-02's comparison uses the same held-out monitors.
 

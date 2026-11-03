@@ -1,0 +1,105 @@
+# Staging stack, run ON the Lightsail box from /opt/smokesense by deploy.sh.
+# Postgres is external (Neon); everything else runs here. Dev compose is the repo-root
+# docker-compose.yml and is unrelated.
+#
+#   Browser -> caddy :80/:443 -> /api/*, /health, /docs -> backend :8000
+#                             -> everything else        -> frontend :80 (nginx)
+#   worker (celery + embedded beat) and backend -> redis, Neon
+#
+# IMAGE_REPO and IMAGE_TAG come from image.env (written by deploy.sh); the app settings
+# (DATABASE_URL, API keys, SITE_ADDRESS, ...) come from .env, see .env.example.
+
+name: smokesense-staging
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  image: ${IMAGE_REPO:?set by deploy.sh}-backend:${IMAGE_TAG:?set by deploy.sh}
+  env_file: [.env]
+  environment:
+    ENVIRONMENT: staging
+    DEBUG: "false"
+    PYTHONPATH: /code
+    REDIS_URL: redis://redis:6379/0
+  logging: *logging
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates: losing this re-issues them and can hit Let's Encrypt limits
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    logging: *logging
+
+  backend:
+    <<: *backend
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Celery worker with beat embedded: one process, one replica. Beat must never run twice or
+  # every scheduled ingestion fires twice, so do not scale this service. --concurrency=1
+  # keeps memory low on the small box. The beat schedule lives on a volume so a redeploy
+  # does not make interval jobs fire again straight away.
+  worker:
+    <<: *backend
+    restart: unless-stopped
+    command: celery -A ingestion.tasks worker --beat --loglevel=info --concurrency=1 -s /var/lib/celerybeat/schedule
+    volumes:
+      - celerybeat:/var/lib/celerybeat
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # One-off, not started by `up`: docker compose run --rm migrate
+  migrate:
+    <<: *backend
+    restart: "no"
+    profiles: ["tools"]
+    command: alembic upgrade head
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Celery broker only: no persistence, and noeviction so a full broker errors instead of
+    # silently dropping queued tasks.
+    command: redis-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging: *logging
+
+  frontend:
+    image: ${IMAGE_REPO:?set by deploy.sh}-frontend:${IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  celerybeat:
