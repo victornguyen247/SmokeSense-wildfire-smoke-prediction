@@ -1,0 +1,55 @@
+#!/bin/bash
+# First-boot setup for the staging VM (Ubuntu 24.04). Runs once as root; log: /var/log/cloud-init-output.log
+# Lightsail puts its own lines before this script, so the shebang above is NOT line 1 and
+# cloud-init runs this with sh (dash). Keep it POSIX: no `pipefail`, no [[ ]], no arrays.
+set -eux
+export DEBIAN_FRONTEND=noninteractive
+
+# --- Login first: if a later step (apt, Docker repo) fails, the box must still be reachable,
+# because user_data does not run again. Key-only SSH, no root login. ---
+useradd --create-home --shell /bin/bash deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+cat > /home/deploy/.ssh/authorized_keys <<'KEYS'
+%{ for key in ssh_public_keys ~}
+${key}
+%{ endfor ~}
+KEYS
+chown deploy:deploy /home/deploy/.ssh/authorized_keys
+chmod 600 /home/deploy/.ssh/authorized_keys
+
+install -d -m 755 -o deploy -g deploy /opt/smokesense
+
+# sshd keeps the FIRST value it reads and reads drop-ins in name order, so this must sort
+# before cloud-init's 50-cloud-init.conf to win.
+cat > /etc/ssh/sshd_config.d/00-hardening.conf <<'SSHD'
+PasswordAuthentication no
+PermitRootLogin no
+SSHD
+# Ubuntu 24.04 starts sshd per connection through ssh.socket, so ssh.service is often not
+# running yet and a plain `reload` fails (and `set -e` would abort the whole script). The
+# drop-in is read by every new connection anyway; this only reloads sshd if it is running.
+systemctl try-reload-or-restart ssh || true
+
+# --- Swap: the 2 GB plan is tight for two pandas/xgboost processes ---
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+echo 'vm.swappiness=10' > /etc/sysctl.d/99-swap.conf
+sysctl --system
+
+# --- Docker Engine + compose plugin from Docker's apt repository ---
+apt-get update
+apt-get install -y ca-certificates curl fail2ban unattended-upgrades
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
+usermod -aG docker deploy
+
+systemctl enable --now fail2ban
+systemctl enable --now unattended-upgrades
