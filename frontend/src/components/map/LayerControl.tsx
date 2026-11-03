@@ -1,6 +1,6 @@
 import type { ApiError } from "../../api/client";
 
-export type LayerKey = "forecast" | "fires" | "sensors";
+export type LayerKey = "forecast" | "fires" | "sensors" | "wind";
 
 export type LayerVisibility = Record<LayerKey, boolean>;
 

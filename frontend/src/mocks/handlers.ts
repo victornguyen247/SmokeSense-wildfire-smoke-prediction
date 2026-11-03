@@ -132,6 +132,7 @@ export const handlers = [
   http.get(api("/forecast/point"), ({ request }) => pointForecast(new URL(request.url))),
   http.get(api("/fires/active"), withBbox(fixtures.firesActive)),
   http.get(api("/observations/pm25/latest"), withBbox(fixtures.observationsPm25Latest)),
+  http.get(api("/observations/wind/latest"), withBbox(fixtures.observationsWindLatest)),
   // Anything else under /api/v1 gets the API's unknown-route error.
   http.all(api("/*"), ({ request }) =>
     respond(errorBody("not_found", `No mock for ${new URL(request.url).pathname}.`), 404),

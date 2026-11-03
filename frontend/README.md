@@ -79,6 +79,7 @@ Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `in
 - `MonitorLayer` (WEB-02): `/forecast/monitors` as circles for the selected horizon; a `fallback` forecast is hollow (lower confidence). Click for a popup.
 - `SensorLayer` (WEB-03): `/observations/pm25/latest` as squares colored by AQI category (measured values are squares, forecasts circles). AirNow has a dark ring, PurpleAir a white one.
 - `FireLayer` (WEB-03): `/fires/active` as near-black dots (red is an AQI color); `low` confidence is hollow.
+- `WindLayer` (WEB-03): `/observations/wind/latest` as arrows at NWS stations, pointing where the wind blows (the API sends where it blows from) and sized by speed; calm is a bullseye. Icons are signed distance fields (`src/utils/sdfIcon.ts`), so one image takes any color.
 
 The point layers are always mounted once `/meta` has loaded and fill in as their data arrives, so they stack in a fixed order whatever loads first. Each layer is shown or hidden with the panel's layer control, which keeps its data. Data credits are in `src/constants/sources.ts` and in the map's attribution.
 

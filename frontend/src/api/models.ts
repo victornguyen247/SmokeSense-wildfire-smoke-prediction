@@ -17,6 +17,7 @@ export type PointForecast = Schemas["PointForecast"];
 export type MonitorForecastCollection = Schemas["MonitorForecastCollection"];
 export type FireDetectionCollection = Schemas["FireDetectionCollection"];
 export type ObservationCollection = Schemas["ObservationCollection"];
+export type WindObservationCollection = Schemas["WindObservationCollection"];
 export type Health = Schemas["Health"];
 
 /** `minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order), as the API's `bbox` parameter expects. */
