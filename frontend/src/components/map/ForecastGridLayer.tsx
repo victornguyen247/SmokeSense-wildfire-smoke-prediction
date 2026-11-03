@@ -4,7 +4,7 @@ import type { ExpressionSpecification } from "maplibre-gl";
 import type { AqiCategoryInfo, GridCellCollection, GridForecast } from "../../api/models";
 import { useMap } from "../../context/MapContext";
 import { categoryColorExpression } from "../../utils/aqi";
-import { firstSymbolLayerId, removeFromMap } from "../../utils/map";
+import { firstSymbolLayerId, removeFromMap, setLayersVisible } from "../../utils/map";
 
 const SOURCE_ID = "forecast-grid";
 const FILL_LAYER_ID = "forecast-grid-fill";
@@ -19,6 +19,7 @@ type ForecastGridLayerProps = {
   categories: AqiCategoryInfo[];
   /** `/meta` `low_confidence_dist_km`: cells farther than this from a monitor are drawn faded. */
   lowConfidenceDistKm: number;
+  visible: boolean;
 };
 
 const hasValue: ExpressionSpecification = ["!=", ["coalesce", ["feature-state", "aqi"], ""], ""];
@@ -34,6 +35,7 @@ export function ForecastGridLayer({
   horizon,
   categories,
   lowConfidenceDistKm,
+  visible,
 }: ForecastGridLayerProps) {
   const map = useMap();
 
@@ -87,6 +89,10 @@ export function ForecastGridLayer({
     // `cells` and `categories` re-add the source, which drops feature state, so they
     // are dependencies here too.
   }, [map, cells, categories, horizon, lowConfidenceDistKm]);
+
+  useEffect(() => {
+    if (map) setLayersVisible(map, [FILL_LAYER_ID, LOW_CONFIDENCE_LAYER_ID], visible);
+  }, [map, cells, categories, visible]);
 
   return null;
 }

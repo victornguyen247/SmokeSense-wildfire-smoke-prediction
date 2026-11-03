@@ -18,3 +18,10 @@ export function removeFromMap(map: MapLibreMap, layerIds: string[], sourceIds: s
   for (const id of layerIds) if (map.getLayer(id)) map.removeLayer(id);
   for (const id of sourceIds) if (map.getSource(id)) map.removeSource(id);
 }
+
+/** Show or hide layers without removing them, so their data and state are kept. */
+export function setLayersVisible(map: MapLibreMap, layerIds: string[], visible: boolean): void {
+  for (const id of layerIds) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+  }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import maplibregl, { type GeoJSONSource, type MapLayerMouseEvent } from "maplibre-gl";
+import type { GeoJSONSource } from "maplibre-gl";
 
 import type {
   AqiCategoryInfo,
@@ -8,17 +8,20 @@ import type {
 } from "../../api/models";
 import { useMap } from "../../context/MapContext";
 import { categoryColorExpression, categoryInfo, formatPm25 } from "../../utils/aqi";
-import { removeFromMap } from "../../utils/map";
+import { removeFromMap, setLayersVisible } from "../../utils/map";
+import { bindPointPopup, type PopupLine } from "../../utils/popup";
 
 const SOURCE_ID = "forecast-monitors";
 const LAYER_ID = "forecast-monitors-circle";
 
 type MonitorLayerProps = {
-  monitors: MonitorForecastCollection;
+  /** Undefined until loaded: the layer is added empty, so it keeps its place in the stack. */
+  monitors: MonitorForecastCollection | undefined;
   horizon: HorizonHours;
   categories: AqiCategoryInfo[];
   /** `/meta` `aqi_category_label`, shown in the popup. */
   categoryLabel: string;
+  visible: boolean;
 };
 
 type MonitorPointProps = {
@@ -43,13 +46,13 @@ type MonitorPoints = {
  * selected horizon. A `fallback` forecast (the monitor had no recent reading) is a
  * hollow circle: lower confidence (docs/api.md, "method and source").
  */
-export function MonitorLayer({ monitors, horizon, categories, categoryLabel }: MonitorLayerProps) {
+export function MonitorLayer({ monitors, horizon, categories, categoryLabel, visible }: MonitorLayerProps) {
   const map = useMap();
 
   const points = useMemo<MonitorPoints>(
     () => ({
       type: "FeatureCollection",
-      features: monitors.features.map((feature) => {
+      features: (monitors?.features ?? []).map((feature) => {
         const value = feature.properties.forecasts.find((f) => f.horizon_hours === horizon);
         return {
           type: "Feature",
@@ -83,31 +86,12 @@ export function MonitorLayer({ monitors, horizon, categories, categoryLabel }: M
       },
     });
 
-    const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" });
-    const onClick = (event: MapLayerMouseEvent) => {
-      const feature = event.features?.[0];
-      if (!feature || feature.geometry.type !== "Point") return;
-      const props = feature.properties as MonitorPointProps;
-      popup
-        .setLngLat(feature.geometry.coordinates as [number, number])
-        .setDOMContent(monitorPopup(props, categories, categoryLabel))
-        .addTo(map);
-    };
-    const onEnter = () => {
-      map.getCanvas().style.cursor = "pointer";
-    };
-    const onLeave = () => {
-      map.getCanvas().style.cursor = "";
-    };
-    map.on("click", LAYER_ID, onClick);
-    map.on("mouseenter", LAYER_ID, onEnter);
-    map.on("mouseleave", LAYER_ID, onLeave);
+    const unbindPopup = bindPointPopup(map, LAYER_ID, (feature) =>
+      monitorPopup(feature.properties as MonitorPointProps, categories, categoryLabel),
+    );
 
     return () => {
-      popup.remove();
-      map.off("click", LAYER_ID, onClick);
-      map.off("mouseenter", LAYER_ID, onEnter);
-      map.off("mouseleave", LAYER_ID, onLeave);
+      unbindPopup();
       removeFromMap(map, [LAYER_ID], [SOURCE_ID]);
     };
   }, [map, categories, categoryLabel]);
@@ -116,35 +100,30 @@ export function MonitorLayer({ monitors, horizon, categories, categoryLabel }: M
     (map?.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(points);
   }, [map, points, categories, categoryLabel]);
 
+  useEffect(() => {
+    if (map) setLayersVisible(map, [LAYER_ID], visible);
+  }, [map, visible, categories, categoryLabel]);
+
   return null;
 }
 
-/** Popup body, built with text nodes: monitor names come from the API. */
 function monitorPopup(
   props: MonitorPointProps,
   categories: AqiCategoryInfo[],
   categoryLabel: string,
-): HTMLElement {
-  const root = document.createElement("div");
-  root.className = "map-popup";
-  const line = (text: string, className?: string) => {
-    const p = document.createElement("p");
-    p.textContent = text;
-    if (className) p.className = className;
-    root.append(p);
-  };
-
-  line(props.name, "map-popup__title");
-  line(`AirNow monitor ${props.aqs_code}`, "map-popup__muted");
+): PopupLine[] {
+  const lines: PopupLine[] = [
+    { text: props.name, className: "map-popup__title" },
+    { text: `AirNow monitor ${props.aqs_code}`, className: "map-popup__muted" },
+  ];
   if (props.pm25 === null) {
-    line("No forecast at this horizon.");
+    lines.push({ text: "No forecast at this horizon." });
   } else {
     const label = categoryInfo(categories, props.aqi as AqiCategoryInfo["key"])?.label ?? props.aqi;
-    line(`Forecast PM2.5: ${formatPm25(props.pm25)}`);
-    line(`${categoryLabel}: ${label}`);
+    lines.push({ text: `Forecast PM2.5: ${formatPm25(props.pm25)}` }, { text: `${categoryLabel}: ${label}` });
   }
   if (props.fallback) {
-    line("Lower confidence: no recent reading at this monitor.", "map-popup__warning");
+    lines.push({ text: "Lower confidence: no recent reading at this monitor.", className: "map-popup__warning" });
   }
-  return root;
+  return lines;
 }
