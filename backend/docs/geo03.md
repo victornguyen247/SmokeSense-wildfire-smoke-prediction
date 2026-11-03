@@ -14,29 +14,12 @@ grid_forecasts = interpolate_to_grid(monitor_forecasts, connection=connection)
 ```
 
 `issued_at` must be a timezone-aware top-of-hour timestamp; it is converted
-to UTC. The caller provides a SQLAlchemy connection. Migration `0006` and
-the GEO-02 seeded monitor and grid rows must already exist. This module
-does not migrate, seed, load models, or write forecasts.
+to UTC. The caller provides a SQLAlchemy connection and migration `0006`.
+Live serving also requires GEO-02 seeded monitor and grid rows. Historical
+Parquet replay uses v1 points directly and requires no live monitor seeds.
+This module does not migrate, seed, load models, or write forecasts.
 
-## Requirements reviewed on 2026-10-30
-
-`origin/dev` is current at `1fd62f3`; there were no newer merged changes to
-bring in. Issue [#48](https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/issues/48)
-has no direct comments. Its newest timeline cross-reference is
-[PR #92](https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/pull/92)
-(ML-04/05, still open; adapter checked at `8119229`). The preceding
-[PR #88](https://github.com/victornguyen247/SmokeSense-wildfire-smoke-prediction/pull/88)
-scope freeze is also open. Neither PR's implementation is merged into GEO-03.
-
-| Source | GEO-03 requirement / handling |
-|---|---|
-| #48 and PM-03 | Shared training feature math, Parquet parity, monitor-first IDW, full-grid timing; real-data checks remain pending below |
-| #85 (merged) | Live scoped loader, migration 0006, SNPP-only fires, regulatory AirNow, NWS observations, missing weather left missing |
-| #92 (open) | Exact 22-column feature order, UTC issue times including empty frames, `baseline/v2` as an example opaque registry key, forecast `target_time` |
-| #92 seed note | No monitor points were seeded in its test environment; Stage A now reports missing seeds explicitly |
-| #88 (open) | Retains monitor-first baseline_v2 and current horizons; no live PurpleAir or new rain features. OPS-04 owns retention: monitor forecasts 30 days, grid forecasts latest run only |
-
-After #92 merges, OPS can pass Stage A directly to its adapter:
+With the ML-04 adapter available, OPS can pass Stage A directly to inference:
 
 ```python
 from ml.inference.service import InferenceService
@@ -55,7 +38,17 @@ the event covers `app.core.scope.CALIFORNIA_BBOX`; the existing loader expands
 the source-specific boxes and lookback windows. Historical parity callers
 pass the original `PilotEvent` and `row_scope="historical"`.
 
-Points come from the seeded `forecast_points` table, never the training
+For historical replay, pass `points=` from DATA-04's original
+`dataset_build.build_v1.forecast_points(..., row_scope="historical")` selection.
+These IDs are monitor external IDs and coordinates come from the historical
+database at original precision. They are independent of today's `active` flags
+and `--sync-monitors`, which checks readings relative to `now()`. Optional
+`inputs=` reuses a historical `load_inputs` snapshot so eligibility verification
+and feature calculation see the same data. Explicit v1 points and input
+snapshots are supported only with historical scope. The serving 24 h reading
+eligibility rule still applies to these points, relative to the requested hour.
+
+Live points come from the seeded `forecast_points` table, never the training
 `forecast_points()` function. Eligible points are active monitor points
 linked to active outdoor California AirNow monitors with a regulatory reading
 in `[H - 24h, H)`. Loaded history is joined through `monitors.external_id`
@@ -92,7 +85,7 @@ the training no-fire sentinel behavior. The function does not infer health
 from an empty table. No eligible monitor yields an empty frame with the
 expected columns.
 
-No seeded active monitor points is a configuration error, distinct from seeded
+For live serving, no seeded active monitor points is a configuration error, distinct from seeded
 points with no recent readings. Stage A raises a message naming
 `python -m app.db.seed_ca_forecast_grid --sync-monitors`. Run that setup step
 only with fresh observations; it may deactivate ineligible monitors. See
@@ -126,9 +119,11 @@ Run from `backend/`:
 
 ```powershell
 $env:DEBUG='false'  # needed if the host sets DEBUG to a non-Boolean value
-python -m pytest tests/test_geo_serving.py tests/test_alignment.py tests/test_dataset_build.py tests/test_build_ignores_live_rows.py tests/test_serving_contract.py -q
+python -m pytest tests/test_geo_serving.py tests/test_geo_parity_check.py tests/test_alignment.py tests/test_dataset_build.py tests/test_build_ignores_live_rows.py tests/test_serving_contract.py -q
 python -m ruff check .
 python scripts/check_geo03.py benchmark
+python scripts/check_geo03.py parity --dataset data/datasets/smokesense_v1/data.parquet
+# Optional sampled smoke check; this does not establish full parity:
 python scripts/check_geo03.py parity --dataset data/datasets/smokesense_v1/data.parquet --samples 5
 # Optional real-artifact pytest (reads the configured historical DB):
 $env:GEO03_PARQUET_PATH='data/datasets/smokesense_v1/data.parquet'
@@ -144,31 +139,48 @@ lag gaps, future reports, exact 72h/3h boundaries, monitor-ID mapping, scope,
 seeded-point query filters, IDW neighbor limits, the distance floor, the 50 km
 boundary, fallback exclusion and independent issue hours/horizons.
 
-The Parquet command requires the actual v1 artifact and a database containing
-its historical inputs plus corresponding active seeded monitor points. It
-compares every input column with null equality and 1e-6 tolerances at sampled
-event/hours. It fails if a reference point is absent rather than silently
-skipping it. Real Parquet parity has **not yet been run** in this checkout:
-the `backend/data` artifacts are absent.
-Samples are spread across the artifact rather than restricted to its first
-event's hours. `test_geo_parquet.py` runs the same acceptance check when
-`GEO03_PARQUET_PATH` is set, otherwise it reports a skip. Miaoqing's review of
-real parity results is still required by #48.
+The Parquet command requires the v1 artifact and its historical DATA-03 inputs;
+it does not require active seeded monitor points. It checks all event/hours by
+default. `--samples N` is a smoke check and prints `coverage="sampled"`.
+Input columns are compared with null equality and 1e-6 tolerances.
 
-The #92 adapter compatibility test is opt-in through module availability until
-that PR merges. On 2026-10-30 it was also run successfully against the actual
-`8119229` adapter source loaded from a temporary directory, without adding that
-source to this branch. Model prediction was stubbed: this verifies input order,
-UTC empty frames and the five-horizon output handoff, not booster accuracy or
-registry availability.
+Serving excludes a point with no non-null regulatory reading in `[H - 24h, H)`,
+while v1 keeps those rows. The parity runner verifies every excluded row against
+the raw historical reading window and asserts that its reference lags are null.
+An off-hour reading still makes a point eligible even if all five exact-hour
+lags are null. Every other missing point or feature row is an error. The printed
+summary includes `reference_rows`, `parity_rows`, `excluded_no_recent_reading`
+and `event_hours`; compared and excluded counts account for every reference row
+in the selected coverage. Event point/input snapshots are loaded once per event.
 
-The deterministic synthetic benchmark on this Windows environment measured
-0.18 s for monitor features and 7.36 s for IDW (7.53 s combined on 2026-10-30), using 129
-monitors, 179 fires, 107 weather stations with 72 hourly reports, 3,000 grid
-centroids and five horizons. Points are generated within the California bbox,
-not the actual clipped GEO-02 grid. This excludes database and model I/O and
-does **not** establish the full real-data two-minute acceptance criterion.
-Run that measurement after migration, seeding and live input availability.
+`test_geo_parquet.py` runs full parity when `GEO03_PARQUET_PATH` is set; otherwise
+it reports a skip. Fixture regression tests exercise historical replay with no
+live seeds, the inclusive 24 h boundary, stale/current/future and off-hour
+readings, counted exclusions, unexpected missing rows and feature mismatches.
+
+## Reported real-data validation
+
+Reviewer results on the DATA-03 dump:
+
+- Tests: 66 passed, 1 skipped (ML-04 adapter unavailable); ruff clean.
+- `smokesense_v1` still **REPRODUCED**: sha256 `6799c405…`, 141,954 rows.
+- Direct Parquet comparison: **0 mismatches over 28,397 rows × 22 columns**.
+- Of 28,991 reference rows, 594 (2%) had no reading in `[H - 24h, H)` and all
+  lags null, mostly PE-004 and PE-001. These are the eligibility exclusions
+  that the corrected runner now verifies and reports explicitly.
+- IDW constants and hand-checked cases agree with serving-contract §4.
+- Feature/IDW benchmark: about **3 s** (features 0.07 s, IDW about 2.9 s),
+  for 129 monitors, 3,000 cells and five horizons.
+
+These are the reviewer's measurements, not a rerun of the corrected parity
+runner in this checkout. The corrected full parity run and Miaoqing's review
+are still pending. The benchmark excludes cold registry/model loading and the
+complete live pipeline.
+
+The adapter compatibility test runs when ML-04 is available. Its prediction
+stub verifies column order, UTC empty frames and the five-horizon handoff;
+it does not establish booster accuracy or registry availability.
+
 `benchmark-live` measures cold registry model loading, SQL input/point loading,
 features, all five inference horizons and interpolation onto all seeded cells.
 It prints stage timings and fails at 120 seconds or above. It writes no forecasts

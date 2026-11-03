@@ -129,6 +129,44 @@ def test_historical_scope_forwarded(live_inputs):
     assert calls[0][1] == "historical"
 
 
+def test_historical_v1_points_need_no_current_seeds(live_inputs, monkeypatch):
+    seeded, frames, calls = live_inputs
+    points = seeded.assign(forecast_point_id=seeded.external_id).drop(columns="external_id")
+
+    def unexpected_seed_read(connection):
+        pytest.fail("Historical replay must not read today's active seeded points")
+
+    monkeypatch.setattr(geo, "load_monitor_points", unexpected_seed_read)
+    replay = build(row_scope="historical", points=points, inputs=frames)
+    assert replay.forecast_point_id.tolist() == ["airnow:site"]
+    assert replay.iloc[0].pm25_lag_1h == 23
+    assert "external_id" not in points  # The caller's v1 point frame is unchanged.
+    assert calls == []  # Use exactly the supplied historical input snapshot.
+
+
+def test_v1_point_override_cannot_bypass_live_seed_selection(live_inputs):
+    points, _, _ = live_inputs
+    with pytest.raises(ValueError, match="historical scope"):
+        build(points=points)
+
+
+@pytest.mark.parametrize("age, eligible", [
+    (pd.Timedelta(hours=24), True),
+    (pd.Timedelta(hours=24, seconds=1), False),
+    (pd.Timedelta(0), False),
+    (-pd.Timedelta(hours=1), False),
+    (pd.Timedelta(hours=2, minutes=30), True),
+])
+def test_historical_replay_keeps_live_reading_eligibility(live_inputs, age, eligible):
+    seeded, frames, _ = live_inputs
+    points = seeded.assign(forecast_point_id=seeded.external_id).drop(columns="external_id")
+    frames["pm25_history"] = pd.DataFrame({
+        "forecast_point_id": ["airnow:site"], "issue_time": [H - age], "pm25": [12.],
+    })
+    replay = build(row_scope="historical", points=points, inputs=frames)
+    assert len(replay) == int(eligible)
+
+
 @pytest.mark.parametrize("t", ["2020-09-01T12:00", "2020-09-01T12:01Z", None])
 def test_reject_invalid_hour(t):
     with pytest.raises(ValueError):

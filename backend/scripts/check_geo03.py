@@ -17,7 +17,8 @@ from sqlalchemy import create_engine
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings  # noqa: E402
-from dataset_build.build_v1 import CONFIG  # noqa: E402
+from dataset_build.build_v1 import CONFIG, forecast_points, load_inputs  # noqa: E402
+from dataset_build.site_registry import load_registry  # noqa: E402
 from features.alignment import ALLOWED_HORIZONS, build_input_features  # noqa: E402
 from features.idw import interpolate_to_grid  # noqa: E402
 from ingestion.batch.batch_ingest import load_pilot_events  # noqa: E402
@@ -25,46 +26,91 @@ from serving.geo import (  # noqa: E402
     INPUT_COLUMNS,
     build_monitor_features,
     interpolate_to_grid as interpolate_seeded_grid,
-    load_monitor_points,
 )
 
 
-def parity(dataset: Path, samples: int) -> None:
-    """Check sampled event/hours at all matching seeded v1 monitor points."""
+def parity(dataset: Path, samples: int | None = None) -> None:
+    """Check v1 points using historical inputs, excluding only ineligible rows.
+
+    Full coverage is the default. An explicit sample is only a smoke check.
+    Every excluded row must lack a non-null reading in [H - 24h, H), verified
+    against the same historical snapshot used for its feature calculation.
+    """
+    if samples is not None and samples < 1:
+        raise ValueError("samples must be positive")
     expected = pd.read_parquet(dataset, columns=[
         "forecast_point_id", "issue_time", "pilot_event_id", *INPUT_COLUMNS,
     ]).drop_duplicates(["pilot_event_id", "forecast_point_id", "issue_time"])
     events = {e.event_id: e for e in load_pilot_events(CONFIG)}
     groups = expected[["pilot_event_id", "issue_time"]].drop_duplicates().sort_values(
         ["pilot_event_id", "issue_time"])
-    # Spread checks over the artifact instead of only the first event's hours.
-    positions = np.linspace(0, len(groups) - 1, min(samples, len(groups)), dtype=int)
-    groups = groups.iloc[positions]
+    if samples is not None:
+        # Spread smoke checks over the artifact; never label these full parity.
+        positions = np.linspace(0, len(groups) - 1, min(samples, len(groups)), dtype=int)
+        groups = groups.iloc[positions]
+    registry = load_registry()
     engine = create_engine(settings.database_url)
-    checked = 0
-    with engine.connect() as connection:
-        identities = load_monitor_points(connection)[["forecast_point_id", "external_id"]]
-        for group in groups.itertuples(index=False):
-            actual = build_monitor_features(
-                group.issue_time, connection=connection, fire_feed_available=True,
-                row_scope="historical", event=events[group.pilot_event_id],
-            ).merge(identities, on="forecast_point_id", validate="one_to_one")
-            actual = actual.set_index("external_id")
-            wanted = expected.loc[(expected.pilot_event_id == group.pilot_event_id)
-                                  & (expected.issue_time == group.issue_time)].set_index("forecast_point_id")
-            if not wanted.index.isin(actual.index).all():
-                raise AssertionError("Parquet points missing from active seeded monitor features")
-            for column in INPUT_COLUMNS:
-                np.testing.assert_allclose(
-                    actual.loc[wanted.index, column].to_numpy(dtype=float),
-                    wanted[column].to_numpy(dtype=float), rtol=1e-6, atol=1e-6, equal_nan=True,
-                    err_msg=f"{group.pilot_event_id} {group.issue_time} {column}",
-                )
-            checked += len(wanted)
-    engine.dispose()
+    checked = excluded = reference = 0
+    event_inputs = {}
+    try:
+        with engine.connect() as connection:
+            for group in groups.itertuples(index=False):
+                event_id, h = group.pilot_event_id, group.issue_time
+                if event_id not in event_inputs:
+                    ev = events[event_id]
+                    # Original v1 point selection and DB coordinates: no live seeds,
+                    # no current active flags, and no float32 coordinate rounding.
+                    points, _ = forecast_points(connection, ev, registry, row_scope="historical")
+                    inputs = load_inputs(connection, ev, row_scope="historical")
+                    event_inputs[event_id] = points, inputs
+                points, inputs = event_inputs[event_id]
+                wanted = expected.loc[(expected.pilot_event_id == event_id)
+                                      & (expected.issue_time == h)].set_index("forecast_point_id")
+                if not wanted.index.isin(points.forecast_point_id).all():
+                    raise AssertionError(f"{event_id} {h}: Parquet point absent from historical v1 points")
+                history = inputs["pm25_history"]
+                times = pd.to_datetime(history.issue_time, utc=True)
+                recent = history.loc[times.ge(h - pd.Timedelta(hours=24)) & times.lt(h)
+                                     & history.pm25.notna(), "forecast_point_id"]
+                eligible = wanted.index.isin(recent)
+                omitted = wanted.loc[~eligible]
+                # Check every excluded row against its raw history, not lag-nullness:
+                # a reading between lag hours is enough to keep a monitor eligible.
+                for point_id in omitted.index:
+                    readings = history.loc[history.forecast_point_id.eq(point_id)
+                                           & times.ge(h - pd.Timedelta(hours=24)) & times.lt(h)
+                                           & history.pm25.notna()]
+                    if not readings.empty:
+                        raise AssertionError(f"{event_id} {h} {point_id}: excluded despite a recent reading")
+                lag_columns = [c for c in INPUT_COLUMNS if c.startswith("pm25_lag_")]
+                if not omitted[lag_columns].isna().all().all():
+                    raise AssertionError(f"{event_id} {h}: excluded row has a non-null v1 lag")
+                actual = build_monitor_features(
+                    h, connection=connection, fire_feed_available=True,
+                    row_scope="historical", event=events[event_id], points=points, inputs=inputs,
+                ).set_index("forecast_point_id", verify_integrity=True)
+                if omitted.index.isin(actual.index).any():
+                    raise AssertionError(f"{event_id} {h}: serving included a monitor without a recent reading")
+                wanted = wanted.loc[eligible]
+                missing = wanted.index[~wanted.index.isin(actual.index)].tolist()
+                if missing:
+                    raise AssertionError(f"{event_id} {h}: eligible Parquet rows missing: {missing}")
+                for column in INPUT_COLUMNS:
+                    np.testing.assert_allclose(
+                        actual.loc[wanted.index, column].to_numpy(dtype=float),
+                        wanted[column].to_numpy(dtype=float), rtol=1e-6, atol=1e-6, equal_nan=True,
+                        err_msg=f"{event_id} {h} {column}",
+                    )
+                checked += len(wanted)
+                excluded += len(omitted)
+                reference += len(wanted) + len(omitted)
+    finally:
+        engine.dispose()
     if checked == 0:
         raise AssertionError("No Parquet rows checked")
-    print(json.dumps({"parity_rows": checked, "event_hours": len(groups)}))
+    print(json.dumps({"coverage": "full" if samples is None else "sampled",
+                      "reference_rows": reference, "parity_rows": checked,
+                      "excluded_no_recent_reading": excluded, "event_hours": len(groups)}))
 
 
 def benchmark() -> None:
@@ -162,7 +208,7 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("parity")
     check.add_argument("--dataset", type=Path, required=True)
-    check.add_argument("--samples", type=int, default=5)
+    check.add_argument("--samples", type=int, help="Sample event/hours for a smoke check; default is full parity")
     commands.add_parser("benchmark")
     live = commands.add_parser("benchmark-live")
     live.add_argument("--issued-at", required=True, help="Top of a UTC hour in the retained live window")
@@ -171,7 +217,7 @@ def main() -> None:
                       help="Confirm a healthy fire feed with its full required lookback available")
     args = parser.parse_args()
     if args.command == "parity":
-        if args.samples < 1:
+        if args.samples is not None and args.samples < 1:
             parser.error("--samples must be positive")
         parity(args.dataset, args.samples)
     elif args.command == "benchmark-live":

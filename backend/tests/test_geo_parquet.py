@@ -11,4 +11,4 @@ def test_monitor_features_match_v1_parquet():
         pytest.skip("Set GEO03_PARQUET_PATH and configure the historical DB for real Parquet parity")
     from scripts.check_geo03 import parity
 
-    parity(Path(artifact), samples=5)
+    parity(Path(artifact))

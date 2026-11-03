@@ -1,4 +1,4 @@
-"""Read seeded points and reuse training feature calculations for GEO-03.
+"""Read live seeds or replay v1 points using shared training feature calculations.
 
 No writes or model loading. OPS owns feed health and the publication cutoff.
 """
@@ -49,10 +49,13 @@ def build_monitor_features(
     fire_feed_available: bool,
     row_scope: str = "live",
     event: PilotEvent | None = None,
+    points: pd.DataFrame | None = None,
+    inputs: dict[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """One PM-03 input row per eligible seeded monitor at UTC hour t.
 
-    Use historical scope and the original event for Parquet parity. Live calls
+    Historical replay may supply v1 points (IDs are monitor external IDs) and
+    an input snapshot, independent of today's seeded monitor activation. Live calls
     cover California plus the loader's source-specific margins. A healthy empty
     fire feed means no fires; an unavailable feed must skip the cycle.
     """
@@ -64,16 +67,22 @@ def build_monitor_features(
         raise ValueError("t must be the top of an hour")
     if not fire_feed_available:
         raise RuntimeError("Fire feed unavailable; skip this forecast cycle")
+    if row_scope != "historical" and (points is not None or inputs is not None):
+        raise ValueError("Explicit v1 points and input snapshots require historical scope")
     if event is None:
         day = issued_at.date().isoformat()
         event = PilotEvent("GEO-03", "California live", str(CALIFORNIA_BBOX), day, day)
-    points = load_monitor_points(connection)
-    if points.empty:
-        raise RuntimeError(
-            "No active seeded California monitor forecast points; "
-            "run python -m app.db.seed_ca_forecast_grid --sync-monitors first"
-        )
-    frames = load_inputs(connection, event, row_scope=row_scope)
+    if points is None:
+        points = load_monitor_points(connection)
+        if points.empty:
+            raise RuntimeError(
+                "No active seeded California monitor forecast points; "
+                "run python -m app.db.seed_ca_forecast_grid --sync-monitors first"
+            )
+    else:
+        points = points.copy()
+        points["external_id"] = points["forecast_point_id"]
+    frames = inputs if inputs is not None else load_inputs(connection, event, row_scope=row_scope)
     history = frames["pm25_history"].copy()
     # The loader uses monitors.external_id; serving output uses forecast_points.id.
     history = history.rename(columns={"forecast_point_id": "external_id"}).merge(
