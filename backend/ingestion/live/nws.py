@@ -20,6 +20,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from ingestion.connectors._common import _PLACEHOLDER_MARKERS
 from ingestion.connectors.nws import (
     fetch_station_observations,
     normalize_nws_observation,
@@ -47,7 +48,8 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 def user_agent() -> str:
     ua = (settings.nws_user_agent or "").strip()
-    if "@" not in ua or "example.com" in ua.lower():
+    lowered = ua.lower()
+    if "@" not in ua or any(marker in lowered for marker in _PLACEHOLDER_MARKERS):
         raise RuntimeError(
             "NWS_USER_AGENT must name the app and a real contact address"
         )

@@ -33,6 +33,7 @@ _PLACEHOLDER_MARKERS = (
     "example.com",
     "changeme",
     "replace-me",
+    "your-real-domain",
     "<your",
 )
 
