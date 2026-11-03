@@ -100,10 +100,11 @@ to keep more, and `LIVE_RETENTION_DELETE=0` for a dry run (see `.env.example`).
 - **Memory:** backend and worker both import pandas/xgboost; the box has a 2 GB swapfile. Check
   `ssh deploy@<host> 'free -m; docker stats --no-stream'` after the first deploys. If services
   get OOM-killed, change `bundle_id` to the 4 GB plan.
-- **Worker slot:** the worker runs one Celery slot to save memory. If a slow source holds it, the
-  next scheduled runs can be dropped (`expires`). Watch `ingestion_runs` for gaps, and if they
-  happen try `--pool=threads --concurrency=3` (ingestion is I/O-bound; test it first) before
-  adding processes or upgrading the plan.
+- **Worker slot:** the worker runs one Celery slot to save memory. AirNow takes about 40-55 s
+  and NWS covers ~109 stations, so a slow run can hold the slot and the next scheduled runs can
+  be dropped (`expires`). Watch `ingestion_runs` for gaps. **Expect to need
+  `--pool=threads --concurrency=3` once OPS-04 jobs run on this worker** (ingestion is I/O-bound;
+  test it on staging first) before adding processes or upgrading the plan.
 - **Deploy checks:** `deploy.sh` waits for the backend to be healthy and for a worker to answer a
   Celery ping, so a green deploy means ingestion is up too. A failed pull or migration leaves
   `image.env` on the previous tag.
@@ -111,8 +112,11 @@ to keep more, and `LIVE_RETENTION_DELETE=0` for a dry run (see `.env.example`).
   containers restart on their own.
 - **Secrets:** rotate by editing `/opt/smokesense/.env` on the box, then re-run the deploy.
 - **TLS:** Caddy renews certificates automatically; the `caddy_data` volume must survive.
-- **API mode:** `MOCK_MODE=true` serves fixtures. `MOCK_MODE=false` needs the database repository
-  (API-01 follow-up); until then the backend refuses to start with it.
+- **API mode:** `MOCK_MODE=true` serves fixtures, and the map shows its "Demo data" badge
+  because `/meta` reports mock mode. `MOCK_MODE=false` needs the database repository (API-02 #55,
+  API-03 #56); until then the backend refuses to start with it. Any "no mock data" criterion
+  for staging depends on those issues, not on this deploy. The frontend image pins
+  `VITE_USE_MOCKS=false`, so the browser never mocks the API itself.
 - **Port 22** is open to the internet because GitHub runners have no fixed IPs. Login is key-only
   and fail2ban is on. Narrow `ssh_allowed_cidrs` if you stop using CI deploys.
 

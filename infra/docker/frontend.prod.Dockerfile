@@ -15,6 +15,11 @@ RUN npm ci
 COPY . .
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# Pinned off: process env beats a frontend/.env copied in by `COPY . .`, so a local build can
+# never ship the MSW fixtures. (The "Demo data" badge still shows while the API itself is in
+# MOCK_MODE.)
+ARG VITE_USE_MOCKS=false
+ENV VITE_USE_MOCKS=${VITE_USE_MOCKS}
 RUN npm run build
 
 FROM nginx:1.28-alpine
