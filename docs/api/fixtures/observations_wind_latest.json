@@ -1,0 +1,119 @@
+{
+  "type": "FeatureCollection",
+  "generated_at": "2024-07-27T18:40:00Z",
+  "max_age_hours": 3,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.85836,
+          39.79539
+        ]
+      },
+      "properties": {
+        "station_id": "KCIC",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 4.6,
+        "wind_dir_deg": 230
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.25222,
+          40.15019
+        ]
+      },
+      "properties": {
+        "station_id": "KRBL",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 5.7,
+        "wind_dir_deg": 200
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.618,
+          39.49
+        ]
+      },
+      "properties": {
+        "station_id": "KOVE",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 0.0,
+        "wind_dir_deg": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.21794,
+          39.51636
+        ]
+      },
+      "properties": {
+        "station_id": "KWLW",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 6.2,
+        "wind_dir_deg": 210
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.08174,
+          38.95482
+        ]
+      },
+      "properties": {
+        "station_id": "KAUN",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 3.1,
+        "wind_dir_deg": 250
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.56777,
+          39.10203
+        ]
+      },
+      "properties": {
+        "station_id": "KMYV",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 3.6,
+        "wind_dir_deg": 190
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.4366,
+          39.13609
+        ]
+      },
+      "properties": {
+        "station_id": "KBAB",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 4.1,
+        "wind_dir_deg": 180
+      }
+    }
+  ]
+}

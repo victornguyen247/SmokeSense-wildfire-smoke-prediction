@@ -54,6 +54,9 @@ class FixtureRepository:
     def latest_pm25(self, bbox: Bbox) -> Body:
         return self._load("observations_pm25_latest.json")
 
+    def latest_wind(self, bbox: Bbox) -> Body:
+        return self._load("observations_wind_latest.json")
+
     def meta(self) -> Body:
         return self._load("meta.json")
 
