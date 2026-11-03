@@ -2,7 +2,31 @@ import maplibregl, {
   type Map as MapLibreMap,
   type MapGeoJSONFeature,
   type MapLayerMouseEvent,
+  type PointLike,
 } from "maplibre-gl";
+
+// One popup per map, shared by every layer: overlapping features (a monitor on a
+// sensor) open one popup, the topmost layer's, since its handler was bound last.
+const popups = new WeakMap<MapLibreMap, maplibregl.Popup>();
+
+function sharedPopup(map: MapLibreMap): maplibregl.Popup {
+  let popup = popups.get(map);
+  if (!popup) {
+    popup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" });
+    popups.set(map, popup);
+  }
+  return popup;
+}
+
+// Layers that open a popup on click, so a plain map click (WEB-04: forecast here) can
+// leave clicks on their features alone.
+const popupLayers = new Set<string>();
+
+/** Whether a click at `point` hits a feature that opens a popup. */
+export function hasPopupFeatureAt(map: MapLibreMap, point: PointLike): boolean {
+  const layers = [...popupLayers].filter((id) => map.getLayer(id));
+  return layers.length > 0 && map.queryRenderedFeatures(point, { layers }).length > 0;
+}
 
 /** One line of a popup: plain text, styled by `className` (see `.map-popup` in index.css). */
 export type PopupLine = { text: string; className?: "map-popup__title" | "map-popup__muted" | "map-popup__warning" };
@@ -29,7 +53,7 @@ export function bindPointPopup(
   layerId: string,
   build: (feature: MapGeoJSONFeature) => PopupLine[],
 ): () => void {
-  const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" });
+  const popup = sharedPopup(map);
   const onClick = (event: MapLayerMouseEvent) => {
     const feature = event.features?.[0];
     if (!feature || feature.geometry.type !== "Point") return;
@@ -47,8 +71,10 @@ export function bindPointPopup(
   map.on("click", layerId, onClick);
   map.on("mouseenter", layerId, onEnter);
   map.on("mouseleave", layerId, onLeave);
+  popupLayers.add(layerId);
   return () => {
-    popup.remove();
+    popupLayers.delete(layerId);
+    if (popup.isOpen()) popup.remove();
     map.off("click", layerId, onClick);
     map.off("mouseenter", layerId, onEnter);
     map.off("mouseleave", layerId, onLeave);

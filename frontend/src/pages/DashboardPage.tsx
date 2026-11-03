@@ -1,14 +1,18 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 
+import { getForecastPoint, type PointQuery } from "../api/forecast";
 import type { HorizonHours, Meta } from "../api/models";
 import { AqiLegend } from "../components/forecast/AqiLegend";
 import { Disclaimer } from "../components/forecast/Disclaimer";
 import { ForecastStatus } from "../components/forecast/ForecastStatus";
 import { HorizonControl } from "../components/forecast/HorizonControl";
+import { LocationSearch } from "../components/forecast/LocationSearch";
+import { PointForecastCard } from "../components/forecast/PointForecastCard";
 import { LayerControl, type LayerVisibility } from "../components/map/LayerControl";
 import { ErrorMessage } from "../components/ui/ErrorMessage";
 import { MockModeBadge } from "../components/ui/MockModeBadge";
 import { Spinner } from "../components/ui/Spinner";
+import { useApiQuery } from "../hooks/useApiQuery";
 import { useForecastData } from "../hooks/useForecastData";
 import { useMeta } from "../hooks/useMeta";
 import { useObservedData } from "../hooks/useObservedData";
@@ -29,6 +33,25 @@ export function DashboardPage() {
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonHours | null>(null);
   const horizon = selectedHorizon ?? metaData?.horizons[0] ?? 1;
   const gridHorizon = grid.data?.horizons.find((h) => h.horizon_hours === horizon);
+
+  // WEB-04: the location the card shows, from a ZIP, the browser's location or a map click.
+  const [point, setPoint] = useState<{ query: PointQuery; label: string } | null>(null);
+  const pointForecast = useApiQuery(
+    (signal) => getForecastPoint(point!.query, signal),
+    point ? `point:${"zip" in point.query ? point.query.zip : `${point.query.lat},${point.query.lon}`}` : null,
+  );
+  const pickOnMap = useCallback((lat: number, lon: number) => {
+    // ~10 m: enough for a 12.5 km grid, and the key doesn't change on tiny mouse moves.
+    const query = { lat: Number(lat.toFixed(4)), lon: Number(lon.toFixed(4)) };
+    setPoint({ query, label: `${query.lat.toFixed(3)}, ${query.lon.toFixed(3)}` });
+  }, []);
+  // Pin the clicked or located spot; for a ZIP, the ZCTA centroid the API resolved it to.
+  const pinned =
+    point && "lat" in point.query
+      ? point.query
+      : pointForecast.status === "success"
+        ? { lat: pointForecast.data.query.lat, lon: pointForecast.data.query.lon }
+        : null;
 
   return (
     <div className="app">
@@ -51,6 +74,8 @@ export function DashboardPage() {
               sensors={sensors.data}
               wind={wind.data}
               visible={visible}
+              selectedLocation={pinned}
+              onPickLocation={pickOnMap}
             />
           </Suspense>
           {metaData?.forecast_stale && <StaleNotice meta={metaData} />}
@@ -65,6 +90,23 @@ export function DashboardPage() {
               message={meta.error.message}
               onRetry={meta.retry}
             />
+          )}
+          {metaData && (
+            <section className="panel-section" aria-labelledby="location-search-heading">
+              <h2 id="location-search-heading" className="panel-section__heading">
+                Forecast for a location
+              </h2>
+              <LocationSearch onSearch={(query, label) => setPoint({ query, label })} />
+              {point && (
+                <PointForecastCard
+                  label={point.label}
+                  forecast={pointForecast}
+                  meta={metaData}
+                  horizon={horizon}
+                  onClose={() => setPoint(null)}
+                />
+              )}
+            </section>
           )}
           {metaData && (
             <section className="panel-section" aria-labelledby="forecast-map-heading">
