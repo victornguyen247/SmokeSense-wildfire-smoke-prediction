@@ -306,7 +306,8 @@ def read_metadata(model_dir: Path) -> dict[str, Any]:
 
     def load(name: str) -> Any:
         p = model_dir / name
-        return json.loads(p.read_text()) if p.is_file() else None
+        # Python writes NaN/Infinity (e.g. precision with no positives); Postgres JSONB rejects them -> null.
+        return json.loads(p.read_text(), parse_constant=lambda _: None) if p.is_file() else None
 
     release, features = load("release.json"), load("features.json")
     if not isinstance(release, dict):

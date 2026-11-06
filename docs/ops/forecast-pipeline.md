@@ -1,0 +1,55 @@
+# Hourly forecast pipeline (OPS-04)
+
+Every hour at `PIPELINE_MINUTE` (default :40 UTC, after AirNow at :25 and NWS at :05) beat
+runs `pipeline.hourly`, which opens a `pipeline_runs` row for the current hour and
+starts a Celery chain, one task per stage:
+
+```
+check_ingest -> features -> predict -> interpolate -> finish
+```
+
+| Stage | Does | Writes |
+| --- | --- | --- |
+| `check_ingest` | Fails if AirNow or NWS observations are stale (`ingestion.live.freshness`) | nothing |
+| `features` | One feature row per active monitor point | a Parquet frame in `PIPELINE_WORK_DIR/<run id>/` |
+| `predict` | Stage A: forecasts at every monitor for the 5 horizons | `forecasts` (upsert) |
+| `interpolate` | Stage B: IDW of those onto grid cells (`serving.geo`) | `forecasts` (upsert, `source = 'idw'`) |
+| `finish` | Marks the run `success`; prunes runs over 90 days and old work files | `pipeline_runs` |
+
+Run it without a worker: `cd backend && python -m pipeline [ISO issued_at]` (exit code 1 if the run failed).
+Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-06T14:00:00Z"`.
+
+## Guarantees
+
+- **Retryable per stage.** Each stage is its own task with `PIPELINE_STAGE_RETRIES` (2) retries
+  and exponential backoff (`PIPELINE_RETRY_BACKOFF_S`, 20 s, capped at 3 min). Stages hand over
+  through the database or a Parquet file, so a retry never re-runs an earlier stage.
+  Worst case for a run that fails everywhere is about 4 stages x (3 attempts + backoff), well under 10 minutes.
+- **Re-running an hour overwrites.** Writes are `INSERT .. ON CONFLICT (forecast_point_id, model_key,
+  issued_at, horizon_hours) DO UPDATE`. Only `pipeline_runs` gains a row.
+- **Failure keeps the last good forecast.** Nothing is deleted on failure. When a stage has used up
+  its retries, `pipeline.fail` sets the run to `failed`, stores `<stage>: <error>` and logs one
+  ERROR line (`pipeline run <id> FAILED at <stage> ...`). That log line is the alert.
+- **Stale flag.** `pipeline.status.forecast_status(session)` returns the `/meta` fields
+  `model_key`, `latest_issued_at`, `forecast_age_minutes`, `forecast_stale_after_minutes`,
+  `forecast_stale`, from the newest *successful* run. `forecast_stale` is true once that run's
+  `issued_at` is older than `PIPELINE_STALE_AFTER_MINUTES` (150, about two missed hours) or
+  there is none. The API's `/meta` must merge it in (API-03, #56).
+- **Not atomic across stages.** If `interpolate` fails after `predict` succeeded, monitor points
+  have the new hour and grid cells the old one until the next good run; `/meta` reports stale.
+
+## Stub -> real is configuration
+
+| Variable | Values | Default |
+| --- | --- | --- |
+| `PIPELINE_FEATURES_STAGE` | `stub` (newest reading per monitor), `real` (`serving.geo.build_monitor_features`, skips the cycle if FIRMS is stale) | `stub` |
+| `PIPELINE_PREDICT_STAGE` | `stub` (persistence at all horizons, model `stub-persistence/v0`), or `package.module:callable` | `stub` |
+| `PIPELINE_INTERPOLATE_STAGE` | `real` (`serving.geo.interpolate_to_grid`) | `real` |
+
+A custom stage is `fn(StageContext) -> StageResult` (`pipeline/stages.py`). The `stub` model gets a
+`shadow` row in `model_versions` (the `forecasts.model_key` foreign key needs one); its forecasts are
+written with `is_shadow = false` so staging shows them.
+
+The real predict stage (ML-04's `InferenceService`, PR #92) is not wired yet: once it merges, add a
+`predict_inference` stage that builds the registry, calls `service.predict(features)` and writes the
+result with `pipeline.store.upsert_forecasts`, then register it in `BUILTIN` as `real` (or point `PIPELINE_PREDICT_STAGE` at it as `module:callable`).

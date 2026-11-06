@@ -29,3 +29,4 @@ ALERT_STATUSES = ("open", "resolved")
 
 INGESTION_SOURCES = ("firms", "nws_obs", "nws_fcst", "airdata", "purpleair")
 INGESTION_STATUSES = ("running", "success", "partial", "failed")
+PIPELINE_STATUSES = ("running", "success", "failed")
