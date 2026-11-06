@@ -83,7 +83,7 @@ There is no live PurpleAir job (team decision 2026-10-26, decision #41): the map
 
 ## Freshness (`/api/v1/meta` → `sources`)
 
-`ingestion.live.freshness.source_freshness(session)` returns the `sources` array of the Meta schema (`SourceFreshness`, `docs/api/openapi.yaml`), computed from `ingestion_runs`. It needs no extra table, and API-01's meta service can return it as is.
+`app.repositories.freshness.source_freshness(session)` returns the `sources` array of the Meta schema (`SourceFreshness`, `docs/api/openapi.yaml`), computed from `ingestion_runs`. It needs no extra table, and API-01's meta service can return it as is.
 
 | Field | From |
 |---|---|

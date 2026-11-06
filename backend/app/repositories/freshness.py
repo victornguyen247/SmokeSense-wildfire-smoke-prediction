@@ -2,7 +2,7 @@
 
 source_freshness() returns the `sources` array of the Meta schema in
 docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
-(timestamps are ISO-8601 UTC with "Z"). API-01's meta service can call it as is.
+(timestamps are ISO-8601 UTC with "Z").
 
 - last_success_at: finished_at of the newest run that succeeded (a "partial" run,
   e.g. NWS with one station down, counts: it wrote data).
@@ -13,7 +13,7 @@ docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
   healthy FIRMS feed can go hours without a detection.
 
 stale_after_minutes per source: FRESHNESS_STALE_AFTER_MINUTES_<SOURCE> (AIRNOW,
-FIRMS, NWS_OBS), defaulting to about two missed runs.
+FIRMS, NWS_OBS) in app/core/config.py, defaulting to about two missed runs.
 
 PurpleAir has no live job (decision #41), so it is not reported: Meta.sources sets no
 minimum and requires no particular source, and a source that never runs would always
@@ -27,8 +27,8 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models import IngestionRun
-from ingestion.live.common import env_int, utc_now
 
 # /meta source name -> ingestion_runs.source, in the contract's enum order.
 SOURCES = {
@@ -37,20 +37,13 @@ SOURCES = {
     "nws_obs": "nws_obs",
 }
 
-DEFAULT_STALE_AFTER_MINUTES = {
-    "airnow": 150,  # hourly at :25
-    "firms": 90,  # every 30 min
-    "nws_obs": 150,  # hourly at :05
-}
-
 
 def stale_after_minutes() -> dict[str, int]:
     """{source: minutes} for every live source."""
     return {
-        name: env_int(
-            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", default, minimum=1
-        )
-        for name, default in DEFAULT_STALE_AFTER_MINUTES.items()
+        "airnow": settings.freshness_stale_after_minutes_airnow,
+        "firms": settings.freshness_stale_after_minutes_firms,
+        "nws_obs": settings.freshness_stale_after_minutes_nws_obs,
     }
 
 
@@ -104,4 +97,6 @@ def source_freshness(session: Session, now: datetime | None = None) -> list[dict
         .group_by(IngestionRun.source)
     ).all()
     latest = {source: (finished, watermark) for source, finished, watermark in rows}
-    return freshness_from_runs(latest, now or utc_now(), stale_after_minutes())
+    return freshness_from_runs(
+        latest, now or datetime.now(timezone.utc), stale_after_minutes()
+    )

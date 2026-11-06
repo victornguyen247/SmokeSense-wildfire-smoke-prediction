@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { MAP_STYLE_URL } from "../../constants/env";
 import { CALIFORNIA_BOUNDS, MAX_BOUNDS } from "../../constants/map";
+import { DATA_ATTRIBUTION } from "../../constants/sources";
 import { MapContext } from "../../context/MapContext";
 
 const NO_WEBGL = "Your browser can't display the map (WebGL is unavailable).";
@@ -47,7 +48,7 @@ export default function MapView({ children }: MapViewProps) {
       bounds: CALIFORNIA_BOUNDS,
       fitBoundsOptions: { padding: 24 },
       maxBounds: MAX_BOUNDS,
-      attributionControl: { compact: true },
+      attributionControl: { compact: true, customAttribution: DATA_ATTRIBUTION },
       dragRotate: false,
       pitchWithRotate: false,
     });

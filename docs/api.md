@@ -204,10 +204,10 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 
 ### `/meta`
 
-- The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per source (`airnow`, `purpleair`, `firms`, `nws_obs`).
+- The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per live source (`airnow`, `firms`, `nws_obs`). PurpleAir has no live job (decision #41), so it is left out of `sources`, and `/observations` returns only AirNow for now.
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
 - `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
-- **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
+- **Stale thresholds** are settings: `FORECAST_STALE_AFTER_MINUTES` (150) and `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>` (AirNow 150, NWS 150, FIRMS 90). They are about two missed runs and can change without touching the UI. The values in the fixture are placeholders.
 
 ## Fixtures
 
@@ -242,10 +242,10 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 
 The FastAPI app in `backend/app` implements this contract.
 
-- **Mock mode.** With `MOCK_MODE=true` (the default until API-03), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
+- **Mock mode.** With `MOCK_MODE=true` (the default), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
 - **Set `MOCK_MODE` explicitly in deployments.** It defaults to `true`, so a staging or production deploy that leaves it out silently serves demo data. Staging and production must set `MOCK_MODE=false` once the database layer exists (OPS-03).
 - **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database repository then checks against the grid cells and `zip_codes`, so Reno is rejected even though it is inside the box.
-- **Database mode (API-02).** With `MOCK_MODE=false`, `/grid/cells` and `/forecast/*` read PostGIS. `/fires`, `/observations` and `/meta` fail with `internal_error` until API-03 rather than serve fixtures as if they were live.
+- **Database mode.** With `MOCK_MODE=false`, every data endpoint reads PostGIS.
 - **One cycle per response.** The cycle is the newest non-shadow `issued_at` of a production model. A point left out of that cycle has no forecast; it never falls back to an older one. The writer (OPS-04) must commit each cycle in one transaction, or clients see a partial cycle.
 - **Caching.** `/forecast/grid` and `/forecast/monitors` are cached in process until a newer cycle exists (`app/repositories/cache.py`), by bbox. `/forecast/point` isn't cached: its lookups are indexed, and coordinates rarely repeat.
 - **Fake forecasts.** `python -m app.db.seed_fake_forecasts` (or `make seed-fake`) writes one invented cycle to a local database, so the API can run before the pipeline exists. It refuses non-local databases.
@@ -263,9 +263,7 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 
 | Item | Owner | Status |
 |---|---|---|
-| Stale thresholds per source, and forecast age | TBD | Undecided; fields in place and served from `/meta`, values provisional |
-| `airnow` is not yet an ingestion source in `ingestion_runs` | DATA | Needed before `/meta` can report AirNow freshness |
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
-| Attribution text (AirNow, FIRMS, PurpleAir, NWS) | TBD | Not in v1 of this contract yet |
+| Attribution text | Team | In the frontend (`DATA_ATTRIBUTION`), not in this contract; check it against each provider's terms before launch |

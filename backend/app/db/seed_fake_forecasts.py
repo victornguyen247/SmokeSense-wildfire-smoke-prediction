@@ -20,6 +20,7 @@ from sqlalchemy import Connection, create_engine, text
 from sqlalchemy.engine import make_url
 
 from app.core.config import settings
+from app.core.geo import MAX_INTERPOLATION_DIST_KM
 from app.core.ids import uuid7
 from app.models.values import HORIZON_HOURS
 
@@ -27,7 +28,6 @@ FAKE_MODEL_NAME = "fake_forecasts"
 FAKE_MODEL_VERSION = "0.0.0"
 FAKE_MODEL_KEY = f"{FAKE_MODEL_NAME}/{FAKE_MODEL_VERSION}"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "db"}
-MAX_INTERPOLATION_KM = 50.0
 TIMEZONE = "America/Los_Angeles"
 
 # (name, lat, lon). Spread out, so some cells end up with no monitor in range.
@@ -156,7 +156,7 @@ def seed_monitors(connection: Connection, seen_at: datetime) -> None:
 def seed_fake_forecasts(
     connection: Connection,
     issued_at: datetime,
-    radius_km: float = MAX_INTERPOLATION_KM,
+    radius_km: float = MAX_INTERPOLATION_DIST_KM,
 ) -> None:
     has_cells = connection.scalar(
         text("SELECT EXISTS (SELECT 1 FROM forecast_points WHERE kind = 'grid_cell' AND active)")
@@ -196,7 +196,7 @@ def main() -> None:
         type=datetime.fromisoformat,
         help="Cycle time, ISO-8601 with an offset. Default: the top of this UTC hour.",
     )
-    parser.add_argument("--radius-km", type=float, default=MAX_INTERPOLATION_KM)
+    parser.add_argument("--radius-km", type=float, default=MAX_INTERPOLATION_DIST_KM)
     args = parser.parse_args()
 
     require_local_database(settings.database_url)

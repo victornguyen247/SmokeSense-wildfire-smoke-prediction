@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from ingestion.live.freshness import (
+from app.core.config import Settings, settings
+from app.repositories.freshness import (
     SOURCES,
     freshness_from_runs,
     source_freshness,
@@ -23,10 +24,8 @@ THRESHOLDS = {"airnow": 150, "firms": 90, "nws_obs": 150}
 @pytest.fixture(autouse=True)
 def default_thresholds(monkeypatch):
     """No threshold overrides from the environment."""
-    for name in THRESHOLDS:
-        monkeypatch.delenv(
-            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", raising=False
-        )
+    for name, minutes in THRESHOLDS.items():
+        monkeypatch.setattr(settings, f"freshness_stale_after_minutes_{name}", minutes)
 
 
 def source_freshness_schema() -> dict:
@@ -136,7 +135,18 @@ def test_meta_sources_allows_omitting_a_source():
 
 
 def test_thresholds_are_configurable(monkeypatch, live_db):
-    monkeypatch.setenv("FRESHNESS_STALE_AFTER_MINUTES_FIRMS", "15")
+    monkeypatch.setattr(settings, "freshness_stale_after_minutes_firms", 15)
     with live_db() as s:
         items = {i["source"]: i for i in source_freshness(s, now=NOW)}
     assert items["firms"]["stale_after_minutes"] == 15
+
+
+@pytest.mark.parametrize("value", ["", "  ", "soon", "0", "-5"])
+def test_a_bad_threshold_uses_the_default_instead_of_stopping_the_app(monkeypatch, value):
+    monkeypatch.setenv("FRESHNESS_STALE_AFTER_MINUTES_FIRMS", value)
+    assert Settings(_env_file=None).freshness_stale_after_minutes_firms == 90
+
+
+def test_a_threshold_is_read_from_the_environment(monkeypatch):
+    monkeypatch.setenv("FRESHNESS_STALE_AFTER_MINUTES_FIRMS", "15")
+    assert Settings(_env_file=None).freshness_stale_after_minutes_firms == 15

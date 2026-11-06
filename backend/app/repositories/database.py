@@ -1,12 +1,9 @@
-"""The real repository: forecasts from PostGIS, in the shapes of docs/api/openapi.yaml.
+"""The real repository: data from PostGIS, in the shapes of docs/api/openapi.yaml.
 
 Every response comes from one forecast cycle, because the contract carries a single
 `issued_at` and `model_key`. The cycle is the newest non-shadow `issued_at` of a
 production model, so a point left out of that cycle has no forecast rather than an
 older one. The writer must therefore commit each cycle in one transaction.
-
-/fires, /observations and /meta are API-03. They raise here instead of falling back to
-the fixtures, which would pass demo data off as live.
 """
 
 from __future__ import annotations
@@ -20,14 +17,30 @@ from typing import Any, NamedTuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings
 from app.core.errors import ApiError
-from app.core.geo import DEFAULT_CELL_SIZE_M, california_grid_key
+from app.core.geo import (
+    DEFAULT_CELL_SIZE_M,
+    LOW_CONFIDENCE_DIST_KM,
+    MAX_INTERPOLATION_DIST_KM,
+    california_grid_key,
+)
 from app.core.scope import CALIFORNIA_BBOX, OUT_OF_SCOPE
 from app.models.values import HORIZON_HOURS
 from app.repositories.base import Body
 from app.repositories.cache import CycleCache
+from app.repositories.freshness import source_freshness
 from app.schemas.query import Bbox, PointQuery
-from shared.aqi import AQI_TABLE_VERSION, aqi_category, truncate_pm25
+from shared.aqi import (
+    AQI_CATEGORIES,
+    AQI_CATEGORY_LABEL,
+    AQI_TABLE_VERSION,
+    aqi_category,
+    truncate_pm25,
+)
+
+FIRE_WINDOW_HOURS = 72
+OBSERVATION_MAX_AGE_HOURS = 2
 
 ENVELOPE = "ST_MakeEnvelope(:min_lon, :min_lat, :max_lon, :max_lat, 4326)"
 QUERY_POINT = "ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"
@@ -45,6 +58,13 @@ LATEST_CYCLE = text("""
     ) AS newest
     WHERE m.status = 'production'
     ORDER BY newest.issued_at DESC, m.model_key
+    LIMIT 1
+""")
+
+PRODUCTION_MODEL = text("""
+    SELECT model_key FROM model_versions
+    WHERE status = 'production'
+    ORDER BY status_changed_at DESC NULLS LAST, model_key
     LIMIT 1
 """)
 
@@ -137,6 +157,37 @@ NEAREST_MONITOR = text(f"""
 """)
 
 
+ACTIVE_FIRES = text(f"""
+    SELECT f.id, f.detected_at, f.satellite, f.product, f.confidence_level, f.confidence_raw,
+           f.frp_mw, f.daynight,
+           ST_Y(f.geom::geometry) AS lat, ST_X(f.geom::geometry) AS lon
+    FROM fire_detections AS f
+    WHERE f.satellite = 'VIIRS_SNPP'
+      AND f.detected_at >= :window_start AND f.detected_at < :window_end
+      AND ST_Intersects(f.geom::geometry, {ENVELOPE})
+    ORDER BY f.detected_at DESC, f.id
+""")
+
+# Each sensor's newest eligible reading (docs/api.md). Raw and failed-QA PurpleAir values
+# never count, so an older good reading wins over a newer bad one.
+LATEST_OBSERVATIONS = text(f"""
+    SELECT DISTINCT ON (o.monitor_id)
+           o.monitor_id, o.valid_at, o.pm25, o.correction,
+           m.source AS provider, m.aqs_code, m.external_id, m.name,
+           ST_Y(m.geom::geometry) AS lat, ST_X(m.geom::geometry) AS lon
+    FROM observations AS o
+    JOIN monitors AS m ON m.id = o.monitor_id
+    WHERE o.valid_at >= :oldest AND o.valid_at <= :now
+      AND m.active AND m.location_type = 'outdoor'
+      AND (
+          (m.source = 'airnow' AND o.correction = 'regulatory' AND m.aqs_code IS NOT NULL)
+          OR (m.source = 'purpleair' AND o.correction = 'purpleair_barkjohn' AND o.qa_flag = 'ok')
+      )
+      AND ST_Intersects(m.geom::geometry, {ENVELOPE})
+    ORDER BY o.monitor_id, o.valid_at DESC
+""")
+
+
 class Cycle(NamedTuple):
     issued_at: datetime
     model_key: str
@@ -154,6 +205,10 @@ class Location(NamedTuple):
 
 def iso(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC).replace(microsecond=0)
 
 
 def lat_lon(lat: float, lon: float) -> Body:
@@ -191,6 +246,40 @@ def monitor_feature(rows: Iterable[Any]) -> Body:
             "aqs_code": first.aqs_code,
             "name": first.name,
             "forecasts": [forecast_value(row) for row in rows],
+        },
+    }
+
+
+def fire_feature(row: Any) -> Body:
+    return {
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [round(row.lon, 5), round(row.lat, 5)]},
+        "properties": {
+            "detection_id": row.id,
+            "detected_at": iso(row.detected_at),
+            "satellite": row.satellite,
+            "product": row.product,
+            "confidence": row.confidence_level,
+            "confidence_raw": row.confidence_raw,
+            "frp_mw": None if row.frp_mw is None else round(row.frp_mw, 1),
+            "daynight": row.daynight,
+        },
+    }
+
+
+def observation_feature(row: Any) -> Body:
+    return {
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [round(row.lon, 5), round(row.lat, 5)]},
+        "properties": {
+            "monitor_id": row.monitor_id,
+            "provider": row.provider,
+            "station_code": row.aqs_code if row.provider == "airnow" else row.external_id,
+            "name": row.name,
+            "valid_at": iso(row.valid_at),
+            "pm25": truncate_pm25(row.pm25),
+            "aqi_category": aqi_category(row.pm25),
+            "correction": row.correction,
         },
     }
 
@@ -254,19 +343,75 @@ class DatabaseRepository:
             }
 
     def active_fires(self, bbox: Bbox) -> Body:
-        raise NotImplementedError("/fires/active needs API-03")
+        now = utc_now()
+        window_start = now - timedelta(hours=FIRE_WINDOW_HOURS)
+        params = {**bbox._asdict(), "window_start": window_start, "window_end": now}
+        with self.sessions() as session:
+            self._check_bbox(session, bbox)
+            rows = session.execute(ACTIVE_FIRES, params).all()
+        return {
+            "type": "FeatureCollection",
+            "generated_at": iso(now),
+            "window_hours": FIRE_WINDOW_HOURS,
+            "window_start": iso(window_start),
+            "window_end": iso(now),
+            "detection_count": len(rows),
+            "features": [fire_feature(row) for row in rows],
+        }
 
     def latest_pm25(self, bbox: Bbox) -> Body:
-        raise NotImplementedError("/observations/pm25/latest needs API-03")
+        now = utc_now()
+        oldest = now - timedelta(hours=OBSERVATION_MAX_AGE_HOURS)
+        with self.sessions() as session:
+            self._check_bbox(session, bbox)
+            rows = session.execute(
+                LATEST_OBSERVATIONS, {**bbox._asdict(), "oldest": oldest, "now": now}
+            ).all()
+        return {
+            "type": "FeatureCollection",
+            "generated_at": iso(now),
+            "max_age_hours": OBSERVATION_MAX_AGE_HOURS,
+            "aqi_table_version": AQI_TABLE_VERSION,
+            "features": [observation_feature(row) for row in rows],
+        }
 
     def meta(self) -> Body:
-        raise NotImplementedError("/meta needs API-03")
+        """Everything but mock_mode, which meta_service sets from the setting."""
+        now = utc_now()
+        with self.sessions() as session:
+            cycle = self._find_cycle(session)
+            model_key = cycle.model_key if cycle else session.scalar(PRODUCTION_MODEL)
+            sources = source_freshness(session, now)
+        age = None if cycle is None else max(0, int((now - cycle.issued_at).total_seconds() // 60))
+        stale_after = settings.forecast_stale_after_minutes
+        return {
+            "generated_at": iso(now),
+            "api_version": "v1",
+            "model_key": model_key,
+            "model_status": None if model_key is None else "production",
+            "latest_issued_at": None if cycle is None else iso(cycle.issued_at),
+            "forecast_age_minutes": age,
+            "forecast_stale_after_minutes": stale_after,
+            "forecast_stale": age is None or age > stale_after,
+            "horizons": list(HORIZON_HOURS),
+            "grid_key": california_grid_key(),
+            "low_confidence_dist_km": LOW_CONFIDENCE_DIST_KM,
+            "max_interpolation_dist_km": MAX_INTERPOLATION_DIST_KM,
+            "aqi_category_label": AQI_CATEGORY_LABEL,
+            "aqi_table_version": AQI_TABLE_VERSION,
+            "aqi_categories": [category._asdict() for category in AQI_CATEGORIES],
+            "sources": sources,
+        }
+
+    def _find_cycle(self, session: Session) -> Cycle | None:
+        row = session.execute(LATEST_CYCLE).first()
+        return None if row is None else Cycle(row.issued_at, row.model_key)
 
     def _latest_cycle(self, session: Session) -> Cycle:
-        row = session.execute(LATEST_CYCLE).first()
-        if row is None:
+        cycle = self._find_cycle(session)
+        if cycle is None:
             raise ApiError(503, "forecast_unavailable", "No forecast cycle is available yet.")
-        return Cycle(row.issued_at, row.model_key)
+        return cycle
 
     def _check_bbox(self, session: Session, bbox: Bbox) -> None:
         """CALIFORNIA_BBOX is a rough box, so a clipped bbox can still miss the state."""

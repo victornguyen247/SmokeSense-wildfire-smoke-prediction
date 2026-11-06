@@ -4,10 +4,11 @@ Single source of truth for settings. Everything reads from here instead of
 calling os.getenv directly, so config is typed and validated at startup.
 """
 
+import logging
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # docs/api/ (the OpenAPI spec and its fixtures), found from this file: <repo>/backend/app/core/
@@ -28,14 +29,18 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True)
 
     # --- API (API-01) ---
-    # Serve docs/api/fixtures instead of the database. Stays on until API-03: with it off,
-    # /forecast/* and /grid/cells are real, but /fires, /observations and /meta fail with
-    # internal_error.
+    # Serve docs/api/fixtures instead of the database. Deployments must set this explicitly.
     mock_mode: bool = True
     # Browser origins allowed to call the API, comma-separated (docs/api.md, "CORS").
     # Add the staging and production frontend origins here when they exist.
     cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     api_contract_dir: Path = DEFAULT_API_CONTRACT_DIR
+    # /meta: a forecast is stale when its cycle is older than this.
+    forecast_stale_after_minutes: int = 150  # about two missed hourly cycles
+    # /meta: a source is stale when its last successful run finished longer ago than this.
+    freshness_stale_after_minutes_airnow: int = 150  # hourly at :25
+    freshness_stale_after_minutes_firms: int = 90  # every 30 min
+    freshness_stale_after_minutes_nws_obs: int = 150  # hourly at :05
 
     # --- Database (PostGIS) ---
     postgres_user: str = "smokesense"
@@ -74,6 +79,28 @@ class Settings(BaseSettings):
     registry_s3_bucket: str = "smoke-sense"
     registry_s3_prefix: str = "models"
     registry_s3_endpoint_url: str = ""  # R2: https://<account-id>.r2.cloudflarestorage.com
+
+    @field_validator(
+        "forecast_stale_after_minutes",
+        "freshness_stale_after_minutes_airnow",
+        "freshness_stale_after_minutes_firms",
+        "freshness_stale_after_minutes_nws_obs",
+        mode="before",
+    )
+    @classmethod
+    def minutes_or_default(cls, value: object, info: ValidationInfo) -> object:
+        """A blank or bad value means the default: .env.example leaves these blank, and a
+        display threshold must not stop the API or the workers from starting."""
+        default = cls.model_fields[info.field_name].default
+        text = str(value).strip()
+        if not text:
+            return default
+        if text.isdecimal() and int(text) >= 1:
+            return int(text)
+        logging.getLogger(__name__).error(
+            "%s=%r is not a positive whole number; using %s", info.field_name, text, default
+        )
+        return default
 
     @property
     def cors_origins(self) -> list[str]:
