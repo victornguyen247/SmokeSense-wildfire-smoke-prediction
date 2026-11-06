@@ -1,0 +1,15 @@
+# SITE_ADDRESS is a hostname like 203-0-113-10.sslip.io (free wildcard DNS for the box's
+# static IP). Caddy gets and renews a Let's Encrypt certificate for it on its own and
+# redirects HTTP to HTTPS. Ports 80 and 443 must be reachable for that.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	@backend path /api/* /health /docs /docs/* /openapi.json
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:80
+	}
+}

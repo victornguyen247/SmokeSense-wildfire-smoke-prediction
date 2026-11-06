@@ -72,6 +72,9 @@ Turns raw records into model inputs: distance and bearing from fire to location,
 ### ML (`backend/ml/`)
 Training, evaluation, and inference. Training runs **offline** and produces a model artifact. Inference loads that artifact and exposes a `predict()` function. See [ml.md](ml.md).
 
+### Serving orchestration (`backend/serving/`)
+Loads seeded live monitor/grid points and source frames, calls the shared feature calculations in `features/`, and interpolates monitor forecasts onto grid centroids. Historical parity can supply v1 points and historical input snapshots without live seeds. This layer accepts database connections from its caller; `features/` remains independent of `app/`. Model loading, forecast writes and scheduling remain the caller's responsibility. See [GEO-03](../backend/docs/geo03.md).
+
 ### Backend API (`backend/app/`)
 A FastAPI application. Routes are thin: validate the request, call a service, return the response. Services hold the business logic and call into `ml/inference` for predictions and into the database for data. See [backend.md](backend.md).
 
