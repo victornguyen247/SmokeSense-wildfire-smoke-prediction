@@ -485,6 +485,13 @@ class Registry:
 def build_registry() -> Registry:
     from app.core.config import settings
 
+    # boto3 reads AWS_* from the process environment only, and Settings (pydantic) reads
+    # .env into its own fields without exporting it. Load it here so a local run works
+    # like Docker's env_file; real environment variables still win (override=False).
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
+
     backend = settings.registry_backend
     if backend == "local":
         store: Store = LocalStore(resolve_dir(settings.registry_local_dir))
