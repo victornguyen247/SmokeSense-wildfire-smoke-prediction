@@ -129,9 +129,17 @@ class InferenceService:
                 if g != w
             ]
             raise FeatureFrameError(f"columns out of features.json order at {wrong}")
-        issued = pd.to_datetime(features["issued_at"])
-        if issued.dt.tz is None:
+        try:
+            issued = pd.to_datetime(features["issued_at"])
+        except (ValueError, TypeError) as e:
+            # pandas raises here for mixed UTC offsets and for non-timestamps.
+            raise FeatureFrameError(
+                f"issued_at must be timezone-aware UTC timestamps with one offset: {e}"
+            ) from e
+        if not isinstance(issued.dtype, pd.DatetimeTZDtype):
             raise FeatureFrameError("issued_at must be timezone-aware UTC")
+        if issued.isna().any():
+            raise FeatureFrameError("issued_at has missing values")
         return features[wanted].assign(issued_at=issued.dt.tz_convert("UTC"))
 
     def predict(self, features: pd.DataFrame) -> pd.DataFrame:

@@ -131,6 +131,15 @@ def test_duplicate_columns_and_naive_issue_time_are_rejected(svc):
         svc.predict(f.assign(issued_at=ISSUED.tz_localize(None)))
 
 
+def test_mixed_offset_and_missing_issue_times_are_rejected(svc):
+    f = features(2)
+    mixed = pd.Series([ISSUED, ISSUED.tz_convert("America/Los_Angeles")], dtype=object)
+    with pytest.raises(FeatureFrameError, match="timezone-aware"):
+        svc.predict(f.assign(issued_at=mixed))
+    with pytest.raises(FeatureFrameError, match="missing values"):
+        svc.predict(f.assign(issued_at=[ISSUED, pd.NaT]))
+
+
 # --------------------------------------------------------------------------- output
 
 
@@ -242,6 +251,25 @@ def test_model_key_swap_changes_only_the_key(dirs):
     reg.production = "baseline/v1"  # a promote / rollback
     c = InferenceService.from_registry(reg, name="baseline").predict(f)
     pd.testing.assert_frame_equal(b, c)
+
+
+def test_real_v1_features_json_takes_the_same_frame_without_warnings(
+    dirs, tmp_path, caplog
+):
+    """baseline_v1's features.json lists FEATURES (no derived columns), not FEATURES_V2."""
+    import shutil
+
+    v1 = tmp_path / "v1_real_shape"
+    shutil.copytree(dirs["baseline/v1"], v1)
+    (v1 / "features.json").write_text(json.dumps({"features": FEATURES}))
+    v1_svc = InferenceService.from_dir(v1, "baseline/v1")
+    assert list(v1_svc.input_columns) == INPUTS
+    f = features(6)
+    with caplog.at_level(logging.WARNING, logger="ml.inference.service"):
+        out = v1_svc.predict(f)
+    assert "dropping" not in caplog.text
+    same = InferenceService.from_dir(dirs["baseline/v1"], "baseline/v1").predict(f)
+    pd.testing.assert_frame_equal(out, same)
 
 
 def test_from_registry_needs_exactly_one_selector(dirs):

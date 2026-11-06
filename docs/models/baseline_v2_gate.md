@@ -32,7 +32,7 @@ The 6 h numbers are on persistence rows: 27,824 rows, 4,809 of them ≥ 35.5 µg
 
 - **Only with the lower cut-off.** v2 is anchored on persistence and pulls readings back toward levels it saw in training. That makes it conservative near 35.5: at the fixed 35.5 cut-off it misses more exceedances than persistence (recall 0.567). The served threshold of 25.5 is the median of the 13 fold cut-offs (decision #30). It buys recall with precision, so **v2's alert F1 is level with persistence, not better.** The card reaches the same conclusion with per-fold cut-offs on all rows (F1 0.686 vs 0.683).
 - **Slightly optimistic.** Each fold's cut-off was tuned on its own training groups. The median of 13 cut-offs therefore carries some information from every group, including the one being scored. The strict per-fold figure from the card is recall 0.690 (P 0.682): still above persistence's 0.682, by a hair.
-- **Pooled, not per group.** Per held-out group at 6 h, recall is higher than persistence in 5 groups and lower in 4. The other 4 groups (G-PE-015/017/018/020) have ≤ 5 positives, and both models score 0 there.
+- **Pooled, not per group.** Per held-out group at 6 h, recall is higher than persistence in 4 groups and lower in 5. The other 4 groups (G-PE-015/017/018/020) have ≤ 5 positives, and both models score 0 there.
 
 | Group (positives) | Persistence recall | v2 recall | False alarms (persistence / v2) |
 |---|---|---|---|
