@@ -1,0 +1,141 @@
+name: Deploy staging
+
+# Merge to prod -> build images -> push to GHCR -> deploy to the Lightsail box over SSH.
+# Manual run with an image_tag redeploys an existing image (rollback, no rebuild).
+# Setup and secrets: docs/ops/staging.md.
+on:
+  push:
+    branches: [prod]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Existing image tag (git SHA) to deploy, e.g. to roll back. Empty builds the current commit."
+        required: false
+        default: ""
+
+# One deploy at a time; a newer push waits instead of cancelling a half-finished deploy.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.image }} image
+    # Only prod ever deploys: a manual run from another branch must not ship its code.
+    if: github.ref == 'refs/heads/prod' && inputs.image_tag == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: backend
+            context: backend
+            dockerfile: infra/docker/backend.Dockerfile
+          - image: frontend
+            context: frontend
+            dockerfile: infra/docker/frontend.prod.Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase the registry owner
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64 # Lightsail runs x86
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/smokesense-${{ matrix.image }}:${{ github.sha }}
+          # Links the package to this repo so GITHUB_TOKEN can pull it on deploy.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: Deploy to staging
+    needs: build
+    # Runs after a successful build, or alone when the build was skipped (manual rollback).
+    if: >-
+      github.ref == 'refs/heads/prod' && !cancelled() &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_HOST }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      HOST: ${{ vars.STAGING_HOST }}
+      IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check inputs
+        run: |
+          [ -n "$HOST" ] || { echo "Repository variable STAGING_HOST is not set"; exit 1; }
+          [[ "$IMAGE_TAG" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || { echo "Invalid image tag"; exit 1; }
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      # The host key is pinned (secret), not discovered, so a hijacked IP cannot take the deploy key.
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Copy stack files to the box
+        run: |
+          scp infra/staging/docker-compose.yml infra/staging/Caddyfile infra/staging/deploy.sh \
+            "deploy@$HOST:/opt/smokesense/"
+
+      - name: Deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh "deploy@$HOST" \
+            "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+          ssh "deploy@$HOST" \
+            "bash /opt/smokesense/deploy.sh 'ghcr.io/$OWNER/smokesense' '$IMAGE_TAG'"
+
+      # From the runner, through DNS and Caddy's TLS, so this proves the public path works.
+      - name: Smoke test
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
+            "https://$HOST/api/v1/health"
+          echo
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 --retry-all-errors \
+            --output /dev/null "https://$HOST/"
+
+      - name: Remove the registry token from the box
+        if: always()
+        run: ssh "deploy@$HOST" "docker logout ghcr.io" || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Staging deploy"
+            echo "- Image tag: \`$IMAGE_TAG\`"
+            echo "- URL: https://$HOST"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
