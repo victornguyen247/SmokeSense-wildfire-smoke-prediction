@@ -169,6 +169,28 @@ def predict_stub(ctx: StageContext) -> StageResult:
     return StageResult(rows_in=len(features), rows_out=written, model_key=model_key)
 
 
+def load_service():
+    """The production model's InferenceService (ML-04), built from the registry. A hook
+    so tests can supply a fake; the registry itself is built here, so ml/ never imports app/."""
+    from ml.inference.service import InferenceService
+    from mlops.registry import build_registry
+
+    return InferenceService.from_registry(build_registry(), name=settings.model_name())
+
+
+def predict_real(ctx: StageContext) -> StageResult:
+    """Stage A with the registry's production model (v2 or persistence per release.json).
+    Needs the full feature frame, so use it with PIPELINE_FEATURES_STAGE=real."""
+    features = ctx.load("features")
+    out = load_service().predict(features)
+    if out.empty:
+        raise StageError("the model produced no forecasts (all inputs missing)")
+    written = upsert_forecasts(ctx.session, out)
+    ctx.session.commit()
+    ctx.save("monitor_forecasts", out)
+    return StageResult(rows_in=len(features), rows_out=written, model_key=str(out["model_key"].iloc[0]))
+
+
 # ---- interpolate --------------------------------------------------------------------
 
 
@@ -188,7 +210,7 @@ def interpolate_idw(ctx: StageContext) -> StageResult:
 BUILTIN: dict[str, dict[str, Stage]] = {
     "check_ingest": {"real": check_ingest},
     "features": {"stub": features_stub, "real": features_real},
-    "predict": {"stub": predict_stub},
+    "predict": {"stub": predict_stub, "real": predict_real},
     "interpolate": {"real": interpolate_idw},
 }
 STAGE_ORDER = ("check_ingest", "features", "predict", "interpolate")

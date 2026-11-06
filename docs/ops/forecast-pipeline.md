@@ -43,13 +43,22 @@ Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-
 | Variable | Values | Default |
 | --- | --- | --- |
 | `PIPELINE_FEATURES_STAGE` | `stub` (newest reading per monitor), `real` (`serving.geo.build_monitor_features`, skips the cycle if FIRMS is stale) | `stub` |
-| `PIPELINE_PREDICT_STAGE` | `stub` (persistence at all horizons, model `stub-persistence/v0`), or `package.module:callable` | `stub` |
+| `PIPELINE_PREDICT_STAGE` | `stub` (persistence at all horizons, model `stub-persistence/v0`), `real` (registry production model via `InferenceService`), or `package.module:callable` | `stub` |
 | `PIPELINE_INTERPOLATE_STAGE` | `real` (`serving.geo.interpolate_to_grid`) | `real` |
 
 A custom stage is `fn(StageContext) -> StageResult` (`pipeline/stages.py`). The `stub` model gets a
 `shadow` row in `model_versions` (the `forecasts.model_key` foreign key needs one); its forecasts are
 written with `is_shadow = false` so staging shows them.
 
-The real predict stage (ML-04's `InferenceService`, PR #92) is not wired yet: once it merges, add a
-`predict_inference` stage that builds the registry, calls `service.predict(features)` and writes the
-result with `pipeline.store.upsert_forecasts`, then register it in `BUILTIN` as `real` (or point `PIPELINE_PREDICT_STAGE` at it as `module:callable`).
+`PIPELINE_PREDICT_STAGE=real` serves the registry's production version of `PIPELINE_MODEL_NAME`
+(default `baseline`) through ML-04's `InferenceService` (`ml.inference.service`), so `baseline/v2`
+once promoted (docs/mlops/registry.md). It needs the full feature frame, so set
+`PIPELINE_FEATURES_STAGE=real` with it; the run fails at `predict` with a missing-columns error otherwise.
+The registry comes from `REGISTRY_*` settings (`mlops.registry.build_registry`).
+
+To go live: register and promote the model, then set
+
+```
+PIPELINE_FEATURES_STAGE=real
+PIPELINE_PREDICT_STAGE=real
+```

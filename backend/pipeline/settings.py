@@ -25,6 +25,11 @@ def stage_choice(stage: str) -> str:
     return os.getenv(env, "").strip() or default
 
 
+def model_name() -> str:
+    """Registry model whose production version the real predict stage serves."""
+    return os.getenv("PIPELINE_MODEL_NAME", "").strip() or "baseline"
+
+
 def run_minute() -> int:
     """Minute past the hour. After AirNow (:25) and NWS (:05) so the hour that just
     ended is published before the features read it."""

@@ -185,3 +185,43 @@ def test_celery_wiring():
         task = celery_app.tasks[f"pipeline.stage.{stage}"]
         assert task.max_retries == settings.max_retries()
     assert {"pipeline.hourly", "pipeline.finish", "pipeline.fail"} <= set(celery_app.tasks)
+
+
+def test_real_predict_writes_the_models_forecasts(live_db, monkeypatch):
+    """predict=real hands the features to the registry's InferenceService and upserts its rows."""
+    import pandas as pd
+    from pipeline import stages
+
+    with live_db() as s:
+        seed(s)
+        s.execute(text("""
+            INSERT INTO model_versions (model_key, model_name, version, algorithm, artifact_uri,
+                artifact_sha256, feature_list, status)
+            VALUES ('baseline/v2', 'baseline', 'v2', 'xgboost', 'file://x', 'x', '[]'::jsonb, 'production')
+        """))
+        s.commit()
+    seen = {}
+
+    class FakeService:
+        def predict(self, features):
+            seen["columns"] = list(features.columns)
+            rows = [features.assign(horizon_hours=h) for h in (1, 3, 6, 12, 24)]
+            out = pd.concat(rows, ignore_index=True)
+            out["pm25_predicted"] = out["pm25_lag_1h"] * 2
+            out["target_time"] = out["issued_at"] + pd.to_timedelta(out["horizon_hours"], unit="h")
+            out["source"], out["model_key"] = "v2", "baseline/v2"
+            return out[["forecast_point_id", "horizon_hours", "pm25_predicted", "source",
+                        "model_key", "issued_at", "target_time"]]
+
+    monkeypatch.setattr(stages, "load_service", FakeService)
+    monkeypatch.setenv("PIPELINE_PREDICT_STAGE", "real")
+
+    result = runner.run_all(live_db, HOUR)
+
+    assert result["status"] == "success", result
+    assert seen["columns"] == ["forecast_point_id", "issued_at", "pm25_lag_1h"]
+    with live_db() as s:
+        rows = forecasts(s)
+        model_key = s.execute(text("SELECT model_key FROM pipeline_runs")).scalar()
+    assert [(r[2], r[3], r[4]) for r in rows if r[0] == "fp-m1"] == [(80.0, "v2", "baseline/v2")] * 5
+    assert {r[3] for r in rows if r[0] == "fp-g1"} == {"idw"} and model_key == "baseline/v2"
