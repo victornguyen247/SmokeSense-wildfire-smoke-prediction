@@ -90,6 +90,12 @@ class Forecast(Base):
 
 
 Index("ix_forecasts_point_issued", Forecast.forecast_point_id, Forecast.issued_at.desc())
+Index(
+    "ix_forecasts_serving",
+    Forecast.model_key,
+    Forecast.issued_at.desc(),
+    postgresql_where=text("NOT is_shadow"),
+)
 
 
 class ForecastVerification(Base):

@@ -242,12 +242,16 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 
 The FastAPI app in `backend/app` implements this contract.
 
-- **Mock mode.** With `MOCK_MODE=true` (the default until the database layer exists), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
+- **Mock mode.** With `MOCK_MODE=true` (the default until API-03), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
 - **Set `MOCK_MODE` explicitly in deployments.** It defaults to `true`, so a staging or production deploy that leaves it out silently serves demo data. Staging and production must set `MOCK_MODE=false` once the database layer exists (OPS-03).
-- **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database layer will use the state polygon and ZCTAs.
+- **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database repository then checks against the grid cells and `zip_codes`, so Reno is rejected even though it is inside the box.
+- **Database mode (API-02).** With `MOCK_MODE=false`, `/grid/cells` and `/forecast/*` read PostGIS. `/fires`, `/observations` and `/meta` fail with `internal_error` until API-03 rather than serve fixtures as if they were live.
+- **One cycle per response.** The cycle is the newest non-shadow `issued_at` of a production model. A point left out of that cycle has no forecast; it never falls back to an older one. The writer (OPS-04) must commit each cycle in one transaction, or clients see a partial cycle.
+- **Caching.** `/forecast/grid` and `/forecast/monitors` are cached in process until a newer cycle exists (`app/repositories/cache.py`), by bbox. `/forecast/point` isn't cached: its lookups are indexed, and coordinates rarely repeat.
+- **Fake forecasts.** `python -m app.db.seed_fake_forecasts` (or `make seed-fake`) writes one invented cycle to a local database, so the API can run before the pipeline exists. It refuses non-local databases.
 - **The spec is served as-is.** `/openapi.json` and `/docs` serve `openapi.yaml`, not a schema generated from the code. `docker compose up backend` mounts `docs/api` read-only for this.
 - **Errors.** Every error, including FastAPI's own (validation, unknown route, unhandled exception), is returned in the shared `Error` shape, and 500s keep their CORS headers.
-- **Layers.** `app/api/routes` parse requests, `app/services` apply the scope rules, and `app/repositories` return the data. Real data replaces `FixtureRepository` without touching the other two.
+- **Layers.** `app/api/routes` parse requests, `app/services` apply the scope rules, and `app/repositories` return the data. `FixtureRepository` and `DatabaseRepository` implement the same interface, so the other two work with either.
 - **Contract tests.** `backend/tests/test_api_contract.py` validates every response, including errors, against the spec. It also checks that the app serves exactly the spec's paths, so CI's backend job fails on drift.
 
 ```bash
@@ -261,7 +265,6 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 |---|---|---|
 | Stale thresholds per source, and forecast age | TBD | Undecided; fields in place and served from `/meta`, values provisional |
 | `airnow` is not yet an ingestion source in `ingestion_runs` | DATA | Needed before `/meta` can report AirNow freshness |
-| `backend/shared/aqi.py` is empty | TBD | The table above is the spec for it (truncate to 0.1) |
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
