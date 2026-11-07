@@ -75,12 +75,22 @@ def ingest_status(session: Session) -> dict[str, bool]:
 
 
 def check_ingest(ctx: StageContext) -> StageResult:
-    """Refuse to forecast from stale inputs. AirNow readings and NWS weather are the
-    model's core inputs; a stale FIRMS feed is handled by the features stage."""
+    """Refuse to forecast when AirNow has not run recently. A stale NWS feed only warns:
+    the serving contract has degrade rules for missing weather. The run is scheduled at
+    :45 (the contract's H+45 cutoff), so a still-missing H-1 reading is a real gap: warn
+    and go on with a null lag instead of waiting."""
     status = ingest_status(ctx.session)
-    stale = sorted(s for s in ("airnow", "nws_obs") if status.get(s, True))
-    if stale:
-        raise StageError(f"ingest is stale or has never succeeded: {', '.join(stale)}")
+    if status.get("airnow", True):
+        raise StageError("ingest is stale or has never succeeded: airnow")
+    if status.get("nws_obs", True):
+        logger.warning("pipeline run %s: NWS observations are stale; weather features will be null", ctx.run_id)
+    have_lag = ctx.session.execute(
+        text("SELECT 1 FROM observations WHERE valid_at = :t - interval '1 hour' LIMIT 1"),
+        {"t": ctx.issued_at},
+    ).first()
+    if not have_lag:
+        logger.warning("pipeline run %s: no AirNow reading for %s h-1 yet; lag features will be null",
+                       ctx.run_id, ctx.issued_at.isoformat())
     return StageResult(rows_in=len(status), rows_out=len(status))
 
 

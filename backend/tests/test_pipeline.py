@@ -91,6 +91,56 @@ def test_rerunning_the_same_hour_overwrites(live_db):
     assert n_runs == 2  # the audit log keeps both runs; the forecasts are not duplicated
 
 
+def test_stale_nws_only_warns_and_missing_lag_does_not_block(live_db, caplog):
+    with live_db() as s:
+        seed(s)
+        s.execute(text("UPDATE ingestion_runs SET finished_at = finished_at - interval '10 hours' "
+                       "WHERE source = 'nws_obs'"))
+        s.execute(text("DELETE FROM observations"))
+        s.execute(text("INSERT INTO observations (monitor_id, valid_at, received_at, pm25, correction) "
+                       "VALUES ('m1', :v, :v, 40.0, 'regulatory')"), {"v": HOUR - timedelta(hours=3)})
+        s.commit()
+    with caplog.at_level("WARNING", logger="pipeline"):
+        result = runner.run_all(live_db, HOUR)
+    assert result["status"] == "success", result
+    text_ = " ".join(r.message for r in caplog.records)
+    assert "NWS observations are stale" in text_ and "no AirNow reading" in text_
+
+
+def test_abandoned_runs_are_closed_by_the_next_start(live_db, caplog):
+    with live_db() as s:
+        s.execute(text("INSERT INTO pipeline_runs (id, issued_at, started_at, status) "
+                       "VALUES ('old', :t, :t, 'running'), ('new', :n, :n, 'running')"),
+                  {"t": HOUR - timedelta(hours=2), "n": utc_now() - timedelta(minutes=2)})
+        s.commit()
+    with caplog.at_level("ERROR", logger="pipeline"):
+        runner.start_run(live_db, HOUR)
+    with live_db() as s:
+        rows = dict(s.execute(text("SELECT id, status FROM pipeline_runs WHERE id IN ('old','new')")).all())
+    assert rows == {"old": "failed", "new": "running"}  # only the long-dead one
+    assert any("abandoned" in r.message for r in caplog.records)
+
+
+def test_celery_chain_marks_a_failed_run_failed(live_db, monkeypatch):
+    """The real chain + link_error (run eagerly): a failing stage ends in pipeline.fail."""
+    import pipeline.tasks as tasks
+    from ingestion.tasks import celery_app
+
+    with live_db() as s:
+        seed(s, ingest_fresh=False)  # check_ingest will fail
+    monkeypatch.setattr(tasks, "SessionLocal", live_db)
+    monkeypatch.setattr(celery_app.conf, "task_always_eager", True)
+    monkeypatch.setattr(celery_app.conf, "task_eager_propagates", False)
+    for t in tasks.STAGE_TASKS.values():
+        monkeypatch.setattr(t, "max_retries", 0)
+
+    tasks.hourly.apply(args=[HOUR.isoformat()])
+
+    with live_db() as s:
+        row = s.execute(text("SELECT status, error FROM pipeline_runs")).one()
+    assert row.status == "failed" and row.error.startswith("check_ingest: ")
+
+
 def test_stale_ingest_fails_the_run_and_keeps_the_last_good_forecast(live_db):
     with live_db() as s:
         seed(s)

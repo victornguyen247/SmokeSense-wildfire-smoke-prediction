@@ -31,9 +31,8 @@ def model_name() -> str:
 
 
 def run_minute() -> int:
-    """Minute past the hour. After AirNow (:25) and NWS (:05) so the hour that just
-    ended is published before the features read it."""
-    return env_int("PIPELINE_MINUTE", 40, 0, 59)
+    """Minute past the hour: the serving contract's H+45 cutoff, after AirNow (:25) and NWS (:05)."""
+    return env_int("PIPELINE_MINUTE", 45, 0, 59)
 
 
 def stale_after_minutes() -> int:

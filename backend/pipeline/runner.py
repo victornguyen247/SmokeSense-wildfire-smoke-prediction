@@ -11,7 +11,7 @@ import logging
 import shutil
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import PipelineRun
@@ -23,10 +23,27 @@ logger = logging.getLogger("pipeline")
 
 RETENTION_DAYS = 90
 WORKDIR_KEEP_HOURS = 24
+ABANDON_AFTER_MINUTES = 30  # a run takes well under 10 min; older 'running' rows were killed
 
 
 def _iso(ts: datetime) -> str:
     return ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _close_abandoned(session: Session, now: datetime) -> None:
+    """A worker killed mid-run (out of memory, redeploy) never reaches fail_run. Close
+    such rows here, with the ERROR line that would have been the alert."""
+    stuck = session.scalars(
+        select(PipelineRun).where(
+            PipelineRun.status == "running",
+            PipelineRun.started_at < now - timedelta(minutes=ABANDON_AFTER_MINUTES),
+        )
+    ).all()
+    for run in stuck:
+        run.status, run.finished_at = "failed", now
+        run.error = f"abandoned: still running after {ABANDON_AFTER_MINUTES} min (worker killed?)"
+        logger.error("pipeline run %s FAILED for %s: %s", run.id, _iso(run.issued_at), run.error)
+    session.commit()
 
 
 def start_run(session_factory, issued_at: datetime | None = None, now: datetime | None = None) -> str:
@@ -36,6 +53,7 @@ def start_run(session_factory, issued_at: datetime | None = None, now: datetime 
     if hour.tzinfo is None:
         raise ValueError("issued_at must be timezone-aware")
     with session_factory() as session:
+        _close_abandoned(session, now)
         run = PipelineRun(issued_at=hour, started_at=now, status="running", stages={})
         session.add(run)
         session.commit()

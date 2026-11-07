@@ -27,10 +27,15 @@ _UPSERT = text("""
 """)
 
 
+def _plain(o):
+    """numpy scalars (np.int64 ...) are not JSON-serialisable."""
+    return o.item() if hasattr(o, "item") else str(o)
+
+
 def _snapshot(value) -> str | None:
     if value is None or (not isinstance(value, (dict, list, str)) and pd.isna(value)):
         return None
-    return value if isinstance(value, str) else json.dumps(value)
+    return value if isinstance(value, str) else json.dumps(value, default=_plain)
 
 
 def upsert_forecasts(session: Session, frame: pd.DataFrame) -> int:

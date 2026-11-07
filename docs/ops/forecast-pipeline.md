@@ -1,6 +1,6 @@
 # Hourly forecast pipeline (OPS-04)
 
-Every hour at `PIPELINE_MINUTE` (default :40 UTC, after AirNow at :25 and NWS at :05) beat
+Every hour at `PIPELINE_MINUTE` (default :45 UTC, the serving contract's H+45 cutoff, after AirNow at :25 and NWS at :05) beat
 runs `pipeline.hourly`, which opens a `pipeline_runs` row for the current hour and
 starts a Celery chain, one task per stage:
 
@@ -10,7 +10,7 @@ check_ingest -> features -> predict -> interpolate -> finish
 
 | Stage | Does | Writes |
 | --- | --- | --- |
-| `check_ingest` | Fails if AirNow or NWS observations are stale (`ingestion.live.freshness`) | nothing |
+| `check_ingest` | Fails if AirNow has not run recently (`ingestion.live.freshness`). Stale NWS or a missing H-1 reading only log a warning (lag/weather features become null per the serving contract) | nothing |
 | `features` | One feature row per active monitor point | a Parquet frame in `PIPELINE_WORK_DIR/<run id>/` |
 | `predict` | Stage A: forecasts at every monitor for the 5 horizons | `forecasts` (upsert) |
 | `interpolate` | Stage B: IDW of those onto grid cells (`serving.geo`) | `forecasts` (upsert, `source = 'idw'`) |
@@ -35,6 +35,7 @@ Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-
   `forecast_stale`, from the newest *successful* run. `forecast_stale` is true once that run's
   `issued_at` is older than `PIPELINE_STALE_AFTER_MINUTES` (150, about two missed hours) or
   there is none. The API's `/meta` must merge it in (API-03, #56).
+- **Crashed runs.** `start_run` closes any run still `running` after 30 minutes as `failed` (`abandoned`) with an ERROR line, so a killed worker does not leave a silent row.
 - **Not atomic across stages.** If `interpolate` fails after `predict` succeeded, monitor points
   have the new hour and grid cells the old one until the next good run; `/meta` reports stale.
 
