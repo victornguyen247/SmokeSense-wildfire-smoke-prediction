@@ -91,6 +91,41 @@ def test_rerunning_the_same_hour_overwrites(live_db):
     assert n_runs == 2  # the audit log keeps both runs; the forecasts are not duplicated
 
 
+def test_success_trims_old_grid_rows_and_month_old_monitor_rows(live_db):
+    with live_db() as s:
+        seed(s)
+    runner.run_all(live_db, HOUR - timedelta(hours=1))
+    with live_db() as s:  # a monitor row from 31 days ago, which retention must drop
+        s.execute(text("""
+            INSERT INTO forecasts (id, forecast_point_id, model_key, issued_at, horizon_hours,
+                target_time, pm25_predicted, source, nearest_monitor_dist_km)
+            VALUES ('old', 'fp-m1', :k, :t, 1, :t + interval '1 hour', 1, 'persistence', 0)
+        """), {"k": settings.STUB_MODEL_KEY, "t": HOUR - timedelta(days=31)})
+        s.commit()
+
+    runner.run_all(live_db, HOUR)
+
+    with live_db() as s:
+        grid = s.execute(text(
+            "SELECT DISTINCT issued_at FROM forecasts WHERE forecast_point_id = 'fp-g1'")).scalars().all()
+        monitor = s.execute(text(
+            "SELECT count(*), count(DISTINCT issued_at) FROM forecasts WHERE forecast_point_id = 'fp-m1'")).one()
+    assert grid == [HOUR]  # only the newest run's grid rows
+    assert tuple(monitor) == (10, 2)  # both runs kept, the 31-day-old row gone
+
+
+def test_failed_run_trims_nothing(live_db):
+    with live_db() as s:
+        seed(s)
+    runner.run_all(live_db, HOUR - timedelta(hours=1))
+    with live_db() as s:
+        s.execute(text("DELETE FROM ingestion_runs"))
+        s.commit()
+    assert runner.run_all(live_db, HOUR)["status"] == "failed"
+    with live_db() as s:
+        assert len(forecasts(s)) == 10
+
+
 def test_stale_nws_only_warns_and_missing_lag_does_not_block(live_db, caplog):
     with live_db() as s:
         seed(s)

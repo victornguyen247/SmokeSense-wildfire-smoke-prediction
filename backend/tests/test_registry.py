@@ -1,6 +1,7 @@
 """Model registry (OPS-02): archive, stores, register/promote/rollback/load."""
 from __future__ import annotations
 
+import os
 import contextlib
 import copy
 import errno
@@ -399,3 +400,24 @@ def test_upload_failure_is_a_registry_error(tmp_path):
 def test_relative_registry_dirs_resolve_against_backend(tmp_path):
     assert resolve_dir("data/registry") == BACKEND / "data" / "registry"
     assert resolve_dir(str(tmp_path)) == tmp_path
+
+
+def test_read_metadata_turns_nan_into_null(tmp_path):
+    """Python writes NaN (precision with no positives); Postgres JSONB rejects it."""
+    d = make_model_dir(tmp_path)
+    (d / "metrics.json").write_text('{"precision": NaN, "recall": Infinity, "mae": 1.5}')
+    assert read_metadata(d)["backtest_metrics"] == {"precision": None, "recall": None, "mae": 1.5}
+
+
+def test_build_registry_loads_dotenv(tmp_path, monkeypatch):
+    """AWS_* in backend/.env reach boto3 (the process environment) on a local run."""
+    import mlops.registry as registry
+
+    (tmp_path / "mlops").mkdir()
+    (tmp_path / ".env").write_text("OPS04_DOTENV_PROBE=from-file\n")
+    monkeypatch.setattr(registry, "__file__", str(tmp_path / "mlops" / "registry.py"))
+    monkeypatch.delenv("OPS04_DOTENV_PROBE", raising=False)
+    monkeypatch.setenv("REGISTRY_BACKEND", "local")
+    registry.build_registry()
+    assert os.environ["OPS04_DOTENV_PROBE"] == "from-file"
+    monkeypatch.delenv("OPS04_DOTENV_PROBE")  # load_dotenv wrote it directly

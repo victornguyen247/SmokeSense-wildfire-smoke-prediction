@@ -11,7 +11,7 @@ import logging
 import shutil
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from app.models import PipelineRun
@@ -23,6 +23,7 @@ logger = logging.getLogger("pipeline")
 
 RETENTION_DAYS = 90
 WORKDIR_KEEP_HOURS = 24
+FORECAST_RETENTION_DAYS = 30  # monitor forecasts (docs/schema.md §forecasts)
 ABANDON_AFTER_MINUTES = 30  # a run takes well under 10 min; older 'running' rows were killed
 
 
@@ -97,13 +98,29 @@ def run_stage(session_factory, run_id: str, stage: str, attempt: int = 0) -> dic
         return {"stage": stage, "rows_in": result.rows_in, "rows_out": result.rows_out}
 
 
+_TRIM_GRID = text("""
+    DELETE FROM forecasts f USING forecast_points fp
+    WHERE f.forecast_point_id = fp.id AND fp.kind = 'grid_cell' AND f.issued_at < :issued_at
+""")
+_TRIM_MONITOR = text("""
+    DELETE FROM forecasts f USING forecast_points fp
+    WHERE f.forecast_point_id = fp.id AND fp.kind = 'monitor'
+      AND f.issued_at < CAST(:now AS timestamptz) - make_interval(days => :days)
+""")
+
+
 def finish_run(session_factory, run_id: str, now: datetime | None = None) -> None:
-    """Mark the run successful and tidy up (old work files, 90-day-old run rows)."""
+    """Mark the run successful and tidy up (old forecasts, run rows, work files)."""
     now = now or utc_now()
     with session_factory() as session:
         run = session.get(PipelineRun, run_id)
         run.status, run.finished_at = "success", now
         session.execute(delete(PipelineRun).where(PipelineRun.started_at < now - timedelta(days=RETENTION_DAYS)))
+        # Forecast retention (docs/schema.md): grid cells keep only the newest run, monitor
+        # points 30 days. Only here, on success, so a failed run never removes the last good
+        # forecast. alerts.latest_forecast_id is ON DELETE SET NULL.
+        session.execute(_TRIM_GRID, {"issued_at": run.issued_at})
+        session.execute(_TRIM_MONITOR, {"now": now, "days": FORECAST_RETENTION_DAYS})
         session.commit()
         logger.info("pipeline run %s succeeded: %s", run_id, {k: v.get("rows_out") for k, v in run.stages.items()})
     clean_work_dir(run_id, now)

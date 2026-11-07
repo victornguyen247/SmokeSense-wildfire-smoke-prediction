@@ -14,7 +14,7 @@ check_ingest -> features -> predict -> interpolate -> finish
 | `features` | One feature row per active monitor point | a Parquet frame in `PIPELINE_WORK_DIR/<run id>/` |
 | `predict` | Stage A: forecasts at every monitor for the 5 horizons | `forecasts` (upsert) |
 | `interpolate` | Stage B: IDW of those onto grid cells (`serving.geo`) | `forecasts` (upsert, `source = 'idw'`) |
-| `finish` | Marks the run `success`; prunes runs over 90 days and old work files | `pipeline_runs` |
+| `finish` | Marks the run `success`; trims `forecasts` (grid cells keep only the newest run, monitor points 30 days); prunes runs over 90 days and old work files | `pipeline_runs`, `forecasts` |
 
 Run it without a worker: `cd backend && python -m pipeline [ISO issued_at]` (exit code 1 if the run failed).
 Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-06T14:00:00Z"`.
@@ -35,6 +35,8 @@ Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-
   `forecast_stale`, from the newest *successful* run. `forecast_stale` is true once that run's
   `issued_at` is older than `PIPELINE_STALE_AFTER_MINUTES` (150, about two missed hours) or
   there is none. The API's `/meta` must merge it in (API-03, #56).
+- **Retention only on success.** `finish` deletes old grid rows and 30-day-old monitor rows, so a failed run never removes the last good forecast. `alerts.latest_forecast_id` is `ON DELETE SET NULL`.
+- **Switching the production model** mid-hour leaves both models' rows for that hour (the upsert key includes `model_key`). Readers must use the `model_key` of the newest successful `pipeline_runs` row.
 - **Crashed runs.** `start_run` closes any run still `running` after 30 minutes as `failed` (`abandoned`) with an ERROR line, so a killed worker does not leave a silent row.
 - **Not atomic across stages.** If `interpolate` fails after `predict` succeeded, monitor points
   have the new hour and grid cells the old one until the next good run; `/meta` reports stale.
