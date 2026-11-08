@@ -732,6 +732,35 @@ def add_pm25_target(
 
     return result
 
+def build_input_features(
+    forecast_points: pd.DataFrame,
+    issue_times: pd.Series,
+    fire_detections: pd.DataFrame,
+    pm25_history: pd.DataFrame,
+    weather_observations: pd.DataFrame,
+    horizons: tuple[int, ...] = ALLOWED_HORIZONS,
+    lookback_hours: float = 72.0,
+    lag_mode: str = "own",
+    pm25_observations: pd.DataFrame | None = None,
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
+) -> pd.DataFrame:
+    """Shared training/serving features; retain rows without future labels."""
+    result = build_feature_times(forecast_points, issue_times, horizons=horizons)
+    result = add_temporal_alignment_features(result)
+    result = add_fire_alignment_features(result, fire_detections, lookback_hours=lookback_hours)
+    result = add_pm25_alignment_features(
+    result,
+    pm25_history,
+    lag_mode=lag_mode,
+    pm25_observations=pm25_observations,
+    idw_power=idw_power,
+    idw_max_radius_km=idw_max_radius_km,
+    idw_k=idw_k,
+)
+    return add_weather_alignment_features(result, weather_observations)
+
 
 def build_feature_dataset(
     forecast_points: pd.DataFrame,
@@ -766,40 +795,22 @@ def build_feature_dataset(
 
     The default mode remains "own".
     """
-    result = build_feature_times(
+
+    result = build_input_features(
         forecast_points=forecast_points,
         issue_times=issue_times,
+        fire_detections=fire_detections,
+        pm25_history=pm25_history,
+        weather_observations=weather_observations,
         horizons=horizons,
-    )
-
-    result = add_temporal_alignment_features(
-        result,
-    )
-
-    result = add_fire_alignment_features(
-        result,
-        fire_detections,
         lookback_hours=lookback_hours,
-    )
-
-    result = add_pm25_alignment_features(
-        result,
-        pm25_history,
         lag_mode=lag_mode,
-        pm25_observations=(
-            pm25_observations
-            if lag_mode == "idw-loo"
-            else None
-        ),
+        pm25_observations=pm25_observations,
         idw_power=idw_power,
         idw_max_radius_km=idw_max_radius_km,
         idw_k=idw_k,
     )
 
-    result = add_weather_alignment_features(
-        result,
-        weather_observations,
-    )
 
     result = add_pm25_target(
         result,
