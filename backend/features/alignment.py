@@ -1,4 +1,5 @@
-"""Feature-row alignment helpers for GEO-01."""
+
+"""Feature-row alignment helpers for GEO-01 and ML-02."""
 
 from __future__ import annotations
 
@@ -27,24 +28,6 @@ def build_feature_times(
     and forecast horizon.
 
     target_time is always calculated from issue_time.
-
-    Parameters
-    ----------
-    forecast_points:
-        DataFrame containing at least:
-        forecast_point_id, location_lat, location_lon.
-
-    issue_times:
-        UTC timestamps representing when the prediction is issued.
-
-    horizons:
-        Forecast horizons in hours.
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per:
-        (forecast_point_id, issue_time, horizon_hours).
     """
 
     if not set(horizons).issubset(set(ALLOWED_HORIZONS)):
@@ -100,26 +83,29 @@ def build_feature_times(
         },
         index=range(row_count),
     )
-    result["issue_time"] = pd.to_datetime(result["issue_time"], utc=True)
-    result["target_time"] = result["issue_time"] + pd.to_timedelta(
-        result["horizon_hours"], unit="h"
+
+    result["issue_time"] = pd.to_datetime(
+        result["issue_time"], utc=True
     )
+    result["target_time"] = (
+        result["issue_time"]
+        + pd.to_timedelta(result["horizon_hours"], unit="h")
+    )
+
     return result
+
 
 def add_temporal_alignment_features(
     dataframe: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Add leakage-free temporal features to aligned feature rows.
-
-    Temporal features are calculated from issue_time because all
-    prediction features must be available when the prediction is issued.
+    Add calendar and solar-time features from issue_time.
     """
-
     return add_temporal_features(
         dataframe,
         timestamp_column="issue_time",
     )
+
 
 def add_fire_alignment_features(
     dataframe: pd.DataFrame,
@@ -127,14 +113,8 @@ def add_fire_alignment_features(
     lookback_hours: float = 72.0,
 ) -> pd.DataFrame:
     """
-    Add spatial fire features to aligned prediction rows.
-
-    Only fire detections available before issue_time are used.
-    Fire features are calculated relative to each forecast point.
-
-    lookback_hours sets the maximum age of included fire detections.
+    Add spatial fire features using detections before issue_time.
     """
-
     result = dataframe.copy()
 
     required_columns = {
@@ -178,6 +158,7 @@ def add_fire_alignment_features(
                 **features,
             }
         )
+
     return result.merge(
         pd.DataFrame(fire_feature_rows),
         on=["forecast_point_id", "issue_time"],
@@ -185,20 +166,60 @@ def add_fire_alignment_features(
         validate="many_to_one",
     )
 
+
 def add_pm25_alignment_features(
     dataframe: pd.DataFrame,
     pm25_history: pd.DataFrame,
+    lag_mode: str = "own",
+    pm25_observations: pd.DataFrame | None = None,
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
 ) -> pd.DataFrame:
     """
-    Add historical PM2.5 lag features to aligned rows.
+    Add historical PM2.5 lag features.
 
-    PM2.5 history must contain one or more observations per
-    forecast point and issue_time.
+    Modes:
+        own:
+            Original own-monitor historical readings.
 
-    Lag values are calculated only from observations earlier
-    than the current issue_time.
+        idw-loo:
+            Inverse-distance-weighted readings from other
+            monitors, excluding the forecast monitor.
+
+    The default own mode preserves the original DATA-04 logic.
     """
+    if lag_mode not in ("own", "idw-loo"):
+        raise ValueError(
+            f"Unknown PM2.5 lag mode: {lag_mode!r}"
+        )
 
+    if lag_mode == "idw-loo":
+        if pm25_observations is None:
+            raise ValueError(
+                "pm25_observations is required "
+                "for lag_mode='idw-loo'"
+            )
+
+        from features.pm25_idw import compute_idw_lags
+
+        # Match the original regulatory AirNow lag source.
+        observations = pm25_observations.copy()
+
+        if "correction" in observations.columns:
+            observations = observations.loc[
+                observations["correction"] == "regulatory"
+            ].copy()
+
+        return compute_idw_lags(
+            dataframe,
+            observations,
+            power=idw_power,
+            max_radius_km=idw_max_radius_km,
+            k=idw_k,
+        )
+
+    # Original DATA-04 own-monitor implementation.
     result = dataframe.copy()
 
     required_feature_columns = {
@@ -244,14 +265,19 @@ def add_pm25_alignment_features(
         utc=True,
     )
 
-    # Compute lags for unique (point, issue_time) pairs. Aligned output
-    # has one row per horizon, so processing it directly creates duplicate
-    # placeholder timestamps and ambiguous many-to-many merges.
-    prediction_times = result[["forecast_point_id", "issue_time"]].drop_duplicates()
+    # Calculate lags only once per unique point and issue time.
+    prediction_times = result[
+        ["forecast_point_id", "issue_time"]
+    ].drop_duplicates()
+
     combined = pd.concat(
-        [history, prediction_times.assign(pm25=float("nan"))],
+        [
+            history,
+            prediction_times.assign(pm25=float("nan")),
+        ],
         ignore_index=True,
     )
+
     combined = add_lagged_pm25(
         combined,
         group_column="forecast_point_id",
@@ -269,33 +295,34 @@ def add_pm25_alignment_features(
 
     lag_values = combined[
         ["forecast_point_id", "issue_time"] + lag_columns
-    ].drop_duplicates(["forecast_point_id", "issue_time"])
+    ].drop_duplicates(
+        ["forecast_point_id", "issue_time"]
+    )
+
     result = result.merge(
         lag_values,
         on=["forecast_point_id", "issue_time"],
         how="left",
         validate="many_to_one",
     )
+
     for column in lag_columns:
         if column not in result:
             result[column] = pd.NA
 
     return result
 
+
 def add_weather_alignment_features(
     dataframe: pd.DataFrame,
     weather_observations: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Add weather features from the nearest NCEI observation station.
+    Add weather from the nearest NCEI observation station.
 
-    The nearest station is selected from station coordinates in
-    weather_observations. For each prediction row, use that station's latest
-    observation at or before issue_time; observations at issue_time are
-    eligible. This derives the point-to-station map from the supplied data,
-    so callers do not need populated point_weather_map rows.
+    Use the latest observation at or before issue_time,
+    no older than WEATHER_MAX_AGE_HOURS.
     """
-
     result = dataframe.copy()
 
     required_feature_columns = {
@@ -343,8 +370,11 @@ def add_weather_alignment_features(
         result["issue_time"],
         utc=True,
     )
+
     weather = weather_observations.copy()
-    weather["valid_at"] = pd.to_datetime(weather["valid_at"], utc=True)
+    weather["valid_at"] = pd.to_datetime(
+        weather["valid_at"], utc=True
+    )
 
     feature_columns = [
         "wind_alignment",
@@ -355,15 +385,20 @@ def add_weather_alignment_features(
         "rh_pct",
         "pressure_hpa",
         "precip_1h_mm",
-        # NCEI reports measured precipitation, not forecast probability.
         "precip_prob_pct",
     ]
+
     result = result.reset_index(drop=True).copy()
-    result = result.drop(columns=feature_columns, errors="ignore")
+    result = result.drop(
+        columns=feature_columns, errors="ignore"
+    )
     result["_row_id"] = np.arange(len(result))
     result[feature_columns] = pd.NA
+
     station_locations = (
-        weather[["station_id", "latitude", "longitude"]]
+        weather[
+            ["station_id", "latitude", "longitude"]
+        ]
         .dropna()
         .drop_duplicates("station_id", keep="first")
         .reset_index(drop=True)
@@ -371,36 +406,61 @@ def add_weather_alignment_features(
 
     if not result.empty and not station_locations.empty:
         point_locations = result[
-            ["forecast_point_id", "location_lat", "location_lon"]
+            [
+                "forecast_point_id",
+                "location_lat",
+                "location_lon",
+            ]
         ].drop_duplicates("forecast_point_id")
+
         station_map_rows = []
 
         for point in point_locations.itertuples(index=False):
-            point_lat = pd.to_numeric(point.location_lat, errors="coerce")
-            point_lon = pd.to_numeric(point.location_lon, errors="coerce")
+            point_lat = pd.to_numeric(
+                point.location_lat, errors="coerce"
+            )
+            point_lon = pd.to_numeric(
+                point.location_lon, errors="coerce"
+            )
+
             if pd.isna(point_lat) or pd.isna(point_lon):
                 continue
 
             station_lats = np.radians(
-                station_locations["latitude"].to_numpy(dtype=float)
+                station_locations["latitude"].to_numpy(
+                    dtype=float
+                )
             )
             station_lons = np.radians(
-                station_locations["longitude"].to_numpy(dtype=float)
+                station_locations["longitude"].to_numpy(
+                    dtype=float
+                )
             )
+
             latitude = np.radians(float(point_lat))
             longitude = np.radians(float(point_lon))
+
             delta_lat = station_lats - latitude
             delta_lon = station_lons - longitude
+
             haversine_a = (
                 np.sin(delta_lat / 2) ** 2
                 + np.cos(latitude)
                 * np.cos(station_lats)
                 * np.sin(delta_lon / 2) ** 2
             )
-            distances = 2 * 6371.008 * np.arctan2(
-                np.sqrt(haversine_a), np.sqrt(1 - haversine_a)
+
+            distances = (
+                2
+                * 6371.008
+                * np.arctan2(
+                    np.sqrt(haversine_a),
+                    np.sqrt(1 - haversine_a),
+                )
             )
+
             nearest_position = int(np.argmin(distances))
+
             station_map_rows.append(
                 {
                     "forecast_point_id": point.forecast_point_id,
@@ -414,6 +474,7 @@ def add_weather_alignment_features(
             station_map_rows,
             columns=["forecast_point_id", "station_id"],
         )
+
         if not station_map.empty:
             result = result.merge(
                 station_map,
@@ -421,9 +482,13 @@ def add_weather_alignment_features(
                 how="left",
                 validate="many_to_one",
             )
+
             candidates = result.dropna(
                 subset=["station_id", "issue_time"]
-            ).drop(columns=feature_columns).copy()
+            ).drop(
+                columns=feature_columns
+            ).copy()
+
             weather_for_join = weather[
                 [
                     "station_id",
@@ -435,26 +500,48 @@ def add_weather_alignment_features(
                     "pressure_hpa",
                     "precip_1h_mm",
                 ]
-            ].dropna(subset=["station_id", "valid_at"])
+            ].dropna(
+                subset=["station_id", "valid_at"]
+            )
 
-            if not candidates.empty and not weather_for_join.empty:
+            if (
+                not candidates.empty
+                and not weather_for_join.empty
+            ):
                 matched = pd.merge_asof(
-                    candidates.sort_values("issue_time", kind="mergesort"),
-                    weather_for_join.sort_values("valid_at", kind="mergesort"),
+                    candidates.sort_values(
+                        "issue_time", kind="mergesort"
+                    ),
+                    weather_for_join.sort_values(
+                        "valid_at", kind="mergesort"
+                    ),
                     left_on="issue_time",
                     right_on="valid_at",
                     by="station_id",
                     direction="backward",
                     allow_exact_matches=True,
-                    tolerance=pd.Timedelta(hours=WEATHER_MAX_AGE_HOURS),
+                    tolerance=pd.Timedelta(
+                        hours=WEATHER_MAX_AGE_HOURS
+                    ),
                 ).set_index("_row_id")
+
                 row_ids = matched.index
+
                 wind_direction = pd.to_numeric(
-                    matched["wind_dir_deg"], errors="coerce"
+                    matched["wind_dir_deg"],
+                    errors="coerce",
                 )
+
                 radians = np.radians(wind_direction)
-                result.loc[row_ids, "wind_dir_sin"] = np.sin(radians)
-                result.loc[row_ids, "wind_dir_cos"] = np.cos(radians)
+
+                result.loc[
+                    row_ids, "wind_dir_sin"
+                ] = np.sin(radians)
+
+                result.loc[
+                    row_ids, "wind_dir_cos"
+                ] = np.cos(radians)
+
                 for column in (
                     "wind_speed_ms",
                     "temp_c",
@@ -462,19 +549,29 @@ def add_weather_alignment_features(
                     "pressure_hpa",
                     "precip_1h_mm",
                 ):
-                    result.loc[row_ids, column] = matched[column]
+                    result.loc[
+                        row_ids, column
+                    ] = matched[column]
 
-                # Wind direction uses the meteorological FROM convention.
+                # Meteorological FROM convention.
                 bearing = pd.to_numeric(
-                    matched["fire_bearing_deg"], errors="coerce"
+                    matched["fire_bearing_deg"],
+                    errors="coerce",
                 )
-                result.loc[row_ids, "wind_alignment"] = np.cos(
-                    np.radians(bearing - wind_direction)
+
+                result.loc[
+                    row_ids, "wind_alignment"
+                ] = np.cos(
+                    np.radians(
+                        bearing - wind_direction
+                    )
                 )
 
     return result.drop(
-        columns=["_row_id", "station_id"], errors="ignore"
+        columns=["_row_id", "station_id"],
+        errors="ignore",
     ).reset_index(drop=True)
+
 
 def add_pm25_target(
     dataframe: pd.DataFrame,
@@ -487,12 +584,12 @@ def add_pm25_target(
     Only observations matching target_time are eligible.
 
     Eligible observations:
-        - correction == regulatory, regardless of qa_flag
-        - correction == purpleair_barkjohn and qa_flag == ok
+        - regulatory
+        - purpleair_barkjohn with qa_flag == ok
 
-    The nearest eligible monitor within max_distance_km is used.
+    The nearest eligible monitor within max_distance_km
+    supplies the target.
     """
-
     result = dataframe.copy()
 
     required_feature_columns = {
@@ -544,8 +641,6 @@ def add_pm25_target(
         utc=True,
     )
 
-    # AirNow regulatory observations have no qa_flag. PurpleAir labels
-    # require an explicit passing channel QA result.
     obs = obs[
         (obs["correction"] == "regulatory")
         | (
@@ -561,53 +656,82 @@ def add_pm25_target(
 
     observations_by_time = {
         timestamp: group
-        for timestamp, group in obs.groupby("valid_at", sort=False)
+        for timestamp, group in obs.groupby(
+            "valid_at", sort=False
+        )
     }
 
     for index, row in result.iterrows():
-        candidates = observations_by_time.get(row["target_time"])
+        candidates = observations_by_time.get(
+            row["target_time"]
+        )
 
         if candidates is None or candidates.empty:
             continue
 
-        lat1 = np.radians(float(row["location_lat"]))
-        lat2 = np.radians(candidates["latitude"].to_numpy(dtype=float))
+        lat1 = np.radians(
+            float(row["location_lat"])
+        )
+        lat2 = np.radians(
+            candidates["latitude"].to_numpy(
+                dtype=float
+            )
+        )
+
         delta_lat = lat2 - lat1
         delta_lon = np.radians(
-            candidates["longitude"].to_numpy(dtype=float)
-            - float(row["location_lon"])
+            candidates["longitude"].to_numpy(
+                dtype=float
+            ) - float(row["location_lon"])
         )
+
         a = (
             np.sin(delta_lat / 2) ** 2
-            + np.cos(lat1) * np.cos(lat2) * np.sin(delta_lon / 2) ** 2
+            + np.cos(lat1)
+            * np.cos(lat2)
+            * np.sin(delta_lon / 2) ** 2
         )
-        distances = 2 * 6371.008 * np.arctan2(
-            np.sqrt(a), np.sqrt(1 - a)
+
+        distances = (
+            2
+            * 6371.008
+            * np.arctan2(
+                np.sqrt(a),
+                np.sqrt(1 - a),
+            )
         )
-        eligible = np.flatnonzero(distances <= max_distance_km)
+
+        eligible = np.flatnonzero(
+            distances <= max_distance_km
+        )
+
         if not len(eligible):
             continue
 
-        nearest_position = eligible[np.argmin(distances[eligible])]
+        nearest_position = eligible[
+            np.argmin(distances[eligible])
+        ]
+
         target = candidates.iloc[nearest_position]
 
-        result.at[index, "target_pm25"] = (
-            target["pm25"]
-        )
+        result.at[
+            index, "target_pm25"
+        ] = target["pm25"]
 
-        result.at[index, "target_source"] = (
-            target["correction"]
-        )
+        result.at[
+            index, "target_source"
+        ] = target["correction"]
 
-        result.at[index, "target_monitor_dist_km"] = (
-            distances[nearest_position]
-        )
+        result.at[
+            index, "target_monitor_dist_km"
+        ] = distances[nearest_position]
 
-        result.at[index, "target_monitor_id"] = (
-            target["monitor_id"]
-        )
+        result.at[
+            index, "target_monitor_id"
+        ] = target["monitor_id"]
 
     return result
+
 
 def build_feature_dataset(
     forecast_points: pd.DataFrame,
@@ -619,25 +743,29 @@ def build_feature_dataset(
     pilot_event_id: str | None = None,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
     lookback_hours: float = 72.0,
+    lag_mode: str = "own",
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
 ) -> pd.DataFrame:
     """
     Build the complete GEO-01 feature dataset.
 
-    The pipeline applies feature transformations in dependency order:
-
-        1. Create aligned prediction rows.
+    Pipeline:
+        1. Align prediction rows.
         2. Add temporal features.
         3. Add fire features.
         4. Add PM2.5 lag features.
-        5. Add NCEI observation features.
-        6. Add PM2.5 target labels.
+        5. Add weather features.
+        6. Add target labels.
 
-    Returns a DataFrame containing the feature columns required
-    by the GEO-01 Parquet contract.
+    ML-02:
+        lag_mode="idw-loo" generates PM2.5 lags using
+        neighboring monitors rather than the target's own
+        history.
 
-    lookback_hours controls how far back fire detections are included.
+    The default mode remains "own".
     """
-
     result = build_feature_times(
         forecast_points=forecast_points,
         issue_times=issue_times,
@@ -657,6 +785,15 @@ def build_feature_dataset(
     result = add_pm25_alignment_features(
         result,
         pm25_history,
+        lag_mode=lag_mode,
+        pm25_observations=(
+            pm25_observations
+            if lag_mode == "idw-loo"
+            else None
+        ),
+        idw_power=idw_power,
+        idw_max_radius_km=idw_max_radius_km,
+        idw_k=idw_k,
     )
 
     result = add_weather_alignment_features(
@@ -674,12 +811,13 @@ def build_feature_dataset(
     else:
         result["pilot_event_id"] = pd.NA
 
-    # Drop rows that do not have an eligible PM2.5 training target.
     result = result.dropna(
         subset=["target_pm25"]
     ).reset_index(drop=True)
 
-    from features.validation import validate_feature_dataset
+    from features.validation import (
+        validate_feature_dataset,
+    )
 
     validate_feature_dataset(result)
 
