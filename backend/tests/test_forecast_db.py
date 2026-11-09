@@ -83,6 +83,17 @@ def add_forecasts(c, point, *, model=PRODUCTION, issued=ISSUED, pm25=40.06, sour
         )
 
 
+def add_run(c, issued=ISSUED, *, model=PRODUCTION, status="success") -> None:
+    """A pipeline_runs row: the API serves the newest successful one."""
+    c.execute(
+        text("""
+            INSERT INTO pipeline_runs (id, issued_at, started_at, finished_at, status, model_key)
+            VALUES (gen_random_uuid()::text, :issued, :issued, :issued, :status, :model)
+        """),
+        {"issued": issued, "status": status, "model": model},
+    )
+
+
 def add_cell(c, cell_id: str, box: tuple[float, float, float, float]) -> None:
     c.execute(
         text("""
@@ -154,10 +165,12 @@ def cycle(places):
         for point_id, (_, _, source) in MONITORS.items():
             add_forecasts(c, point_id, pm25=12.34, source=source, distance=0)
         # An older cycle, including a cell the current cycle left out.
+        add_run(c)
         previous = ISSUED - timedelta(hours=1)
         add_forecasts(c, "cell-covered", issued=previous, pm25=999.0)
         add_forecasts(c, "cell-empty", issued=previous, pm25=999.0)
-        # Newer rows that aren't public.
+        add_run(c, previous)
+        # Newer rows that aren't public; no run produced them.
         later = ISSUED + timedelta(hours=1)
         add_forecasts(c, "cell-covered", model=SHADOW, issued=later, pm25=888.0, shadow=True)
         add_forecasts(c, "cell-covered", model=RETIRED, issued=later, pm25=777.0)
@@ -196,9 +209,29 @@ def test_grid_serves_only_the_latest_public_cycle(cycle):
 
 def test_shadow_rows_of_a_production_model_are_excluded(cycle):
     with cycle.begin() as c:
-        later = ISSUED + timedelta(hours=2)
-        add_forecasts(c, "cell-covered", issued=later, pm25=666.0, shadow=True)
-    assert get(GRID)["issued_at"] == "2024-07-27T18:00:00Z"
+        add_forecasts(c, "cell-empty", pm25=666.0, shadow=True)
+    assert grid_ids(get(GRID)) == ["cell-covered", "cell-south"]
+
+
+@pytest.mark.parametrize("status", ["running", "failed"])
+def test_an_unfinished_run_keeps_the_last_good_cycle(cycle, status):
+    """The pipeline commits monitor rows before the grid, and a run can fail between."""
+    later = ISSUED + timedelta(hours=2)
+    with cycle.begin() as c:
+        for point_id, (_, _, source) in MONITORS.items():
+            add_forecasts(c, point_id, issued=later, pm25=55.0, source=source, distance=0)
+        add_run(c, later, status=status)
+    body = get(GRID)
+    assert body["issued_at"] == "2024-07-27T18:00:00Z"
+    assert grid_ids(body) == ["cell-covered", "cell-south"]
+    assert get(MONITORS_PATH)["issued_at"] == "2024-07-27T18:00:00Z"
+
+
+def test_newest_run_of_a_non_production_model_is_503(cycle):
+    """Like the local stub pipeline: its success trimmed the older grid, so no fallback."""
+    with cycle.begin() as c:
+        add_run(c, ISSUED + timedelta(hours=2), model=SHADOW)
+    assert get(GRID, status=503)["code"] == "forecast_unavailable"
 
 
 def test_no_cycle_is_503(places):
@@ -211,6 +244,7 @@ def test_a_new_cycle_replaces_the_cached_response(cycle):
     assert get(GRID)["horizons"][0]["cells"][0]["pm25"] == 40.0
     with cycle.begin() as c:
         add_forecasts(c, "cell-covered", issued=ISSUED + timedelta(hours=2), pm25=20.0)
+        add_run(c, ISSUED + timedelta(hours=2))
     body = get(GRID)
     assert body["issued_at"] == "2024-07-27T20:00:00Z"
     assert body["horizons"][0]["cells"][0]["pm25"] == 20.0
@@ -360,6 +394,7 @@ def full_grid(places):
             """),
             {"model": PRODUCTION, "issued": ISSUED},
         )
+        add_run(c)
         c.execute(text("ANALYZE forecasts"))
         c.execute(text("ANALYZE forecast_points"))
     return places
@@ -394,8 +429,22 @@ def forecast_history(full_grid):
             FROM forecasts AS f
             CROSS JOIN generate_series(1, 24) AS back
         """))
+        # 90 days of hourly runs (pipeline_runs retention), some failed.
+        c.execute(
+            text("""
+                INSERT INTO pipeline_runs (id, issued_at, started_at, finished_at, status, model_key)
+                SELECT gen_random_uuid()::text, t, t, t,
+                       CASE WHEN back % 10 = 0 THEN 'failed' ELSE 'success' END, :model
+                FROM generate_series(1, 90 * 24) AS back
+                CROSS JOIN LATERAL (
+                    SELECT CAST(:issued AS timestamptz) - make_interval(hours => back) AS t
+                ) AS run
+            """),
+            {"model": PRODUCTION, "issued": ISSUED},
+        )
     with full_grid.connect().execution_options(isolation_level="AUTOCOMMIT") as c:
         c.execute(text("VACUUM ANALYZE forecasts"))
+        c.execute(text("VACUUM ANALYZE pipeline_runs"))
     return full_grid
 
 
@@ -411,7 +460,7 @@ def test_reads_use_the_indexes(forecast_history):
     small = {"min_lon": -122.0, "min_lat": 38.0, "max_lon": -121.0, "max_lat": 39.0}
     state = CALIFORNIA_BBOX._asdict()
     cycle = {"model_key": PRODUCTION, "issued_at": ISSUED}
-    assert "ix_forecasts_serving" in plan(engine, queries.LATEST_CYCLE, {})
+    assert "ix_pipeline_runs_status_issued" in plan(engine, queries.LATEST_CYCLE, {})
     assert "ix_forecast_points_cell_geom_planar" in plan(engine, queries.GRID_CELLS, small)
 
     # A small bbox finds its few cells first, then each cell's forecasts.

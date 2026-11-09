@@ -1,18 +1,18 @@
 """Indexes for the API-02 forecast reads.
 
-ix_forecasts_serving finds a model's newest public cycle and reads that cycle's rows
-without scanning 30 days of forecasts. ix_forecast_points_cell_geom_planar serves bbox
+ix_forecasts_serving reads one public cycle's rows without scanning 30 days of
+forecasts (the cycle itself comes from pipeline_runs). ix_forecast_points_cell_geom_planar serves bbox
 filters: a bbox is a lon/lat rectangle, but the edges of a geography polygon are great
 circles, which would drop cells along the bbox's southern edge.
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0008
+Revises: 0007
 """
 
 from alembic import op
 
-revision = "0007"
-down_revision = "0006"
+revision = "0008"
+down_revision = "0007"
 branch_labels = None
 depends_on = None
 

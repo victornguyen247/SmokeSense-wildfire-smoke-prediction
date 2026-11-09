@@ -410,7 +410,7 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 | `is_shadow` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = test model run. Never shown to users or used for alerts. |
 | `feature_snapshot` | JSONB |  | Top 5–10 feature values for the "Why?" panel. Written once, read per forecast. |
 
-**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `PARTIAL INDEX (model_key, issued_at DESC) WHERE NOT is_shadow` (API: newest public cycle and its rows), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
+**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `PARTIAL INDEX (model_key, issued_at DESC) WHERE NOT is_shadow` (API: one public cycle's rows), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
 
 **Retention:** 30 days via Celery DELETE. Long enough to verify live accuracy (key capstone demo: "how accurate was the model last week?"). Grid-cell forecasts keep only the latest run; monitor forecasts keep 30 days (scope freeze, 2026-10-27).
 

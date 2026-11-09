@@ -5,7 +5,9 @@ Run in the backend environment, after the grid is seeded:
 
 The values are invented and carry the model_key below. They are public on purpose
 (is_shadow false, production model), so the script refuses to run against anything but
-a local database. To remove them, delete the forecasts with that model_key.
+a local database. It also records a successful pipeline_runs row, which is what the API
+reads to pick the cycle. To remove them, delete the forecasts and pipeline_runs rows
+with that model_key.
 
 Existing monitor forecast points are used; if there are none, a few fake ones are added.
 --radius-km 100000 forecasts every cell, the worst case for /forecast/grid's payload.
@@ -40,6 +42,12 @@ FAKE_MONITORS = (
     ("Fake Los Angeles", 34.05, -118.24),
     ("Fake San Diego", 32.72, -117.16),
 )
+
+INSERT_RUN = text("""
+    INSERT INTO pipeline_runs (id, issued_at, started_at, finished_at, status, model_key, stages)
+    VALUES (:id, :issued_at, now(), now(), 'success', :model_key,
+            CAST('{"seed": "seed_fake_forecasts"}' AS jsonb))
+""")
 
 INSERT_MODEL = text("""
     INSERT INTO model_versions (
@@ -183,6 +191,10 @@ def seed_fake_forecasts(
     }
     connection.execute(INSERT_MONITOR_FORECASTS, params)
     connection.execute(INSERT_CELL_FORECASTS, {**params, "radius_km": radius_km})
+    # The API serves the newest successful pipeline run, so record the cycle as one.
+    connection.execute(
+        INSERT_RUN, {"id": uuid7(), "issued_at": issued_at, "model_key": FAKE_MODEL_KEY}
+    )
 
 
 def top_of_this_hour() -> datetime:
