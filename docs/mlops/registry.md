@@ -84,24 +84,43 @@ The equivalent policy on plain AWS S3 (not needed for R2):
 }
 ```
 
-## Registering baseline_v2
+## Registering baseline_v1 and baseline_v2 (ML-05)
 
 From `backend/`, with the database reachable (`make up` / `POSTGRES_*` in `.env`) and migrations applied (`make migrate`).
 
-```bash
-# 1. Register. Reads thresholds, features, params, metrics and the dataset hash from the directory.
-python -m mlops.registry register data/models/baseline_v2 --name baseline --version v2 \
-    --notes "ML-02 release, see docs/models/baseline_v2.md"
+The DATA-04 folders (`data/models/baseline_v{1,2}/`) cannot be registered as they are. Their `metrics.json` holds NaN, which JSONB rejects (`Token "NaN" is invalid`), and baseline_v1 has no `release.json`. Package them first. Nothing is retrained (decision #46):
 
-# 2. Check it is there as `shadow`.
+```bash
+# 0. Write registrable copies to data/models/packaged/baseline_v{1,2}/ (git-ignored, deterministic).
+#    Stops unless the dataset hash matches smokesense_v1 and the release skills match the OOF predictions.
+python -m ml.tools.package_baseline_for_registry v1   # release.json: persistence at every horizon
+python -m ml.tools.package_baseline_for_registry v2   # boosters and release.json unchanged
+
+# 1. Register both. Reads thresholds, features, params, metrics and the dataset hash from the directory.
+python -m mlops.registry register data/models/packaged/baseline_v1 --name baseline --version v1 \
+    --algorithm xgboost-direct-log1p --training-data-uri data/datasets/smokesense_v1 \
+    --notes "DATA-04 baseline_v1, kept retired for rollback; serves persistence (decision #46)"
+python -m mlops.registry register data/models/packaged/baseline_v2 --name baseline --version v2 \
+    --algorithm xgboost-residual-on-persistence --training-data-uri data/datasets/smokesense_v1 \
+    --notes "DATA-04 baseline_v2, gate docs/models/baseline_v2_gate.md"
+
+# 2. Check they are there as `shadow`.
 python -m mlops.registry list --name baseline
 
-# 3. Make it the serving version.
+# 3. Promote v1, then v2: v1 ends `retired` (the rollback target) and v2 `production`.
+python -m mlops.registry promote baseline/v1
 python -m mlops.registry promote baseline/v2
 
-# 4. Something wrong? One command back to the previous production version.
+# 4. Something wrong? One command back to the previous production version (v1).
 python -m mlops.registry rollback baseline
 ```
+
+| Package | Files | Generated |
+|---|---|---|
+| `baseline_v2` | `model_h*.json`, `fallback_h*.json`, `release.json`, `thresholds.json`, `features.json`, `params.json` copied | `metrics.json` (NaN as null), `manifest.json` (+ `package`: source hashes, serve per horizon) |
+| `baseline_v1` | v1's `model_h*.json` copied as `fallback_h*.json`; `features.json`, `params.json` | `metrics.json`, `manifest.json`, `release.json` (serve persistence, threshold 35.5, rule #31's own verdict in `rule_serve`) |
+
+`oof_predictions.parquet` and `climatology.json` are left out, because nothing at inference reads them. The gate run on a throwaway database is in [`docs/models/baseline_v2_gate.md`](../models/baseline_v2_gate.md#registry).
 
 What `register` copies from the directory into the row:
 
@@ -120,11 +139,14 @@ What `register` copies from the directory into the row:
 
 ```python
 from mlops.registry import build_registry
+from ml.inference.service import InferenceService
 
-version, model_dir = build_registry().load_production("baseline")
-# version.model_key == "baseline/v2"; model_dir is a verified local folder:
-# predict_v2.predict(frame, horizon=6, model_dir=model_dir)
+svc = InferenceService.from_registry(build_registry(), name="baseline")   # production: baseline/v2
+# or InferenceService.from_registry(registry, model_key="baseline/v1")    # an explicit version
+rows = svc.predict(features)   # forecasts rows, docs/ml/serving-contract.md §5
 ```
+
+The caller builds the registry and passes it in. `build_registry` reads app settings, and `ml/` never imports `app/`. Under the hood this is `build_registry().load_production("baseline")` → `(version, model_dir)`, then `predict_v2.predict(frame, horizon, model_dir=model_dir)` per horizon.
 
 `load_production` downloads the archive if it is not cached, verifies its sha256, extracts it (regular files only; absolute paths and `..` are rejected), and returns the folder. The extracted files' hashes are recorded, and every later load re-checks them; a damaged cache is discarded and fetched again. `promote` and `rollback` download and verify *before* taking the database lock. The CLI equivalent prints that path: `python -m mlops.registry load baseline`.
 

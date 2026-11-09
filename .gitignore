@@ -45,3 +45,12 @@ backend/scripts/pilot_verification/out_candidates/
 # --- Claude Code (local-only) ---
 .claude/settings.local.json
 CLAUDE.local.md
+
+# --- Celery beat state (written at runtime; was committed by mistake) ---
+backend/celerybeat-schedule*
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
