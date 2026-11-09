@@ -107,7 +107,7 @@ Additive, optional field (v1 rule), already in the spec and the point fixtures:
 
 - From the cell's open `alerts` row (`status = 'open'`, `severity = 'unhealthy_sensitive'`). `null` when there is none. Clients treat a missing field as `null` (the DB repository may not send it until API-05).
 - `peak_pm25_predicted` is truncated to 0.1 like every `pm25`. `horizon_hours` is the horizon of the peak forecast (the `alerts.horizon_hours` column).
-- Limitation: only cells with an active subscription or an open episode are evaluated (section 4), so a cell nobody subscribed to shows `null` even in smoke.
+- Every active grid cell is evaluated each run (section 4), so `active_alert` works for any California location, subscribed or not. It is the in-app fallback if email slips (scope §10).
 
 ### CORS
 
@@ -136,7 +136,7 @@ Full column tables are in `docs/schema.md` → `alert_subscriptions` and `alert_
 Reuses the existing `alerts` table (episodes: one open row per `(forecast_point_id, severity)`, `latest_forecast_id ON DELETE SET NULL`). No new table and no new column.
 
 - **When.** Once after each successful pipeline run (`pipeline_runs.status = 'success'`, i.e. after `finish_run`), on that run's cycle: `issued_at` and `model_key` from the `pipeline_runs` row. Grid rows of the cycle are `forecasts` with that `issued_at` and `model_key`, `source = 'idw'`, `is_shadow = false`. Shadow forecasts are never used.
-- **Which cells.** Grid cells with ≥ 1 `active` subscription, plus cells that still have an open episode (so an episode can resolve after its last subscriber leaves).
+- **Which cells.** **All active grid cells** (`forecast_points.kind = 'grid_cell' AND active`), whether or not anyone subscribed, plus any cell that still has an open episode. This way `cell.active_alert` works everywhere as the in-app warning. That is about 3,000 cells × 5 horizons per run, done as one set-based query over the cycle's rows, not a loop per cell. **Emails still go only to `active` subscriptions** (section 5). Episode rows hold no personal data.
 - **Cut-offs.** Per horizon, from `model_versions.thresholds` of the cycle's `model_key` (JSONB `{"1": 35.5, "3": 29.5, "6": 25.5, "12": 21.5, "24": 20.0}` for baseline_v2, copied from `release.json` at registration by `mlops/registry.py`). Never hard-coded.
   - If `thresholds` is NULL (e.g. the pipeline's stub model) or a horizon is missing, that horizon is not evaluated. If none is left, the job opens and updates nothing and logs one warning.
 - **Exceedance.** A cell exceeds in a cycle when any horizon's `pm25_predicted` (stored value, not truncated) is ≥ that horizon's cut-off.
@@ -330,7 +330,8 @@ Unsubscribe: {unsubscribe_url}
 
 **API-06 #112 (episodes)**
 - [ ] Cut-offs read from `model_versions.thresholds` of the cycle's model; NULL thresholds → no episodes, one warning.
-- [ ] Tests for open / continue (peak only rises) / resolve after 3 clear runs / no forecast + 24 h resolve / re-open makes a new row / shadow rows ignored / only subscribed or open cells evaluated.
+- [ ] Tests for open / continue (peak only rises) / resolve after 3 clear runs / no forecast + 24 h resolve / re-open makes a new row / shadow rows ignored / every active grid cell evaluated, with or without a subscription (a cell with no subscribers gets an episode and no email).
+- [ ] One run over the full grid finishes in seconds on staging (set-based SQL, no per-cell loop).
 - [ ] Miaoqing reviews the cut-off handling and the IDW limitation note.
 
 **API-07 #113 (sender)**
