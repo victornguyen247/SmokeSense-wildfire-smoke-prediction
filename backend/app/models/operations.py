@@ -8,7 +8,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.ids import uuid7
 from app.models.base import Base, one_of
-from app.models.values import INGESTION_SOURCES, INGESTION_STATUSES
+from typing import Any
+
+from sqlalchemy.dialects.postgresql import JSONB
+
+from app.models.values import INGESTION_SOURCES, INGESTION_STATUSES, PIPELINE_STATUSES
 
 
 class IngestionRun(Base):
@@ -36,6 +40,30 @@ class IngestionRun(Base):
 
 Index("ix_ingestion_source_started", IngestionRun.source, IngestionRun.started_at.desc())
 Index("ix_ingestion_status_started", IngestionRun.status, IngestionRun.started_at.desc())
+
+
+class PipelineRun(Base):
+    """One row per hourly forecast pipeline run (OPS-04). 90-day retention.
+
+    `stages` maps stage name -> {status, started_at, finished_at, rows_in, rows_out,
+    attempts, error}. Re-running an hour adds a new run row; the forecasts it writes
+    overwrite that hour's rows (upsert), so only this audit log grows.
+    """
+
+    __tablename__ = "pipeline_runs"
+    __table_args__ = (
+        one_of("status", PIPELINE_STATUSES),
+        Index("ix_pipeline_runs_status_issued", "status", "issued_at"),
+    )
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=uuid7)
+    issued_at: Mapped[datetime]  # the forecast hour this run produces (UTC, top of hour)
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]  # NULL while running
+    status: Mapped[str] = mapped_column(server_default="running")
+    model_key: Mapped[str | None]  # model that produced the Stage A rows (no FK: audit log)
+    stages: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    error: Mapped[str | None]  # one-line summary, never a stack trace
 
 
 class BatchIngestionProgress(Base):
