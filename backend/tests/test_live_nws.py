@@ -225,10 +225,16 @@ def test_one_failing_station_makes_the_run_partial(live_db):
     )
 
 
-def test_placeholder_user_agent_fails_the_run(monkeypatch, live_db):
-    monkeypatch.setattr(
-        nws.settings, "nws_user_agent", "SmokeSense (contact@example.com)"
-    )
+@pytest.mark.parametrize(
+    "placeholder",
+    [
+        "SmokeSense (contact@example.com)",
+        "SmokeSense (Replace-Me@lab.test)",
+        "SmokeSense (ops@YOUR-REAL-DOMAIN)",
+    ],
+)
+def test_placeholder_user_agent_fails_the_run(monkeypatch, live_db, placeholder):
+    monkeypatch.setattr(nws.settings, "nws_user_agent", placeholder)
     result = nws.run(
         session_factory=live_db, client=mock_client(), now=NOW, stations=["KRDD"]
     )
