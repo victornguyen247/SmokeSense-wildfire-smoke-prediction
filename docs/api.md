@@ -25,7 +25,7 @@ Forecast semantics come from the PM-03 serving contract ([`ml/serving-contract.m
 | `GET /api/v1/meta` | Active model, latest forecast cycle, per-source freshness, display thresholds, AQI legend | JSON |
 | `GET /health`, `GET /api/v1/health` | Liveness | JSON |
 
-Alerts and city history are Phase 4 and not in this version.
+Email alerts (Phase 4) are specified in [`alerts.md`](alerts.md), summarized in [Email alerts](#email-alerts-pm-06). City history is not in this version.
 
 ## Conventions
 
@@ -67,7 +67,7 @@ Units are fixed by field name and never sent per value.
 
 ### CORS
 
-The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is allowed, and no credentials. The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
+The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is allowed, and no credentials. API-05 (#111) adds `POST` with the `Content-Type` header for `/api/v1/alerts/*` (still no credentials). The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
 
 ### Errors
 
@@ -86,6 +86,8 @@ Every error, from every endpoint, has the same body:
 | 404 | `out_of_scope` | Location or bbox is outside California |
 | 404 | `zip_not_found` | No ZCTA for that ZIP (e.g. a PO-box-only ZIP) |
 | 404 | `not_found` | Unknown route |
+| 404 | `invalid_token` | Alerts: unknown or malformed confirm/unsubscribe token ([`alerts.md`](alerts.md) §2) |
+| 410 | `token_expired` | Alerts: confirm link older than 48 h |
 | 405 | `not_found` | Method other than GET. There is no `method_not_allowed` code yet; it may be added later (additive) |
 | 503 | `forecast_unavailable` | No forecast cycle exists yet |
 | 500 | `internal_error` | Unexpected failure. The message never contains a stack trace |
@@ -111,7 +113,7 @@ Every forecast value says how it was produced:
 - **Cells with no forecast.** A grid cell has no forecast when no eligible monitor is within 50 km.
   - `/forecast/grid` leaves those cells out of that horizon; draw them as "no data".
   - `/forecast/point` returns 200 with `cell.has_forecast: false`, `cell.no_forecast_reason: "no_monitor_within_50km"`, `cell.nearest_monitor_dist_km` (with no 50 km limit) and the nearest monitor's own forecast. See [`forecast_point_no_forecast.json`](api/fixtures/forecast_point_no_forecast.json).
-- No prediction intervals (`pm25_lower` / `pm25_upper`) and no alert flags (`exceeds`) in v1.
+- No prediction intervals (`pm25_lower` / `pm25_upper`) and no per-value alert flags (`exceeds`) in v1. The cell's open alert episode is `cell.active_alert` on `/forecast/point` (see [Email alerts](#email-alerts-pm-06)).
 
 ### Display thresholds and labels
 
@@ -209,6 +211,21 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 - `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
 - **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
 
+## Email alerts (PM-06)
+
+The full contract (flow, endpoints, tables, episode rules, sending, email copy, privacy) is [`alerts.md`](alerts.md). For API clients:
+
+| Endpoint | Body | Success |
+|---|---|---|
+| `POST /api/v1/alerts/subscriptions` | `{email, zip}` or `{email, lat, lon}` | `202 {"status": "pending_confirmation"}`, always the same for a valid request |
+| `POST /api/v1/alerts/confirm` | `{token}` | `200 {"status": "confirmed" \| "already_confirmed"}`; 404 `invalid_token`, 410 `token_expired` |
+| `POST /api/v1/alerts/unsubscribe` | `{token}` (or RFC 8058 one-click form POST with `?token=`) | `200 {"status": "unsubscribed"}`, idempotent; 404 `invalid_token` |
+
+- The bodies are `components/schemas/Alert*` in `openapi.yaml`. The paths themselves are added by API-05 (#111) with the routes, because the contract tests require the app to serve exactly the spec's paths, and the spec tooling only handles GET today.
+- Validation errors are 400 `invalid_query`, like everywhere else. Location errors are the same as `/forecast/point` (404 `out_of_scope`, `zip_not_found`).
+- Email links open frontend pages (`/alerts/confirm?token=…`, `/alerts/unsubscribe?token=…`) that POST the token. No GET changes state.
+- `GET /forecast/point` has an optional `cell.active_alert`: `null` or the cell's open episode `{severity, first_triggered_at, peak_pm25_predicted, peak_target_time, horizon_hours}`. It drives the in-app warning. Treat a missing field as `null`. [`forecast_point.json`](api/fixtures/forecast_point.json) shows an open episode.
+
 ## Fixtures
 
 Every fixture shows the same moment: **the Park Fire (PE-004, Butte and Tehama counties), cycle `issued_at = 2024-07-27T18:00:00Z`, requested at 18:40Z**, with `model_key = baseline_v2/1.0.0`.
@@ -266,3 +283,4 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
 | Attribution text (AirNow, FIRMS, PurpleAir, NWS) | TBD | Not in v1 of this contract yet |
+| Alert POST paths in `openapi.yaml`, and non-GET support in `validate.py`, `fixture_manifest.json`, the contract tests and `sync-api.mjs` | API-05 (#111) | Bodies are in the spec (`Alert*`); paths land with the routes |
