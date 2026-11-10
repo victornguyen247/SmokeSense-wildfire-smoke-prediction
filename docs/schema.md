@@ -65,6 +65,9 @@ weather_observations          forecast_verifications
 weather_forecasts (via grid)
   │
 forecast_points ──── 1:many ──► alerts
+  │                                │ 1:many (CASCADE)
+  │ 1:many                         ▼
+  └──────────► alert_subscriptions ──── 1:many (CASCADE) ──► alert_notifications
 
 monitors ──── city_id FK ──► cities
   │ 1:many
@@ -469,6 +472,59 @@ A partial unique index enforces at most one open alert per point per severity.
 | `latest_forecast_id` | TEXT | FK → forecasts(id), nullable, ON DELETE SET NULL | Latest supporting forecast. NULL after 30-day trim — alert survives. |
 
 **Indexes:** `PRIMARY KEY (id)`, `PARTIAL UNIQUE INDEX one_open_alert ON alerts (forecast_point_id, severity) WHERE status = 'open'`, `INDEX (forecast_point_id, first_triggered_at DESC)`, `INDEX (latest_forecast_id)`
+
+Episode rules for email alerts (open, continue, resolve after 3 clear runs): [`alerts.md`](alerts.md) §4.
+
+---
+
+### `alert_subscriptions`
+
+Email alert subscriptions (PM-06, [`alerts.md`](alerts.md); built in API-04, #110; **not migrated yet**). One row per subscription to one grid cell. Personal data: deleted on unsubscribe, 48 h after an unconfirmed sign-up, and entirely at teardown before Senior Design Day.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| `id` | TEXT | PK | UUIDv7 |
+| `email` | TEXT | NOT NULL, CHECK (`email = lower(btrim(email))`) | Trimmed and lower-cased. Never logged in full (mask as `t***@domain`) |
+| `forecast_point_id` | TEXT | NOT NULL, FK → forecast_points(id) | A `grid_cell` point, from the ZIP or lat/lon lookup |
+| `zip` | TEXT | CHECK (`zip ~ '^[0-9]{5}$'`) | Set for a ZIP subscription |
+| `query_lat` | NUMERIC(4,2) |  | Set for a point subscription; rounded to 2 decimals (~1 km). The exact point is never stored |
+| `query_lon` | NUMERIC(5,2) |  | Same |
+| `status` | TEXT | NOT NULL, CHECK IN ('pending','active','unsubscribed') | v1 deletes on unsubscribe, so `unsubscribed` is not written |
+| `confirm_token_hash` | TEXT | NOT NULL, UNIQUE | SHA-256 hex of the random 32-byte confirm token. The raw token is never stored |
+| `unsubscribe_token_hash` | TEXT | NOT NULL, UNIQUE | SHA-256 hex of the unsubscribe token (32 bytes, HMAC of `id`; alerts.md §3). The raw token is never stored |
+| `confirm_expires_at` | TIMESTAMPTZ | NOT NULL | UTC. Last confirmation email + 48 h |
+| `confirmation_sends_24h` | SMALLINT | NOT NULL, DEFAULT 0, CHECK (≥ 0) | Rate limit: at most 3 confirmation emails per 24 h |
+| `last_confirmation_sent_at` | TIMESTAMPTZ |  | UTC. The counter resets when this is over 24 h old |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
+| `confirmed_at` | TIMESTAMPTZ |  | UTC. Set when `status` becomes `active` |
+
+**Checks:** exactly one location form: `(zip IS NOT NULL) <> (query_lat IS NOT NULL)`, and `(query_lat IS NULL) = (query_lon IS NULL)`. `(status = 'active') = (confirmed_at IS NOT NULL)`.
+
+**Indexes:** `PRIMARY KEY (id)`, `PARTIAL UNIQUE INDEX one_pending_per_email ON alert_subscriptions (email) WHERE status = 'pending'`, `PARTIAL UNIQUE INDEX one_active_per_email ON alert_subscriptions (email) WHERE status = 'active'`, `UNIQUE (confirm_token_hash)`, `UNIQUE (unsubscribe_token_hash)`, `PARTIAL INDEX (forecast_point_id) WHERE status = 'active'` (alert job: cells to evaluate and who to email)
+
+One pending and one active row per email, not one row across both: a new sign-up waits as `pending` next to the active row, and confirming it deletes the active row in the same transaction (alerts.md §2).
+
+---
+
+### `alert_notifications`
+
+One row per email attempt for a subscription: its confirmation emails and at most one alert email per episode.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| `id` | TEXT | PK | UUIDv7 |
+| `subscription_id` | TEXT | NOT NULL, FK → alert_subscriptions(id) ON DELETE CASCADE |  |
+| `alert_id` | TEXT | FK → alerts(id) ON DELETE CASCADE, nullable | The episode; NULL for `kind = 'confirmation'` |
+| `kind` | TEXT | NOT NULL, CHECK IN ('confirmation','alert') |  |
+| `status` | TEXT | NOT NULL, CHECK IN ('sent','failed') | `failed` with `attempts < 3` is retried by the next runs (alerts only) |
+| `attempts` | SMALLINT | NOT NULL, DEFAULT 1, CHECK (1–3) |  |
+| `sent_at` | TIMESTAMPTZ |  | UTC, set when `status = 'sent'`. The 24 h cap reads it |
+| `error` | TEXT |  | Short reason of the last failure, ≤ 200 chars. Never an address, token or URL |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
+
+**Checks:** `(kind = 'confirmation') = (alert_id IS NULL)`.
+
+**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (subscription_id, alert_id)` (exactly one email per subscription per episode; NULL `alert_id` rows don't collide), `INDEX (subscription_id, sent_at DESC)` (24 h cap)
 
 ---
 
