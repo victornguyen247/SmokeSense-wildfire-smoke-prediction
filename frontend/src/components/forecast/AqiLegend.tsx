@@ -1,4 +1,5 @@
 import type { Meta } from "../../api/models";
+import { LOW_CONFIDENCE_OUTLINE } from "../../constants/map";
 import { formatRange, NO_DATA_COLOR } from "../../utils/aqi";
 
 type AqiLegendProps = {
@@ -31,7 +32,11 @@ export function AqiLegend({ meta }: AqiLegendProps) {
           <span className="aqi-legend__range">no monitor within {meta.max_interpolation_dist_km} km</span>
         </li>
         <li className="aqi-legend__item">
-          <span className="aqi-legend__swatch aqi-legend__swatch--low-confidence" aria-hidden="true" />
+          <span
+            className="aqi-legend__swatch aqi-legend__swatch--low-confidence"
+            style={{ borderColor: LOW_CONFIDENCE_OUTLINE }}
+            aria-hidden="true"
+          />
           <span className="aqi-legend__label">Lower confidence</span>
           <span className="aqi-legend__range">over {meta.low_confidence_dist_km} km from a monitor</span>
         </li>
