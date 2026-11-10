@@ -5,7 +5,8 @@ import type { Map as MapLibreMap } from "maplibre-gl";
  * stay readable on top of the forecast colors. Undefined when the style has no labels.
  */
 export function firstSymbolLayerId(map: MapLibreMap): string | undefined {
-  return map.getStyle().layers.find((layer) => layer.type === "symbol")?.id;
+  // getLayersOrder() lists ids without copying the whole style, unlike getStyle().
+  return map.getLayersOrder().find((id) => map.getLayer(id)?.type === "symbol");
 }
 
 /**

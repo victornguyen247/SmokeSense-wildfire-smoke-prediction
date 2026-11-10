@@ -23,7 +23,10 @@ export function DashboardPage() {
 
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonHours | null>(null);
   const horizon = selectedHorizon ?? metaData?.horizons[0] ?? 1;
-  const gridHorizon = grid.data?.horizons.find((h) => h.horizon_hours === horizon);
+  // Values only go on polygons from the same grid generation.
+  const sameGrid = grid.data !== undefined && grid.data.grid_key === cells.data?.grid_key;
+  const gridHorizon = sameGrid ? grid.data?.horizons.find((h) => h.horizon_hours === horizon) : undefined;
+  const mapFailed = cells.status === "error" || grid.status === "error";
 
   return (
     <div className="app">
@@ -72,7 +75,7 @@ export function DashboardPage() {
                     onChange={setSelectedHorizon}
                     targetTime={gridHorizon?.target_time}
                   />
-                  {(cells.status === "loading" || grid.status === "loading") && (
+                  {!mapFailed && (cells.status === "loading" || grid.status === "loading") && (
                     <Spinner label="Loading the forecast map…" />
                   )}
                   {cells.status === "error" && (

@@ -11,3 +11,6 @@ export const MAX_BOUNDS: LngLatBoundsLike = [
   [-131, 29],
   [-107, 45.5],
 ];
+
+/** Dashed outline of a lower-confidence forecast cell, on the map and in the legend. */
+export const LOW_CONFIDENCE_OUTLINE = "#3c4043";

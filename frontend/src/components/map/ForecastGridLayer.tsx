@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { ExpressionSpecification } from "maplibre-gl";
 
 import type { AqiCategoryInfo, GridCellCollection, GridForecast } from "../../api/models";
+import { LOW_CONFIDENCE_OUTLINE } from "../../constants/map";
 import { useMap } from "../../context/MapContext";
 import { categoryColorExpression } from "../../utils/aqi";
 import { firstSymbolLayerId, removeFromMap } from "../../utils/map";
@@ -63,7 +64,7 @@ export function ForecastGridLayer({
         type: "line",
         source: SOURCE_ID,
         paint: {
-          "line-color": "#3c4043",
+          "line-color": LOW_CONFIDENCE_OUTLINE,
           "line-width": 1,
           "line-dasharray": [2, 2],
           "line-opacity": ["case", ["all", hasValue, isLowConfidence], 0.7, 0],
