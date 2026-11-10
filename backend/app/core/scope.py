@@ -11,9 +11,11 @@ from app.schemas.query import Bbox
 
 CALIFORNIA_STATE_CODE = "06"
 
+OUT_OF_SCOPE = "SmokeSense only forecasts for California."
+
 # Rough California extent (minLon, minLat, maxLon, maxLat), the same box the frontend
-# mock uses. API-01's mock mode checks scope against it; the database repository will
-# check against the state polygon in PostGIS instead.
+# mock uses. Every request is checked against it first; the database repository then
+# checks against the grid cells, since Reno is inside this box.
 CALIFORNIA_BBOX = Bbox(-124.5, 32.5, -114.1, 42.1)
 
 # The 3-digit prefixes of California ZIP codes.
