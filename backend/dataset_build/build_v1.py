@@ -8,7 +8,7 @@ docs/data-decisions.md #17-22:
   points  (18) per event, AirNow monitors with valid regulatory pm25 inside the tight bbox
           during [start, end] and in California scope; forecast_point_id = monitors.external_id
   times   (19) every UTC hour in [start 00:00, end 23:00] x ALLOWED_HORIZONS
-  inputs  (20) fires: VIIRS_SNPP in firms_bbox x [firms_start_date, end];
+  inputs  (20) fires: VIIRS_SNPP (historical rows) in firms_bbox x [firms_start_date, end];
           PM2.5 history and labels: regulatory AirNow in the tight bbox x [airnow_start_date,
           airnow_end_date]; weather: weather_observations in ncei_bbox x [ncei_start_date, end];
           build_feature_dataset(..., lookback_hours=72)
@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -41,6 +41,7 @@ from dataset_build.checks import check_event  # noqa: E402
 from dataset_build.site_registry import load_registry  # noqa: E402
 from features.alignment import ALLOWED_HORIZONS, build_feature_dataset  # noqa: E402
 from features.validation import validate_feature_dataset  # noqa: E402
+from ingestion.connectors.firms import LIVE_SATELLITE, SNPP_SATELLITE  # noqa: E402
 from ingestion.batch.batch_ingest import PilotEvent, load_pilot_events  # noqa: E402
 
 VERSION = "1.0.0"
@@ -53,13 +54,19 @@ DEFAULT_IDW_K = 4
 
 CONFIG = BACKEND / "docs" / "pilot_events.json"
 OUT = BACKEND / "data" / "datasets" / "smokesense_v1"
-SNPP = "VIIRS_SNPP"  # fire_detections.satellite for VIIRS SNPP (ingestion/connectors/firms.py)
 LOOKBACK_HOURS = 72.0
 # Which rows of observations / fire_detections / weather_observations a query reads.
 # Live DATA-06 rows share those tables and carry an ingestion_run_id; historical DATA-03
 # rows have none (decision #34). smokesense_v1 is built from "historical" only, so it
 # does not change when live rows arrive; GEO-03 reuses these functions with "live".
 ROW_SCOPES = ("historical", "live", "any")
+# fire_detections.satellite each row_scope reads (decision #49). smokesense_v1 trained on
+# SNPP; FIRMS dropped SNPP on 2026-11-02, so live fires are NOAA-20.
+FIRE_SATELLITES = {
+    "historical": (SNPP_SATELLITE,),
+    "live": (LIVE_SATELLITE,),
+    "any": (SNPP_SATELLITE, LIVE_SATELLITE),
+}
 
 
 def scope_sql(row_scope: str, alias: str = "") -> str:
@@ -165,9 +172,9 @@ def load_inputs(c, ev: PilotEvent, row_scope: str = "historical") -> dict[str, p
     fires = pd.read_sql(text(f"""
         select detected_at, ST_Y(geom::geometry) as latitude, ST_X(geom::geometry) as longitude, frp_mw
         from fire_detections
-        where satellite = :sat and {table_scope} and detected_at >= :lo and detected_at < :hi
-          and ST_Intersects(geom::geometry, {ENV})"""),
-        c, params=dict(sat=SNPP, lo=utc_day(ev.firms_start_date), hi=end, **_box(ev.firms_bbox)))
+        where satellite in :sats and {table_scope} and detected_at >= :lo and detected_at < :hi
+          and ST_Intersects(geom::geometry, {ENV})""").bindparams(bindparam("sats", expanding=True)),
+        c, params=dict(sats=list(FIRE_SATELLITES[row_scope]), lo=utc_day(ev.firms_start_date), hi=end, **_box(ev.firms_bbox)))
     obs = pd.read_sql(text(f"""
         select m.external_id as monitor_id, o.valid_at, o.pm25, o.correction, o.qa_flag,
                ST_Y(m.geom::geometry) as latitude, ST_X(m.geom::geometry) as longitude
