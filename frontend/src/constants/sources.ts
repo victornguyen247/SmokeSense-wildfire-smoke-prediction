@@ -9,5 +9,5 @@ export const SOURCE_LABELS: Record<SourceFreshness["source"], string> = {
 };
 
 /** Data credits, shown in the layer control and in MapLibre's attribution control. */
-export const FIRE_ATTRIBUTION = "Fires: NASA FIRMS (VIIRS SNPP)";
+export const FIRE_ATTRIBUTION = "Fires: NASA FIRMS (VIIRS)";
 export const SENSOR_ATTRIBUTION = "Sensors: EPA AirNow, PurpleAir";
