@@ -100,6 +100,7 @@ export function DashboardPage() {
               {point && (
                 <PointForecastCard
                   label={point.label}
+                  query={point.query}
                   forecast={pointForecast}
                   meta={metaData}
                   horizon={horizon}

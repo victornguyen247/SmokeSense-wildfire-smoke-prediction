@@ -1,10 +1,13 @@
 import type { ApiError } from "../../api/client";
+import type { PointQuery } from "../../api/forecast";
 import type { AqiCategoryInfo, HorizonHours, Meta, PointForecast } from "../../api/models";
 import type { QueryState } from "../../hooks/useApiQuery";
 import { categoryInfo, formatPm25, NO_DATA_COLOR } from "../../utils/aqi";
 import { formatLocalDateTime, formatLocalHour } from "../../utils/formatTime";
 import { ErrorMessage } from "../ui/ErrorMessage";
 import { Spinner } from "../ui/Spinner";
+import { AlertSignup } from "./AlertSignup";
+import { AlertWarning } from "./AlertWarning";
 
 // Above this, a ZIP's centroid can be 20+ km from a given house (docs/api.md, "/forecast/point").
 const LARGE_ZIP_AREA_KM2 = 500;
@@ -14,6 +17,8 @@ type ForecastRow = PointForecast["cell"]["forecasts"][number] | NonNullable<Poin
 type PointForecastCardProps = {
   /** "ZIP 95926", "your location" or a lat/lon, as it reads after "Forecast for". */
   label: string;
+  /** What was asked for; an alert sign-up is for this same location. */
+  query: PointQuery;
   forecast: QueryState<PointForecast> & { retry: () => void };
   meta: Meta;
   /** The horizon picked on the map; its row is highlighted. */
@@ -32,7 +37,7 @@ function friendlyError(error: ApiError, label: string): string | null {
 }
 
 /** WEB-04: PM2.5 and AQI category per horizon for one location, with how well-supported it is. */
-export function PointForecastCard({ label, forecast, meta, horizon, onClose }: PointForecastCardProps) {
+export function PointForecastCard({ label, query, forecast, meta, horizon, onClose }: PointForecastCardProps) {
   return (
     <section className="point-card" aria-labelledby="point-card-heading" aria-live="polite">
       <div className="point-card__header">
@@ -51,7 +56,15 @@ export function PointForecastCard({ label, forecast, meta, horizon, onClose }: P
         ) : (
           <ErrorMessage title="Couldn't load this forecast" message={forecast.error.message} onRetry={forecast.retry} />
         ))}
-      {forecast.status === "success" && <PointForecastBody data={forecast.data} meta={meta} horizon={horizon} />}
+      {forecast.status === "success" && (
+        <>
+          <AlertWarning alert={forecast.data.cell.active_alert} categories={meta.aqi_categories} />
+          <PointForecastBody data={forecast.data} meta={meta} horizon={horizon} />
+        </>
+      )}
+
+      {/* Keyed by location, so a new location starts a fresh form. */}
+      {forecast.status === "success" && <AlertSignup key={label} query={query} label={label} />}
 
       <p className="point-card__disclaimer">
         Experimental model estimate, not an official warning. Follow AirNow.gov and your local air district.

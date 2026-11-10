@@ -4,6 +4,10 @@
 // Add one of these to the page URL to see the other UI states:
 //   ?mock=slow    every response waits 3 s (loading states)
 //   ?mock=error   every response is a 500 internal_error (error states)
+//
+// Alert token pages (docs/alerts.md): a 43-character token confirms or unsubscribes. For
+// confirm, one starting with "already" is already confirmed and one starting with
+// "expired" has expired. Any other token is an invalid link. MOCK_ALERT_TOKENS has each.
 
 import { delay, http, HttpResponse, type JsonBodyType } from "msw";
 
@@ -123,7 +127,70 @@ function pointForecast(url: URL) {
   return respond(fixtures.forecastPoint);
 }
 
+// A real token is 32 random bytes in base64url: 43 characters.
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+const mockToken = (prefix: string) => prefix.padEnd(43, "x");
+
+/** Tokens for trying the confirm and unsubscribe pages in mock mode. */
+export const MOCK_ALERT_TOKENS = {
+  valid: mockToken("valid"),
+  alreadyConfirmed: mockToken("already"),
+  expired: mockToken("expired"),
+};
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function readJson(request: Request): Promise<Record<string, unknown> | null> {
+  const body: unknown = await request.json().catch(() => null);
+  return typeof body === "object" && body !== null ? (body as Record<string, unknown>) : null;
+}
+
+/** POST /alerts/subscriptions: the same 202 for every valid request (docs/alerts.md, section 2). */
+async function subscribe(request: Request) {
+  const body = await readJson(request);
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const hasZip = typeof body?.zip === "string";
+  const hasPoint = typeof body?.lat === "number" && typeof body?.lon === "number";
+  if (!EMAIL_PATTERN.test(email) || hasZip === hasPoint) {
+    return respond(errorBody("invalid_query", "Send a valid email and either zip or lat and lon."), 400);
+  }
+  if (hasZip) {
+    const prefix = Number(String(body?.zip).slice(0, 3));
+    if (!/^[0-9]{5}$/.test(String(body?.zip)) || prefix < 900 || prefix > 961) {
+      return respond(errorBody("zip_not_found", `No California ZIP code area for ${String(body?.zip)}.`), 404);
+    }
+  } else {
+    const lat = body?.lat as number;
+    const lon = body?.lon as number;
+    if (lon < CA.minLon || lon > CA.maxLon || lat < CA.minLat || lat > CA.maxLat) {
+      return respond(errorBody("out_of_scope", "SmokeSense only forecasts for California."), 404);
+    }
+  }
+  return respond({ status: "pending_confirmation" }, 202);
+}
+
+async function confirm(request: Request) {
+  const token = (await readJson(request))?.token;
+  if (typeof token !== "string" || !TOKEN_PATTERN.test(token)) {
+    return respond(errorBody("invalid_token", "This link isn't valid."), 404);
+  }
+  if (token.startsWith("expired")) return respond(errorBody("token_expired", "This link has expired."), 410);
+  return respond({ status: token.startsWith("already") ? "already_confirmed" : "confirmed" });
+}
+
+async function unsubscribe(request: Request) {
+  const token = (await readJson(request))?.token;
+  if (typeof token !== "string" || !TOKEN_PATTERN.test(token)) {
+    return respond(errorBody("invalid_token", "This link isn't valid."), 404);
+  }
+  return respond({ status: "unsubscribed" });
+}
+
 export const handlers = [
+  http.post(api("/alerts/subscriptions"), ({ request }) => subscribe(request)),
+  http.post(api("/alerts/confirm"), ({ request }) => confirm(request)),
+  http.post(api("/alerts/unsubscribe"), ({ request }) => unsubscribe(request)),
   http.get(api("/meta"), () => respond(fixtures.meta)),
   http.get(api("/health"), () => respond(fixtures.health)),
   http.get(api("/grid/cells"), withBbox(fixtures.gridCells)),

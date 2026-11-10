@@ -19,6 +19,11 @@ export type FireDetectionCollection = Schemas["FireDetectionCollection"];
 export type ObservationCollection = Schemas["ObservationCollection"];
 export type WindObservationCollection = Schemas["WindObservationCollection"];
 export type Health = Schemas["Health"];
+export type ActiveAlert = Schemas["ActiveAlert"];
+export type AlertSubscribeRequest = Schemas["AlertSubscribeRequest"];
+export type AlertSubscribeAccepted = Schemas["AlertSubscribeAccepted"];
+export type AlertConfirmResult = Schemas["AlertConfirmResult"];
+export type AlertUnsubscribeResult = Schemas["AlertUnsubscribeResult"];
 
 /** `minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order), as the API's `bbox` parameter expects. */
 export type Bbox = [minLon: number, minLat: number, maxLon: number, maxLat: number];

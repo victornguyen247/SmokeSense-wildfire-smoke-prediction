@@ -66,3 +66,21 @@ export async function unwrap<T>(
 export function bboxParam(bbox?: Bbox): { bbox?: string } {
   return bbox ? { bbox: bbox.join(",") } : {};
 }
+
+/**
+ * POST JSON to a path the spec has no `paths` entry for yet (the alert endpoints, until
+ * API-05), with the same base URL and error handling as `apiClient`. Prefer apiClient.
+ */
+export function postJson<T>(path: `/api/v1/${string}`, body: unknown, signal?: AbortSignal): Promise<T> {
+  return unwrap<T>(
+    fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    }).then(async (response) => {
+      const json: unknown = await response.json().catch(() => undefined);
+      return response.ok ? { data: json as T, response } : { error: json, response };
+    }),
+  );
+}
