@@ -70,6 +70,9 @@ def test_noaa20_archive_code_is_case_and_space_insensitive(raw):
         ("N", "VIIRS_SNPP_NRT", "VIIRS_SNPP"),
         ("J", "VIIRS_NOAA20_NRT", "VIIRS_NOAA20"),
         ("1", "VIIRS_NOAA21_NRT", "VIIRS_NOAA21"),
+        # Real VIIRS_NOAA20_NRT responses send "N20" (checked 2026-11-09).
+        ("N20", "VIIRS_NOAA20_NRT", "VIIRS_NOAA20"),
+        ("N21", "VIIRS_NOAA21_NRT", "VIIRS_NOAA21"),
     ],
 )
 def test_existing_viirs_codes(raw, source, expected):

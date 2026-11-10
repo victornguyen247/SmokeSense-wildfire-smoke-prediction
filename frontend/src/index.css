@@ -397,7 +397,7 @@ a {
 }
 
 .aqi-legend__swatch--low-confidence {
-  border: 1.5px dashed #3c4043;
+  border: 1.5px dashed; /* color: LOW_CONFIDENCE_OUTLINE, set inline */
   background: transparent;
 }
 
