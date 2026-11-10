@@ -1,9 +1,12 @@
 """The real repository: data from PostGIS, in the shapes of docs/api/openapi.yaml.
 
 Every response comes from one forecast cycle, because the contract carries a single
-`issued_at` and `model_key`. The cycle is the newest non-shadow `issued_at` of a
-production model, so a point left out of that cycle has no forecast rather than an
-older one. The writer must therefore commit each cycle in one transaction.
+`issued_at` and `model_key`. The cycle is the newest successful pipeline_runs row, the
+same source as pipeline/status.py: the pipeline commits monitor and grid rows in
+separate stages and marks a run successful only after both, so that cycle is complete.
+A point left out of it has no forecast rather than an older one. If that run's model is
+not production (the local stub is shadow), there is no forecast: older grid rows are
+trimmed when a run succeeds, so falling back to an older run would serve an empty grid.
 """
 
 from __future__ import annotations
@@ -47,18 +50,15 @@ QUERY_POINT = "ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"
 IN_CYCLE = "f.model_key = :model_key AND f.issued_at = :issued_at AND NOT f.is_shadow"
 
 LATEST_CYCLE = text("""
-    SELECT newest.issued_at, m.model_key
-    FROM model_versions AS m
-    CROSS JOIN LATERAL (
-        SELECT f.issued_at
-        FROM forecasts AS f
-        WHERE f.model_key = m.model_key AND NOT f.is_shadow
-        ORDER BY f.issued_at DESC
+    SELECT newest.issued_at, newest.model_key
+    FROM (
+        SELECT r.issued_at, r.model_key
+        FROM pipeline_runs AS r
+        WHERE r.status = 'success'
+        ORDER BY r.issued_at DESC
         LIMIT 1
     ) AS newest
-    WHERE m.status = 'production'
-    ORDER BY newest.issued_at DESC, m.model_key
-    LIMIT 1
+    JOIN model_versions AS m ON m.model_key = newest.model_key AND m.status = 'production'
 """)
 
 PRODUCTION_MODEL = text("""

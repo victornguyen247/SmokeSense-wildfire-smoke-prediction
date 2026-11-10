@@ -5,7 +5,7 @@ Alembic's env.py compares against for autogenerate.
 """
 
 from app.models.base import Base
-from app.models.operations import BatchIngestionProgress, IngestionRun
+from app.models.operations import BatchIngestionProgress, IngestionRun, PipelineRun
 from app.models.predictions import Alert, Forecast, ForecastVerification, ModelVersion
 from app.models.reference import City, ForecastPoint, Monitor, ZipCode
 from app.models.rollups import CityMonthlyAggregate, MonitorDailyPm25
@@ -32,6 +32,7 @@ __all__ = [
     "Monitor",
     "MonitorDailyPm25",
     "Observation",
+    "PipelineRun",
     "PointWeatherMap",
     "WeatherForecast",
     "WeatherObservation",

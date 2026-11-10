@@ -39,6 +39,7 @@ The daily job order is strict: **(1) build `monitor_daily_pm25`, (2) run `foreca
 | `weather_forecasts` | 3 days | Drop partition |
 | `forecasts` | 30 days | Celery DELETE |
 | `ingestion_runs` | 90 days | Celery DELETE |
+| `pipeline_runs` | 90 days | Deleted by the pipeline's finish step (OPS-04) |
 | `forecast_points` (ad-hoc) | Deactivated after 90 days without requests | Celery UPDATE |
 | Everything else | Forever | — |
 
@@ -75,6 +76,7 @@ observations ──── (aggregated to) ──► monitor_daily_pm25
 
 fire_detections   (no FK — spatial relationship resolved in features/)
 ingestion_runs    (standalone audit log)
+pipeline_runs     (standalone audit log of the hourly forecast pipeline)
 model_versions    (standalone reference)
 zip_codes         (lookup, FK to forecast_points once requested)
 ```
@@ -408,7 +410,7 @@ The `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)` key allows
 | `is_shadow` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE = test model run. Never shown to users or used for alerts. |
 | `feature_snapshot` | JSONB |  | Top 5–10 feature values for the "Why?" panel. Written once, read per forecast. |
 
-**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `PARTIAL INDEX (model_key, issued_at DESC) WHERE NOT is_shadow` (API: newest public cycle and its rows), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
+**Indexes:** `PRIMARY KEY (id)`, `UNIQUE (forecast_point_id, model_key, issued_at, horizon_hours)`, `INDEX (forecast_point_id, issued_at DESC)` (dashboard: latest forecasts for this point), `PARTIAL INDEX (model_key, issued_at DESC) WHERE NOT is_shadow` (API: one public cycle's rows), `INDEX (target_time)` (alert check: forecasts for the next 6 hours)
 
 **Retention:** 30 days via Celery DELETE. Long enough to verify live accuracy (key capstone demo: "how accurate was the model last week?"). Grid-cell forecasts keep only the latest run; monitor forecasts keep 30 days (scope freeze, 2026-10-27).
 
@@ -471,6 +473,27 @@ A partial unique index enforces at most one open alert per point per severity.
 ---
 
 ## 5. Operations
+
+---
+
+### `pipeline_runs`
+
+One row per run of the hourly forecast pipeline (OPS-04, `docs/ops/forecast-pipeline.md`). `/meta` forecast freshness = newest `status = 'success'` row. Re-running an hour adds a row; the forecasts it writes overwrite that hour's rows.
+
+| Column | Type | Constraints | Notes |
+| --- | --- | --- | --- |
+| `id` | TEXT | PK | UUIDv7 |
+| `issued_at` | TIMESTAMPTZ | NOT NULL | UTC top of the hour the run forecasts from |
+| `started_at` | TIMESTAMPTZ | NOT NULL | UTC |
+| `finished_at` | TIMESTAMPTZ |  | UTC, NULL while running |
+| `status` | TEXT | NOT NULL, CHECK IN ('running','success','failed') |  |
+| `model_key` | TEXT |  | Model that produced the monitor forecasts (no FK: audit log) |
+| `stages` | JSONB | NOT NULL, DEFAULT '{}' | Per stage: `status`, `started_at`, `finished_at`, `attempts`, `rows_in`, `rows_out`, `error` |
+| `error` | TEXT |  | `<stage>: <summary>` of a failed run, never a stack trace |
+
+**Indexes:** `PRIMARY KEY (id)`, `INDEX (status, issued_at)`
+
+**Retention:** 90 days.
 
 ---
 

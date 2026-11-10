@@ -29,6 +29,10 @@ LIVE_TEST_TABLES = (
     "weather_observations",
     "monitors",
     "ingestion_runs",
+    "forecasts",
+    "forecast_points",
+    "model_versions",
+    "pipeline_runs",
 )
 
 
