@@ -16,6 +16,14 @@ const FIRE_COLOR = "#202124";
 
 type FireProps = FireDetectionCollection["features"][number]["properties"];
 
+// Display names for `satellite`. A new satellite is an additive enum value, so an
+// unknown one is shown as sent rather than mislabeled.
+const SATELLITE_LABELS: Record<string, string> = {
+  VIIRS_SNPP: "VIIRS Suomi NPP",
+  VIIRS_NOAA20: "VIIRS NOAA-20",
+  VIIRS_NOAA21: "VIIRS NOAA-21",
+};
+
 const CONFIDENCE_LABELS: Record<FireProps["confidence"], string> = {
   low: "Low",
   nominal: "Nominal",
@@ -75,7 +83,7 @@ export function FireLayer({ fires, visible }: FireLayerProps) {
 function firePopup(props: FireProps): PopupLine[] {
   const lines: PopupLine[] = [
     { text: "Fire detection", className: "map-popup__title" },
-    { text: "NASA FIRMS, VIIRS SNPP satellite", className: "map-popup__muted" },
+    { text: `NASA FIRMS, ${SATELLITE_LABELS[props.satellite] ?? props.satellite} satellite`, className: "map-popup__muted" },
     { text: `Detected ${formatLocalDateTime(props.detected_at)}${daynightSuffix(props.daynight)}` },
     { text: `Confidence: ${CONFIDENCE_LABELS[props.confidence]}` },
   ];

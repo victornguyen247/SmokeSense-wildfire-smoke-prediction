@@ -1,12 +1,11 @@
 """The data-access interface the services call.
 
 Each method returns a response body that already has the endpoint's shape in
-docs/api/openapi.yaml. FixtureRepository serves the PM-02 fixtures (MOCK_MODE); the
-database repository will implement the same methods, so real data swaps in here
-without touching the routes or services.
+docs/api/openapi.yaml. FixtureRepository serves the PM-02 fixtures (MOCK_MODE) and
+DatabaseRepository serves real data, so the routes and services work with either.
 
-Callers pass a bbox already validated and clipped to California, and a point already
-checked to be in scope.
+Callers pass a bbox already validated and clipped to California's rough box, and a
+point already checked against it. DatabaseRepository makes the exact check.
 """
 
 from __future__ import annotations
