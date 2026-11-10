@@ -39,15 +39,23 @@ const RESULTS = {
   failed: { ok: false, title: "Something went wrong.", body: "Please try again in a minute." },
 } satisfies Record<string, Result>;
 
+// The token may come after "#" (`#token=…`) or in the query (`?token=…`). The fragment is
+// never sent to a server, so it can't end up in an access log or a Referer header.
+const fragmentParams = (url: URL) => new URLSearchParams(url.hash.slice(1));
+
 function readToken(): string | null {
-  return new URL(window.location.href).searchParams.get("token");
+  const url = new URL(window.location.href);
+  return fragmentParams(url).get("token") ?? url.searchParams.get("token");
 }
 
 /** Take the token out of the address bar, so it isn't kept in history or shared by accident. */
 function stripToken(): void {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("token")) return;
+  const fragment = fragmentParams(url);
+  if (!url.searchParams.has("token") && !fragment.has("token")) return;
   url.searchParams.delete("token");
+  fragment.delete("token");
+  url.hash = fragment.toString();
   window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
 }
 
@@ -65,7 +73,7 @@ async function submit(kind: Kind, token: string): Promise<Result> {
 }
 
 /**
- * WEB-05 part B: `/alerts/confirm?token=` and `/alerts/unsubscribe?token=`, the pages the
+ * WEB-05 part B: `/alerts/confirm` and `/alerts/unsubscribe` with the token, the pages the
  * email links open. Opening the page changes nothing by itself until it POSTs the token,
  * exactly once (docs/alerts.md, "Email links never change state").
  */

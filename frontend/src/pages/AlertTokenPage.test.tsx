@@ -30,6 +30,14 @@ describe("AlertTokenPage", () => {
     server.events.removeAllListeners();
   });
 
+  it("reads a token after # and removes it too", async () => {
+    window.history.replaceState(null, "", `/alerts/unsubscribe#token=${MOCK_ALERT_TOKENS.valid}`);
+    render(<AlertTokenPage kind="unsubscribe" />);
+    expect(await heading()).toBe("You're unsubscribed.");
+    expect(window.location.hash).toBe("");
+    expect(window.location.search).toBe("");
+  });
+
   it("says when the sign-up was already confirmed", async () => {
     open("confirm", MOCK_ALERT_TOKENS.alreadyConfirmed);
     expect(await heading()).toBe("You're already signed up.");
