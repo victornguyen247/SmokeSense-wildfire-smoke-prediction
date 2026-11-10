@@ -553,6 +553,7 @@ export interface components {
             age_minutes: number | null;
             /** @description PROVISIONAL: per-source thresholds not decided yet. */
             stale_after_minutes: number;
+            /** @description True when the source has no successful run yet or its last one finished more than `stale_after_minutes` ago. FIRMS is also stale when it has no detection in the last 72 h, the `/fires/active` window, so a stopped satellite feed shows even while its job succeeds. */
             stale: boolean;
         };
         Health: {
