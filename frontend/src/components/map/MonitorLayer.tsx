@@ -28,7 +28,8 @@ type MonitorPointProps = {
   name: string;
   aqs_code: string;
   aqi: string;
-  pm25: number | null;
+  /** Left out when the monitor has no forecast at this horizon. */
+  pm25?: number;
   fallback: boolean;
 };
 
@@ -61,7 +62,7 @@ export function MonitorLayer({ monitors, horizon, categories, categoryLabel, vis
             name: feature.properties.name ?? `Monitor ${feature.properties.aqs_code}`,
             aqs_code: feature.properties.aqs_code,
             aqi: value?.aqi_category ?? "",
-            pm25: value?.pm25 ?? null,
+            ...(value && { pm25: value.pm25 }),
             fallback: value?.source === "fallback",
           },
         };
@@ -116,7 +117,8 @@ function monitorPopup(
     { text: props.name, className: "map-popup__title" },
     { text: `AirNow monitor ${props.aqs_code}`, className: "map-popup__muted" },
   ];
-  if (props.pm25 === null) {
+  // MapLibre drops null properties, so a missing value arrives as undefined, not null.
+  if (typeof props.pm25 !== "number") {
     lines.push({ text: "No forecast at this horizon." });
   } else {
     const label = categoryInfo(categories, props.aqi as AqiCategoryInfo["key"])?.label ?? props.aqi;
