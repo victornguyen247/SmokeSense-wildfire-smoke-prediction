@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-import evaluate_ml02_rolling as rolling
+from ml.experiments.ml02 import evaluate_ml02_rolling as rolling
 from ml.feature_columns import FEATURES, TARGET
 from ml.models.xgb import EARLY_STOPPING, N_ESTIMATORS
 

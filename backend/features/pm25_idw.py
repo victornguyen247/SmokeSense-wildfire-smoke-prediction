@@ -308,7 +308,7 @@ def compute_idw_lags(
                 )
                 & (
                     neighbors["distance_km"]
-                    >= 0
+                    >= 1.0
                 )
             ].copy()
 
@@ -326,24 +326,15 @@ def compute_idw_lags(
 
             # Distinct monitor IDs may share coordinates.
             # At zero distance, use colocated readings.
-            zero_distance = neighbors[
-                neighbors["distance_km"] == 0
-            ]
-
-            if not zero_distance.empty:
-                prediction = float(
-                    zero_distance["pm25"].mean()
-                )
-            else:
-                prediction = idw_average(
-                    neighbors["pm25"].to_numpy(
-                        dtype=float
-                    ),
-                    neighbors["distance_km"].to_numpy(
-                        dtype=float
-                    ),
-                    power=power,
-                )
+            prediction = idw_average(
+                neighbors["pm25"].to_numpy(
+                    dtype=float
+                ),
+                neighbors["distance_km"].to_numpy(
+                    dtype=float
+                ),
+                power=power,
+            )
 
             lag_row[lag_column] = prediction
 

@@ -161,3 +161,40 @@ def test_idw_rejects_duplicate_observations():
             observations,
             max_radius_km=100.0,
         )
+
+def test_idw_excludes_neighbors_within_one_km():
+    issue_time = pd.Timestamp("2020-09-10 12:00:00", tz="UTC")
+
+    points = pd.DataFrame({
+        "forecast_point_id": ["monitor_A"],
+        "location_lat": [0.0],
+        "location_lon": [0.0],
+        "issue_time": [issue_time],
+    })
+
+    observations = pd.DataFrame({
+        "monitor_id": [
+            "monitor_A",
+            "monitor_B",
+            "monitor_C",
+            "monitor_D",
+        ],
+        "valid_at": [issue_time - pd.Timedelta(hours=1)] * 4,
+        "pm25": [999.0, 100.0, 200.0, 40.0],
+        "latitude": [0.0] * 4,
+        "longitude": [
+            0.0,    # Target monitor: excluded by ID
+            0.0,    # Different ID, same coordinates: 0 km
+            0.0045, # Approximately 0.5 km: excluded
+            0.018,  # Approximately 2 km: included
+        ],
+    })
+
+    result = compute_idw_lags(
+        points,
+        observations,
+        max_radius_km=100.0,
+    )
+
+    assert result.loc[0, "pm25_lag_1h"] == pytest.approx(40.0)
+    assert np.isnan(result.loc[0, "pm25_lag_3h"])

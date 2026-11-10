@@ -3,7 +3,7 @@
 Run from backend/:
     python -m ml.training.train_grid_native
 
-Put this file in backend/ml/training/train_grid_native.py.
+
 This evaluation is chronological WITHIN one event, not spatial hold-out.
 """
 from __future__ import annotations
@@ -21,13 +21,12 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from ml.feature_columns import FEATURES, TARGET
 from ml.models.xgb import BASE_PARAMS, EARLY_STOPPING, N_ESTIMATORS
 
+from ml.training.ml02_common import matrix, chronological_boundaries
+
 HORIZONS = (1, 3, 6, 12, 24)
 
 
-def matrix(frame: pd.DataFrame) -> pd.DataFrame:
-    x = frame[FEATURES].copy()
-    x["smoke_season"] = x["smoke_season"].astype("int8")
-    return x.astype("float32")
+
 
 
 def main() -> None:
@@ -45,12 +44,8 @@ def main() -> None:
     df["target_time"] = pd.to_datetime(df["target_time"], utc=True)
     if df[TARGET].isna().any():
         raise ValueError("Target contains nulls")
-    times = np.sort(df["issue_time"].unique())
-    if len(times) < 100:
-        raise ValueError("Not enough distinct issue times for chronological evaluation")
     # Split all forecast points and horizons on the same timestamps.
-    val_start = pd.Timestamp(times[int(len(times) * 0.70)])
-    test_start = pd.Timestamp(times[int(len(times) * 0.85)])
+    val_start, test_start = chronological_boundaries(df)
     # A 24h target-time purge ensures no training labels enter the validation
     # issue-time period and no validation labels enter the test issue-time period.
     train = df[df["target_time"] < val_start]

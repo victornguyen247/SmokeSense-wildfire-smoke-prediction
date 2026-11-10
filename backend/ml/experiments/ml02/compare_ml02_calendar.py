@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-import evaluate_ml02_rolling as r
+from ml.experiments.ml02 import evaluate_ml02_rolling as r
 
 PATH = "data/datasets/smokesense_v1.1/data.parquet"
 THRESHOLD = 35.5

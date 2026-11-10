@@ -1,6 +1,6 @@
 """ML-02 Method A pilot: forecast at monitors, then interpolate predictions.
 
-Run from backend/ after copying into ml/training/train_method_a.py:
+Run from backend/:
     python -m ml.training.train_method_a
 
 Reproduces the chronological split from train_grid_native.py using the
@@ -26,19 +26,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from features.pm25_idw import haversine_km, idw_average
 from ml.feature_columns import FEATURES, TARGET
 from ml.models.xgb import BASE_PARAMS, EARLY_STOPPING, N_ESTIMATORS
+from ml.training.ml02_common import matrix, chronological_boundaries
 
 HORIZONS = (1, 3, 6, 12, 24)
 KEY = ["forecast_point_id", "issue_time", "horizon_hours"]
 POWER = 2.0
 RADIUS_KM = 100.0
 MAX_NEIGHBORS = 4
-
-
-def matrix(df: pd.DataFrame) -> pd.DataFrame:
-    x = df[FEATURES].copy()
-    x["smoke_season"] = x["smoke_season"].astype("int8")
-    return x.astype("float32")
-
 
 def scores(frame: pd.DataFrame, column: str) -> dict:
     y = frame[TARGET].to_numpy(dtype=float)
@@ -48,7 +42,6 @@ def scores(frame: pd.DataFrame, column: str) -> dict:
         "rmse": float(np.sqrt(mean_squared_error(y, pred))),
         "bias": float(np.mean(pred - y)),
     }
-
 
 def require_unique(frame: pd.DataFrame, name: str) -> None:
     if frame.duplicated(KEY).any():
@@ -92,9 +85,7 @@ def main() -> None:
             raise ValueError(f"Own and IDW datasets disagree on {col}")
 
     # Use the EXACT Method B chronological cutoffs, determined from IDW data.
-    times = np.sort(idw["issue_time"].unique())
-    val_start = pd.Timestamp(times[int(len(times) * 0.70)])
-    test_start = pd.Timestamp(times[int(len(times) * 0.85)])
+    val_start, test_start = chronological_boundaries(idw)
     train = own[own["target_time"] < val_start]
     valid = own[(own["issue_time"] >= val_start) & (own["target_time"] < test_start)]
     test = own[own["issue_time"] >= test_start]
