@@ -9,8 +9,11 @@ docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
 - latest_data_at: newest ingestion_runs.watermark among those runs.
 - age_minutes: generated time minus latest_data_at.
 - stale: no successful run yet, or the last one finished more than
-  stale_after_minutes ago. It is based on the job, not the data age, because a
-  healthy FIRMS feed can go hours without a detection.
+  stale_after_minutes ago (decision #40). FIRMS is also stale when it has no
+  detection, or its newest is older than FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS
+  (72 h, the /fires/active window; decision #47): the job can keep succeeding while
+  the satellite feed has stopped. A healthy feed can go hours without a detection,
+  so only FIRMS gets this check, and only at the window length.
 
 stale_after_minutes per source: FRESHNESS_STALE_AFTER_MINUTES_<SOURCE> (AIRNOW,
 FIRMS, NWS_OBS) in app/core/config.py, defaulting to about two missed runs.
@@ -47,6 +50,11 @@ def stale_after_minutes() -> dict[str, int]:
     }
 
 
+def max_data_age_minutes() -> dict[str, int]:
+    """{source: minutes} for the sources also judged by data age (decision #47)."""
+    return {"firms": settings.freshness_max_data_age_minutes_firms}
+
+
 def _iso_z(ts: datetime | None) -> str | None:
     if ts is None:
         return None
@@ -57,8 +65,11 @@ def freshness_from_runs(
     latest: dict[str, tuple[datetime | None, datetime | None]],
     now: datetime,
     thresholds: dict[str, int],
+    max_data_age: dict[str, int] | None = None,
 ) -> list[dict]:
-    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes."""
+    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes.
+    max_data_age: {source: minutes}; a listed source is also stale past that data age."""
+    max_data_age = max_data_age or {}
     items = []
     for name, run_source in SOURCES.items():
         last_success, latest_data = latest.get(run_source, (None, None))
@@ -66,8 +77,11 @@ def freshness_from_runs(
         if latest_data is not None:
             age = max(0, int((now - latest_data).total_seconds() // 60))
         limit = thresholds[name]
+        data_limit = max_data_age.get(name)
         stale = (
-            last_success is None or (now - last_success).total_seconds() > limit * 60
+            last_success is None
+            or (now - last_success).total_seconds() > limit * 60
+            or (data_limit is not None and (age is None or age > data_limit))
         )
         items.append(
             {
@@ -98,5 +112,8 @@ def source_freshness(session: Session, now: datetime | None = None) -> list[dict
     ).all()
     latest = {source: (finished, watermark) for source, finished, watermark in rows}
     return freshness_from_runs(
-        latest, now or datetime.now(timezone.utc), stale_after_minutes()
+        latest,
+        now or datetime.now(timezone.utc),
+        stale_after_minutes(),
+        max_data_age_minutes(),
     )

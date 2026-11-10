@@ -35,12 +35,18 @@ class Settings(BaseSettings):
     # Add the staging and production frontend origins here when they exist.
     cors_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     api_contract_dir: Path = DEFAULT_API_CONTRACT_DIR
-    # /meta: a forecast is stale when its cycle is older than this.
-    forecast_stale_after_minutes: int = 150  # about two missed hourly cycles
+    # /meta: a forecast is stale when its cycle is older than this. Same env name as
+    # pipeline/settings.py, so /meta and the pipeline status agree.
+    forecast_stale_after_minutes: int = Field(
+        default=150, validation_alias="PIPELINE_STALE_AFTER_MINUTES"
+    )  # about two missed hourly cycles
     # /meta: a source is stale when its last successful run finished longer ago than this.
     freshness_stale_after_minutes_airnow: int = 150  # hourly at :25
     freshness_stale_after_minutes_firms: int = 90  # every 30 min
     freshness_stale_after_minutes_nws_obs: int = 150  # hourly at :05
+    # /meta: FIRMS is also stale when its newest detection is older than this (decision
+    # #47): the /fires/active window, so the flag means the fire layer is empty.
+    freshness_max_data_age_minutes_firms: int = 72 * 60
 
     # --- Database (PostGIS) ---
     postgres_user: str = "smokesense"
@@ -85,6 +91,7 @@ class Settings(BaseSettings):
         "freshness_stale_after_minutes_airnow",
         "freshness_stale_after_minutes_firms",
         "freshness_stale_after_minutes_nws_obs",
+        "freshness_max_data_age_minutes_firms",
         mode="before",
     )
     @classmethod

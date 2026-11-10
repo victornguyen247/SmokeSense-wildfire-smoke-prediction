@@ -800,7 +800,9 @@ components:
         stale_after_minutes:
           type: integer
           description: "PROVISIONAL: per-source thresholds not decided yet."
-        stale: { type: boolean }
+        stale:
+          type: boolean
+          description: "True when the source has no successful run yet or its last one finished more than `stale_after_minutes` ago. FIRMS is also stale when it has no detection in the last 72 h, the `/fires/active` window, so a stopped satellite feed shows even while its job succeeds."
 
     Health:
       type: object

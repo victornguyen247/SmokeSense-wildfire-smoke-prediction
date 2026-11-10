@@ -107,7 +107,15 @@ def add_model(c, status="production") -> None:
 
 
 def add_cycle(c, age_hours: float) -> datetime:
+    """One forecast row and the successful pipeline_runs row the API picks the cycle from."""
     issued = hours_ago(age_hours).replace(minute=0, second=0, microsecond=0)
+    c.execute(
+        text("""
+            INSERT INTO pipeline_runs (id, issued_at, started_at, finished_at, status, model_key)
+            VALUES (gen_random_uuid()::text, :issued, :issued, :issued, 'success', :model)
+        """),
+        {"model": MODEL, "issued": issued},
+    )
     c.execute(
         text("""
             INSERT INTO forecasts (
@@ -323,6 +331,14 @@ def test_a_quiet_feed_is_not_stale_when_its_job_ran(engine):
         add_run(c, "firms", finished_ago_minutes=10, watermark_ago_minutes=600)
     firms = next(source for source in get(META)["sources"] if source["source"] == "firms")
     assert firms["stale"] is False and firms["age_minutes"] in (599, 600)
+
+
+def test_a_stopped_fire_feed_is_stale_even_when_its_job_ran(engine):
+    """No SNPP detection in the 72 h /fires/active window (decision #47)."""
+    with engine.begin() as c:
+        add_run(c, "firms", finished_ago_minutes=10, watermark_ago_minutes=73 * 60)
+    firms = next(source for source in get(META)["sources"] if source["source"] == "firms")
+    assert firms["stale"] is True and firms["stale_after_minutes"] == 90
 
 
 def test_a_failed_run_does_not_count_as_fresh(engine):

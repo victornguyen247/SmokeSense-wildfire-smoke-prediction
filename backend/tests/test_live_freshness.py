@@ -12,6 +12,7 @@ from app.core.config import Settings, settings
 from app.repositories.freshness import (
     SOURCES,
     freshness_from_runs,
+    max_data_age_minutes,
     source_freshness,
     stale_after_minutes,
 )
@@ -26,6 +27,7 @@ def default_thresholds(monkeypatch):
     """No threshold overrides from the environment."""
     for name, minutes in THRESHOLDS.items():
         monkeypatch.setattr(settings, f"freshness_stale_after_minutes_{name}", minutes)
+    monkeypatch.setattr(settings, "freshness_max_data_age_minutes_firms", 72 * 60)
 
 
 def source_freshness_schema() -> dict:
@@ -85,6 +87,27 @@ def test_values_and_stale_rule():
         items["nws_obs"]["last_success_at"] is None
         and items["nws_obs"]["stale"] is True
     )
+
+
+@pytest.mark.parametrize(
+    ("data_age", "stale"),
+    [
+        (timedelta(hours=71), False),  # inside the /fires/active window
+        (timedelta(hours=73), True),  # job succeeds, but the feed has stopped
+        (None, True),  # no detection at all
+    ],
+)
+def test_firms_is_also_stale_when_its_data_is_older_than_the_fire_window(data_age, stale):
+    fresh_job = NOW - timedelta(minutes=10)
+    watermark = None if data_age is None else NOW - data_age
+    latest = {"firms": (fresh_job, watermark), "airdata": (fresh_job, NOW - timedelta(days=5))}
+    items = {
+        i["source"]: i
+        for i in freshness_from_runs(latest, NOW, THRESHOLDS, max_data_age_minutes())
+    }
+    assert items["firms"]["stale"] is stale
+    # Only FIRMS is judged by data age (decision #47).
+    assert items["airnow"]["stale"] is False
 
 
 def test_from_ingestion_runs_ignores_failures(live_db):
@@ -150,3 +173,11 @@ def test_a_bad_threshold_uses_the_default_instead_of_stopping_the_app(monkeypatc
 def test_a_threshold_is_read_from_the_environment(monkeypatch):
     monkeypatch.setenv("FRESHNESS_STALE_AFTER_MINUTES_FIRMS", "15")
     assert Settings(_env_file=None).freshness_stale_after_minutes_firms == 15
+
+
+def test_forecast_threshold_shares_the_pipeline_env_name(monkeypatch):
+    """/meta and pipeline/status.py must read the same setting, or they disagree."""
+    monkeypatch.setenv("PIPELINE_STALE_AFTER_MINUTES", "30")
+    assert Settings(_env_file=None).forecast_stale_after_minutes == 30
+    monkeypatch.setenv("PIPELINE_STALE_AFTER_MINUTES", "")
+    assert Settings(_env_file=None).forecast_stale_after_minutes == 150
