@@ -211,6 +211,7 @@ Added (additive, v1) for WEB-03's wind layer. One feature per NWS station in `we
 - `wind_dir_deg` is the direction the wind blows **from**, clockwise from north, as stored. The map draws the arrow pointing the way the wind blows (`wind_dir_deg + 180`). Null means calm or variable.
 - `wind_speed_ms` is m/s, rounded to 0.1.
 - Measured wind only. NWS forecast wind (`weather_forecasts`) is not served in v1.
+- Per station, the newest reading **with a wind speed** is used, so a reading missing wind falls back to an earlier one in the window. A speed of 0 is calm and has no direction. Only NWS-style station ids (3–5 capitals or digits) are returned.
 
 ### `/meta`
 
