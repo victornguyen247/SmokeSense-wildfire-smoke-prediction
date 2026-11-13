@@ -300,6 +300,76 @@ a {
   font-size: var(--text-sm);
 }
 
+.layer-control {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.layer-control__item {
+  padding: var(--space-1) 0;
+}
+
+.layer-control__label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.layer-control__label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-text);
+}
+
+.layer-control__key {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.layer-control__key--forecast {
+  border: 1px dashed #3c4043;
+  background: #ff000080;
+}
+
+.layer-control__key--fires {
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #202124;
+  box-shadow: 0 0 0 1px #202124;
+}
+
+.layer-control__key--sensors {
+  border: 2px solid #1f2328;
+  background: var(--color-surface);
+}
+
+.layer-control__label .muted {
+  font-weight: 400;
+}
+
+.layer-control__attribution,
+.layer-control__error {
+  margin-left: 24px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.layer-control__error {
+  color: var(--color-danger-text);
+}
+
+.button--small {
+  padding: 0 var(--space-2);
+  font-size: 0.75rem;
+}
+
 .aqi-legend__list {
   margin: var(--space-1) 0 0;
   padding: 0;
