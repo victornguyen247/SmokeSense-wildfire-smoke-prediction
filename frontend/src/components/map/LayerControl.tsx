@@ -13,6 +13,8 @@ export type LayerOption = {
   attribution?: string;
   loading?: boolean;
   error?: ApiError;
+  /** Shown under the toggle, e.g. when the layer's data source is delayed. */
+  warning?: string;
   onRetry?: () => void;
 };
 
@@ -40,6 +42,7 @@ export function LayerControl({ options, visible, onChange }: LayerControlProps) 
             {option.detail && <span className="muted">{option.detail}</span>}
             {option.loading && <span className="muted">loading…</span>}
           </label>
+          {option.warning && <p className="layer-control__warning">{option.warning}</p>}
           {option.error && (
             <p className="layer-control__error" role="alert">
               Couldn't load: {option.error.message}{" "}
