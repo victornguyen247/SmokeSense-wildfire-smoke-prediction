@@ -12,9 +12,20 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-US", {
   timeZoneName: "short",
 });
 
+const hourFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: CALIFORNIA_TIME_ZONE,
+  weekday: "short",
+  hour: "numeric",
+});
+
 /** "Jul 27, 11:00 AM PDT" for an ISO-8601 UTC timestamp. */
 export function formatLocalDateTime(isoUtc: string): string {
   return dateTimeFormat.format(new Date(isoUtc));
+}
+
+/** "Sat 12 PM" (California time), for a row per forecast hour. */
+export function formatLocalHour(isoUtc: string): string {
+  return hourFormat.format(new Date(isoUtc));
 }
 
 /**

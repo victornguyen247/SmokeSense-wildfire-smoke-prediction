@@ -11,6 +11,7 @@ import type {
 import { FireLayer } from "./FireLayer";
 import { ForecastGridLayer } from "./ForecastGridLayer";
 import type { LayerVisibility } from "./LayerControl";
+import { LocationPicker } from "./LocationPicker";
 import MapView from "./MapView";
 import { MonitorLayer } from "./MonitorLayer";
 import { SensorLayer } from "./SensorLayer";
@@ -26,6 +27,9 @@ type ForecastMapProps = {
   sensors: ObservationCollection | undefined;
   wind: WindObservationCollection | undefined;
   visible: LayerVisibility;
+  /** WEB-04: the location the forecast card shows, and a map click that picks one. */
+  selectedLocation: { lat: number; lon: number } | null;
+  onPickLocation: (lat: number, lon: number) => void;
 };
 
 /**
@@ -42,6 +46,8 @@ export default function ForecastMap({
   sensors,
   wind,
   visible,
+  selectedLocation,
+  onPickLocation,
 }: ForecastMapProps) {
   if (!meta) return <MapView />;
   return (
@@ -73,6 +79,7 @@ export default function ForecastMap({
       />
       <WindLayer wind={wind} visible={visible.wind} />
       <FireLayer fires={fires} visible={visible.fires} />
+      <LocationPicker selected={selectedLocation} onPick={onPickLocation} />
     </MapView>
   );
 }
