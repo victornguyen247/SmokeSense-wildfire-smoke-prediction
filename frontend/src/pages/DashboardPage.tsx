@@ -23,7 +23,10 @@ export function DashboardPage() {
   const meta = useMeta();
   const metaData = meta.status === "success" ? meta.data : undefined;
   const { cells, grid, monitors } = useForecastData(metaData);
-  const { fires, sensors, wind } = useObservedData();
+  const { fires, sensors, wind } = useObservedData(metaData);
+  // /meta marks FIRMS stale when no detection arrived for the whole fire window: then an
+  // empty fire layer means the feed stopped, not that there are no fires.
+  const firesStale = metaData?.sources.find((s) => s.source === "firms")?.stale ?? false;
   const [visible, setVisible] = useState<LayerVisibility>({ forecast: true, fires: true, sensors: true, wind: true });
 
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonHours | null>(null);
@@ -112,6 +115,9 @@ export function DashboardPage() {
                     label: "Active fires",
                     detail: fires.data && `${fires.data.detection_count} in ${fires.data.window_hours} h`,
                     attribution: FIRE_ATTRIBUTION,
+                    warning: firesStale
+                      ? "The fire feed is delayed, so recent fires may be missing from the map."
+                      : undefined,
                     loading: fires.status === "loading",
                     error: fires.error,
                     onRetry: fires.retry,

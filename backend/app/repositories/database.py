@@ -95,7 +95,7 @@ LATEST_WIND = text(f"""
            w.station_id, w.valid_at, w.wind_speed_ms, w.wind_dir_deg,
            ST_Y(w.geom::geometry) AS lat, ST_X(w.geom::geometry) AS lon
     FROM weather_observations AS w
-    WHERE w.valid_at > :since AND w.valid_at <= :now
+    WHERE w.valid_at >= :since AND w.valid_at <= :now
       AND w.wind_speed_ms IS NOT NULL
       AND w.station_id ~ '^[A-Z0-9]{{3,5}}$'
       AND ST_Intersects(w.geom::geometry, {ENVELOPE})
@@ -172,6 +172,10 @@ WIND_MAX_AGE = timedelta(hours=3)
 
 def iso(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC).replace(microsecond=0)
 
 
 def lat_lon(lat: float, lon: float) -> Body:
@@ -297,7 +301,7 @@ class DatabaseRepository:
         raise NotImplementedError("/meta needs API-03")
 
     def latest_wind(self, bbox: Bbox) -> Body:
-        now = datetime.now(UTC)
+        now = utc_now()
         params = {**bbox._asdict(), "since": now - WIND_MAX_AGE, "now": now}
         with self.sessions() as session:
             self._check_bbox(session, bbox)
