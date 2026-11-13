@@ -7,7 +7,13 @@ import json
 import pytest
 
 from app.core.config import settings
-from shared.aqi import AQI_CATEGORIES, AQI_TABLE_VERSION, aqi_category, truncate_pm25
+from shared.aqi import (
+    AQI_CATEGORIES,
+    AQI_CATEGORY_LABEL,
+    AQI_TABLE_VERSION,
+    aqi_category,
+    truncate_pm25,
+)
 
 META = json.loads((settings.api_contract_dir / "fixtures" / "meta.json").read_text(encoding="utf-8"))
 
@@ -44,3 +50,4 @@ def test_truncates_without_float_error():
 def test_table_matches_what_meta_serves():
     assert [category._asdict() for category in AQI_CATEGORIES] == META["aqi_categories"]
     assert AQI_TABLE_VERSION == META["aqi_table_version"]
+    assert AQI_CATEGORY_LABEL == META["aqi_category_label"]

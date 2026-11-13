@@ -20,7 +20,7 @@ Forecast semantics come from the PM-03 serving contract ([`ml/serving-contract.m
 | `GET /api/v1/forecast/grid?bbox=` | Interpolated forecast per grid cell, all horizons, keyed by cell `id` | JSON |
 | `GET /api/v1/forecast/point?lat=&lon=` or `?zip=` | The location's cell forecast for all horizons, plus the nearest monitor's forecast and distance | JSON |
 | `GET /api/v1/forecast/monitors?bbox=` | Model forecasts at AirNow monitors, all horizons | GeoJSON |
-| `GET /api/v1/fires/active?bbox=` | VIIRS SNPP fire detections, last 72 h | GeoJSON |
+| `GET /api/v1/fires/active?bbox=` | Live VIIRS fire detections (NOAA-20), last 72 h | GeoJSON |
 | `GET /api/v1/observations/pm25/latest?bbox=` | Latest reading per outdoor sensor, at most 2 h old | GeoJSON |
 | `GET /api/v1/meta` | Active model, latest forecast cycle, per-source freshness, display thresholds, AQI legend | JSON |
 | `GET /health`, `GET /api/v1/health` | Liveness | JSON |
@@ -185,8 +185,8 @@ The grid is GEO-02's: about 3,000 squares of 12.5 km in California Albers (EPSG:
 
 ### `/fires/active`
 
-- Raw FIRMS **VIIRS SNPP** detections, one feature per satellite pixel, with `detected_at` in `[window_start, window_end)`.
-- **72 h window and VIIRS SNPP only, the same as the model's fire features.** v1 ingests no other satellite (PM-03, DATA-06 #52), so `satellite` is always `VIIRS_SNPP`. Adding a satellite later is a new enum value, which is additive.
+- Raw FIRMS detections from the **live VIIRS satellite**, one feature per satellite pixel, with `detected_at` in `[window_start, window_end)`.
+- **72 h window and one satellite, the same as the model's live fire features.** Live fires are VIIRS NOAA-20 since FIRMS retired SNPP on 2026-11-02 (data decision #49), so `satellite` is `VIIRS_NOAA20`. `VIIRS_SNPP` stays in the enum (v1 is additive-only) but is no longer returned.
 - **All confidence levels are returned.** `confidence` is normalized to `low` / `nominal` / `high`, and **`low` must be shown as low confidence** (e.g. a hollow or faded marker). `confidence_raw` keeps FIRMS's own VIIRS value (`l` / `n` / `h`).
 - FIRMS NRT detections arrive up to a few hours after the overpass, so the newest detections can be several hours old even when ingestion is healthy.
 
@@ -204,10 +204,10 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 
 ### `/meta`
 
-- The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per source (`airnow`, `purpleair`, `firms`, `nws_obs`).
+- The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per live source (`airnow`, `firms`, `nws_obs`). PurpleAir has no live job (decision #41), so it is left out of `sources`, and `/observations` returns only AirNow for now.
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
 - `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
-- **Provisional:** the stale thresholds (`stale_after_minutes`, `forecast_stale_after_minutes`) aren't decided yet. The values in the fixture are placeholders, but they are already served from `/meta`, so the UI won't change when they are decided.
+- **Stale thresholds** are settings: `PIPELINE_STALE_AFTER_MINUTES` (150, shared with the pipeline status) and `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>` (AirNow 150, NWS 150, FIRMS 90). They are about two missed runs and can change without touching the UI. FIRMS is also stale when its newest detection is older than `FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS` (4320, the 72 h `/fires/active` window; decision #47). The values in the fixture are placeholders.
 
 ## Fixtures
 
@@ -216,7 +216,7 @@ Every fixture shows the same moment: **the Park Fire (PE-004, Butte and Tehama c
 - **Monitors:** the 7 AirNow sites are real (codes and locations from `backend/dataset_build/airnow_sites.csv`). Their PM2.5 values are realistic but invented.
 - **Grid cells:** real GEO-02 squares (12.5 km, EPSG:3310, ids in GEO-02's format) for `bbox=-122.95,39.40,-121.50,40.10`. The area is inland, so no cell is clipped.
 - **Grid and point forecasts:** generated from those monitor values with the PM-03 rules (k = 4, 50 km, `1/d²`, 1 km floor), for all five horizons.
-- **Fire detections:** VIIRS SNPP only, placed around the fire's area and its north-east spread in those days, at realistic SNPP overpass times. Individual detections are invented.
+- **Fire detections:** tagged VIIRS NOAA-20 (the live satellite), placed around the fire's area and its north-east spread in those days, at realistic VIIRS overpass times. Individual detections are invented.
 - **PurpleAir sensors, monitor forecast-point ids and all UUIDs** are illustrative.
 - **Showcases:**
   - a `fallback` monitor (Weaverville), which never feeds a grid cell
@@ -242,10 +242,10 @@ python docs/api/gen_fixtures.py /tmp/fixtures && diff -r /tmp/fixtures docs/api/
 
 The FastAPI app in `backend/app` implements this contract.
 
-- **Mock mode.** With `MOCK_MODE=true` (the default until API-03), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
+- **Mock mode.** With `MOCK_MODE=true` (the default), every data endpoint returns its fixture. Parameters are still validated and scope-checked for real. The fixtures cover one area, so `bbox` is checked but the fixture area is always returned. A lat/lon near the Mendocino NF point returns the no-forecast fixture. `/forecast/point` returns the fixture's `lat`/`lon`, not the requested ones; this is expected in mock mode, not a bug.
 - **Set `MOCK_MODE` explicitly in deployments.** It defaults to `true`, so a staging or production deploy that leaves it out silently serves demo data. Staging and production must set `MOCK_MODE=false` once the database layer exists (OPS-03).
 - **Scope in mock mode.** "Inside California" is a rough bounding box (`app/core/scope.py`), and a ZIP is Californian if it starts with 900–961. The database repository then checks against the grid cells and `zip_codes`, so Reno is rejected even though it is inside the box.
-- **Database mode (API-02).** With `MOCK_MODE=false`, `/grid/cells` and `/forecast/*` read PostGIS. `/fires`, `/observations` and `/meta` fail with `internal_error` until API-03 rather than serve fixtures as if they were live.
+- **Database mode.** With `MOCK_MODE=false`, every data endpoint reads PostGIS.
 - **One cycle per response.** The cycle is the newest successful `pipeline_runs` row (`issued_at`, `model_key`), the same source as `pipeline/status.py`; OPS-04 marks a run successful only after its monitor and grid rows are written, so that cycle is complete. If that run's model is not `production` (the local stub is `shadow`), the forecast endpoints return 503. A point left out of the cycle has no forecast; it never falls back to an older one.
 - **Caching.** `/forecast/grid` and `/forecast/monitors` are cached in process until a newer cycle exists (`app/repositories/cache.py`), by bbox. `/forecast/point` isn't cached: its lookups are indexed, and coordinates rarely repeat.
 - **Fake forecasts.** `python -m app.db.seed_fake_forecasts` (or `make seed-fake`) writes one invented cycle to a local database, so the API can run before the pipeline exists. It refuses non-local databases.
@@ -263,9 +263,7 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 
 | Item | Owner | Status |
 |---|---|---|
-| Stale thresholds per source, and forecast age | TBD | Undecided; fields in place and served from `/meta`, values provisional |
-| `airnow` is not yet an ingestion source in `ingestion_runs` | DATA | Needed before `/meta` can report AirNow freshness |
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
-| Attribution text (AirNow, FIRMS, PurpleAir, NWS) | TBD | Not in v1 of this contract yet |
+| Attribution text | Team | In the frontend, per map layer (`src/constants/sources.ts`), not in this contract; check it against each provider's terms before launch |

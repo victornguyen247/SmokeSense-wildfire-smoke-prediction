@@ -2,18 +2,23 @@
 
 source_freshness() returns the `sources` array of the Meta schema in
 docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
-(timestamps are ISO-8601 UTC with "Z"). API-01's meta service can call it as is.
+(timestamps are ISO-8601 UTC with "Z").
 
 - last_success_at: finished_at of the newest run that succeeded (a "partial" run,
   e.g. NWS with one station down, counts: it wrote data).
 - latest_data_at: newest ingestion_runs.watermark among those runs.
 - age_minutes: generated time minus latest_data_at.
 - stale: no successful run yet, or the last one finished more than
-  stale_after_minutes ago. It is based on the job, not the data age, because a
-  healthy FIRMS feed can go hours without a detection.
+  stale_after_minutes ago (decision #40). FIRMS is also stale when it has no
+  detection, or its newest is older than FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS
+  (72 h, the /fires/active window; decision #48): the job can keep succeeding while
+  the satellite feed has stopped. A healthy feed can go hours without a detection,
+  so only FIRMS gets this check, and only at the window length. The forecast
+  pipeline skips this check (include_data_age=False): with no detection its
+  features see "no fires", the same as a quiet period.
 
 stale_after_minutes per source: FRESHNESS_STALE_AFTER_MINUTES_<SOURCE> (AIRNOW,
-FIRMS, NWS_OBS), defaulting to about two missed runs.
+FIRMS, NWS_OBS) in app/core/config.py, defaulting to about two missed runs.
 
 PurpleAir has no live job (decision #41), so it is not reported: Meta.sources sets no
 minimum and requires no particular source, and a source that never runs would always
@@ -27,8 +32,8 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models import IngestionRun
-from ingestion.live.common import env_int, utc_now
 
 # /meta source name -> ingestion_runs.source, in the contract's enum order.
 SOURCES = {
@@ -37,21 +42,19 @@ SOURCES = {
     "nws_obs": "nws_obs",
 }
 
-DEFAULT_STALE_AFTER_MINUTES = {
-    "airnow": 150,  # hourly at :25
-    "firms": 90,  # every 30 min
-    "nws_obs": 150,  # hourly at :05
-}
-
 
 def stale_after_minutes() -> dict[str, int]:
     """{source: minutes} for every live source."""
     return {
-        name: env_int(
-            f"FRESHNESS_STALE_AFTER_MINUTES_{name.upper()}", default, minimum=1
-        )
-        for name, default in DEFAULT_STALE_AFTER_MINUTES.items()
+        "airnow": settings.freshness_stale_after_minutes_airnow,
+        "firms": settings.freshness_stale_after_minutes_firms,
+        "nws_obs": settings.freshness_stale_after_minutes_nws_obs,
     }
+
+
+def max_data_age_minutes() -> dict[str, int]:
+    """{source: minutes} for the sources also judged by data age (decision #48)."""
+    return {"firms": settings.freshness_max_data_age_minutes_firms}
 
 
 def _iso_z(ts: datetime | None) -> str | None:
@@ -64,8 +67,11 @@ def freshness_from_runs(
     latest: dict[str, tuple[datetime | None, datetime | None]],
     now: datetime,
     thresholds: dict[str, int],
+    max_data_age: dict[str, int] | None = None,
 ) -> list[dict]:
-    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes."""
+    """latest: {ingestion_runs.source: (last finished_at, newest watermark)} of successes.
+    max_data_age: {source: minutes}; a listed source is also stale past that data age."""
+    max_data_age = max_data_age or {}
     items = []
     for name, run_source in SOURCES.items():
         last_success, latest_data = latest.get(run_source, (None, None))
@@ -73,8 +79,11 @@ def freshness_from_runs(
         if latest_data is not None:
             age = max(0, int((now - latest_data).total_seconds() // 60))
         limit = thresholds[name]
+        data_limit = max_data_age.get(name)
         stale = (
-            last_success is None or (now - last_success).total_seconds() > limit * 60
+            last_success is None
+            or (now - last_success).total_seconds() > limit * 60
+            or (data_limit is not None and (age is None or age > data_limit))
         )
         items.append(
             {
@@ -89,8 +98,11 @@ def freshness_from_runs(
     return items
 
 
-def source_freshness(session: Session, now: datetime | None = None) -> list[dict]:
-    """The /meta `sources` array, computed from ingestion_runs."""
+def source_freshness(
+    session: Session, now: datetime | None = None, *, include_data_age: bool = True
+) -> list[dict]:
+    """The /meta `sources` array, computed from ingestion_runs.
+    include_data_age=False judges every source by its job alone (the pipeline's view)."""
     rows = session.execute(
         select(
             IngestionRun.source,
@@ -104,4 +116,9 @@ def source_freshness(session: Session, now: datetime | None = None) -> list[dict
         .group_by(IngestionRun.source)
     ).all()
     latest = {source: (finished, watermark) for source, finished, watermark in rows}
-    return freshness_from_runs(latest, now or utc_now(), stale_after_minutes())
+    return freshness_from_runs(
+        latest,
+        now or datetime.now(timezone.utc),
+        stale_after_minutes(),
+        max_data_age_minutes() if include_data_age else None,
+    )

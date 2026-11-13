@@ -10,7 +10,7 @@ check_ingest -> features -> predict -> interpolate -> finish
 
 | Stage | Does | Writes |
 | --- | --- | --- |
-| `check_ingest` | Fails if AirNow has not run recently (`ingestion.live.freshness`). Stale NWS or a missing H-1 reading only log a warning (lag/weather features become null per the serving contract) | nothing |
+| `check_ingest` | Fails if AirNow has not run recently (`app.repositories.freshness`). Stale NWS or a missing H-1 reading only log a warning (lag/weather features become null per the serving contract) | nothing |
 | `features` | One feature row per active monitor point | a Parquet frame in `PIPELINE_WORK_DIR/<run id>/` |
 | `predict` | Stage A: forecasts at every monitor for the 5 horizons | `forecasts` (upsert) |
 | `interpolate` | Stage B: IDW of those onto grid cells (`serving.geo`) | `forecasts` (upsert, `source = 'idw'`) |

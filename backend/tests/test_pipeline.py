@@ -310,3 +310,39 @@ def test_real_predict_writes_the_models_forecasts(live_db, monkeypatch):
         model_key = s.execute(text("SELECT model_key FROM pipeline_runs")).scalar()
     assert [(r[2], r[3], r[4]) for r in rows if r[0] == "fp-m1"] == [(80.0, "v2", "baseline/v2")] * 5
     assert {r[3] for r in rows if r[0] == "fp-g1"} == {"idw"} and model_key == "baseline/v2"
+
+
+def test_firms_with_no_recent_detection_is_stale_in_meta_but_features_still_run(
+    live_db, monkeypatch, caplog
+):
+    """Decision #48: the FIRMS job is fresh, but its newest detection is 73 h old.
+    /meta flags FIRMS stale (the fire layer is empty); the pipeline only warns and
+    builds features with the fire feed treated as available ("no fires")."""
+    import pandas as pd
+
+    from app.repositories.freshness import source_freshness
+    from pipeline import stages
+    from serving import geo
+
+    with live_db() as s:
+        s.execute(text("""
+            INSERT INTO ingestion_runs (id, source, started_at, finished_at, status, watermark)
+            VALUES ('f1', 'firms', :t, :t, 'success', :w)
+        """), {"t": utc_now(), "w": utc_now() - timedelta(hours=73)})
+        s.commit()
+    seen = {}
+
+    def fake_features(t, *, connection, fire_feed_available, **_):
+        seen["fire_feed_available"] = fire_feed_available
+        return pd.DataFrame({"forecast_point_id": ["fp-m1"], "issued_at": [t]})
+
+    monkeypatch.setattr(geo, "build_monitor_features", fake_features)
+
+    with live_db() as s:
+        meta = {i["source"]: i for i in source_freshness(s)}
+        with caplog.at_level("WARNING", logger="pipeline"):
+            result = stages.features_real(stages.StageContext(s, "run-1", HOUR))
+
+    assert meta["firms"]["stale"] is True
+    assert seen["fire_feed_available"] is True and result.rows_out == 1
+    assert "no FIRMS detection" in caplog.text

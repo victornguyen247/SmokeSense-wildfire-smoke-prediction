@@ -12,6 +12,7 @@ import math
 from typing import NamedTuple
 
 AQI_TABLE_VERSION = "epa-2024"
+AQI_CATEGORY_LABEL = "AQI category (hourly PM2.5)"
 
 
 class AqiCategory(NamedTuple):
