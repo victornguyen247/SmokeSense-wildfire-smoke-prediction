@@ -22,7 +22,7 @@ import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.repositories.freshness import source_freshness
+from app.repositories.freshness import max_data_age_minutes, source_freshness
 from pipeline import settings
 from pipeline.store import upsert_forecasts
 
@@ -69,9 +69,18 @@ Stage = Callable[[StageContext], StageResult]
 # ---- check_ingest -------------------------------------------------------------------
 
 
+def ingest_freshness(session: Session) -> dict[str, dict]:
+    """{/meta source name: SourceFreshness item}, each source judged by its job alone.
+    Unlike /meta, an old newest FIRMS detection does not make FIRMS stale here
+    (decision #48): with no detection the features see "no fires"."""
+    return {
+        s["source"]: s for s in source_freshness(session, include_data_age=False)
+    }
+
+
 def ingest_status(session: Session) -> dict[str, bool]:
-    """{/meta source name: stale?} from ingestion_runs."""
-    return {s["source"]: s["stale"] for s in source_freshness(session)}
+    """{/meta source name: stale?} from ingestion_runs, by job alone."""
+    return {name: s["stale"] for name, s in ingest_freshness(session).items()}
 
 
 def check_ingest(ctx: StageContext) -> StageResult:
@@ -122,11 +131,20 @@ def features_stub(ctx: StageContext) -> StageResult:
 
 
 def features_real(ctx: StageContext) -> StageResult:
-    """GEO-03 Stage A features. A stale FIRMS feed skips the cycle (rather than
-    forecasting as if there were no fires)."""
+    """GEO-03 Stage A features. A stale FIRMS job skips the cycle (rather than
+    forecasting as if there were no fires). A running job with no detection in the
+    data-age window only warns: that reads as "no fires", like a quiet period."""
     from serving.geo import build_monitor_features
 
-    fire_ok = not ingest_status(ctx.session).get("firms", True)
+    firms = ingest_freshness(ctx.session).get("firms")
+    fire_ok = firms is not None and not firms["stale"]
+    if fire_ok:
+        age, limit = firms["age_minutes"], max_data_age_minutes()["firms"]
+        if age is None or age > limit:
+            logger.warning(
+                "pipeline run %s: no FIRMS detection in the last %s min; fire features read no fires",
+                ctx.run_id, limit,
+            )
     frame = build_monitor_features(
         ctx.issued_at, connection=ctx.session.connection(), fire_feed_available=fire_ok
     )

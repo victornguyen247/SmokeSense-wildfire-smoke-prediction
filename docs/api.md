@@ -20,7 +20,7 @@ Forecast semantics come from the PM-03 serving contract ([`ml/serving-contract.m
 | `GET /api/v1/forecast/grid?bbox=` | Interpolated forecast per grid cell, all horizons, keyed by cell `id` | JSON |
 | `GET /api/v1/forecast/point?lat=&lon=` or `?zip=` | The location's cell forecast for all horizons, plus the nearest monitor's forecast and distance | JSON |
 | `GET /api/v1/forecast/monitors?bbox=` | Model forecasts at AirNow monitors, all horizons | GeoJSON |
-| `GET /api/v1/fires/active?bbox=` | VIIRS SNPP fire detections, last 72 h | GeoJSON |
+| `GET /api/v1/fires/active?bbox=` | Live VIIRS fire detections (NOAA-20), last 72 h | GeoJSON |
 | `GET /api/v1/observations/pm25/latest?bbox=` | Latest reading per outdoor sensor, at most 2 h old | GeoJSON |
 | `GET /api/v1/meta` | Active model, latest forecast cycle, per-source freshness, display thresholds, AQI legend | JSON |
 | `GET /health`, `GET /api/v1/health` | Liveness | JSON |
@@ -185,8 +185,8 @@ The grid is GEO-02's: about 3,000 squares of 12.5 km in California Albers (EPSG:
 
 ### `/fires/active`
 
-- Raw FIRMS **VIIRS SNPP** detections, one feature per satellite pixel, with `detected_at` in `[window_start, window_end)`.
-- **72 h window and VIIRS SNPP only, the same as the model's fire features.** v1 ingests no other satellite (PM-03, DATA-06 #52), so `satellite` is always `VIIRS_SNPP`. Adding a satellite later is a new enum value, which is additive.
+- Raw FIRMS detections from the **live VIIRS satellite**, one feature per satellite pixel, with `detected_at` in `[window_start, window_end)`.
+- **72 h window and one satellite, the same as the model's live fire features.** Live fires are VIIRS NOAA-20 since FIRMS retired SNPP on 2026-11-02 (data decision #49), so `satellite` is `VIIRS_NOAA20`. `VIIRS_SNPP` stays in the enum (v1 is additive-only) but is no longer returned.
 - **All confidence levels are returned.** `confidence` is normalized to `low` / `nominal` / `high`, and **`low` must be shown as low confidence** (e.g. a hollow or faded marker). `confidence_raw` keeps FIRMS's own VIIRS value (`l` / `n` / `h`).
 - FIRMS NRT detections arrive up to a few hours after the overpass, so the newest detections can be several hours old even when ingestion is healthy.
 
@@ -216,7 +216,7 @@ Every fixture shows the same moment: **the Park Fire (PE-004, Butte and Tehama c
 - **Monitors:** the 7 AirNow sites are real (codes and locations from `backend/dataset_build/airnow_sites.csv`). Their PM2.5 values are realistic but invented.
 - **Grid cells:** real GEO-02 squares (12.5 km, EPSG:3310, ids in GEO-02's format) for `bbox=-122.95,39.40,-121.50,40.10`. The area is inland, so no cell is clipped.
 - **Grid and point forecasts:** generated from those monitor values with the PM-03 rules (k = 4, 50 km, `1/d²`, 1 km floor), for all five horizons.
-- **Fire detections:** VIIRS SNPP only, placed around the fire's area and its north-east spread in those days, at realistic SNPP overpass times. Individual detections are invented.
+- **Fire detections:** tagged VIIRS NOAA-20 (the live satellite), placed around the fire's area and its north-east spread in those days, at realistic VIIRS overpass times. Individual detections are invented.
 - **PurpleAir sensors, monitor forecast-point ids and all UUIDs** are illustrative.
 - **Showcases:**
   - a `fallback` monitor (Weaverville), which never feeds a grid cell
@@ -266,4 +266,4 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 | Grid ids, `cell_geom` and the point lookup | GEO-02 (#65) | This contract follows #65; review requested there |
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
-| Attribution text | Team | In the frontend (`DATA_ATTRIBUTION`), not in this contract; check it against each provider's terms before launch |
+| Attribution text | Team | In the frontend, per map layer (`src/constants/sources.ts`), not in this contract; check it against each provider's terms before launch |

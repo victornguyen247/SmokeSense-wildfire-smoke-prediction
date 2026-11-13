@@ -45,7 +45,8 @@ class Settings(BaseSettings):
     freshness_stale_after_minutes_firms: int = 90  # every 30 min
     freshness_stale_after_minutes_nws_obs: int = 150  # hourly at :05
     # /meta: FIRMS is also stale when its newest detection is older than this (decision
-    # #47): the /fires/active window, so the flag means the fire layer is empty.
+    # #48): the /fires/active window, so the flag means the fire layer is empty. The
+    # forecast pipeline only logs a warning past it.
     freshness_max_data_age_minutes_firms: int = 72 * 60
 
     # --- Database (PostGIS) ---

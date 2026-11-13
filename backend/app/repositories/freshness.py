@@ -11,9 +11,11 @@ docs/api/openapi.yaml, item by item in the SourceFreshness shape, JSON-ready
 - stale: no successful run yet, or the last one finished more than
   stale_after_minutes ago (decision #40). FIRMS is also stale when it has no
   detection, or its newest is older than FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS
-  (72 h, the /fires/active window; decision #47): the job can keep succeeding while
+  (72 h, the /fires/active window; decision #48): the job can keep succeeding while
   the satellite feed has stopped. A healthy feed can go hours without a detection,
-  so only FIRMS gets this check, and only at the window length.
+  so only FIRMS gets this check, and only at the window length. The forecast
+  pipeline skips this check (include_data_age=False): with no detection its
+  features see "no fires", the same as a quiet period.
 
 stale_after_minutes per source: FRESHNESS_STALE_AFTER_MINUTES_<SOURCE> (AIRNOW,
 FIRMS, NWS_OBS) in app/core/config.py, defaulting to about two missed runs.
@@ -51,7 +53,7 @@ def stale_after_minutes() -> dict[str, int]:
 
 
 def max_data_age_minutes() -> dict[str, int]:
-    """{source: minutes} for the sources also judged by data age (decision #47)."""
+    """{source: minutes} for the sources also judged by data age (decision #48)."""
     return {"firms": settings.freshness_max_data_age_minutes_firms}
 
 
@@ -96,8 +98,11 @@ def freshness_from_runs(
     return items
 
 
-def source_freshness(session: Session, now: datetime | None = None) -> list[dict]:
-    """The /meta `sources` array, computed from ingestion_runs."""
+def source_freshness(
+    session: Session, now: datetime | None = None, *, include_data_age: bool = True
+) -> list[dict]:
+    """The /meta `sources` array, computed from ingestion_runs.
+    include_data_age=False judges every source by its job alone (the pipeline's view)."""
     rows = session.execute(
         select(
             IngestionRun.source,
@@ -115,5 +120,5 @@ def source_freshness(session: Session, now: datetime | None = None) -> list[dict
         latest,
         now or datetime.now(timezone.utc),
         stale_after_minutes(),
-        max_data_age_minutes(),
+        max_data_age_minutes() if include_data_age else None,
     )

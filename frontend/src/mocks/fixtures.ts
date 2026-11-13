@@ -40,9 +40,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190e93f-5400-7425-848e-329cc2862ecb",
+        "detection_id": "0190e93f-5400-7a8e-8631-a3d0752e30c8",
         "detected_at": "2024-07-25T09:36:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -60,9 +60,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190e93f-5400-7ef6-848a-d39869d2a7d2",
+        "detection_id": "0190e93f-5400-78cd-869d-9ae50268cae1",
         "detected_at": "2024-07-25T09:36:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",
@@ -80,9 +80,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190e93f-5400-7a58-8385-c6c7d271cf58",
+        "detection_id": "0190e93f-5400-784e-855a-a7efa1fabcf9",
         "detected_at": "2024-07-25T09:36:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -100,9 +100,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ebb7-0ac0-7916-8fbc-3c9815a09529",
+        "detection_id": "0190ebb7-0ac0-7a2a-8ebe-92ea930f65c9",
         "detected_at": "2024-07-25T21:06:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -120,9 +120,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ebb7-0ac0-7e67-83ce-10601ea4f33e",
+        "detection_id": "0190ebb7-0ac0-7f95-8912-879cf1424f17",
         "detected_at": "2024-07-25T21:06:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -140,9 +140,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ebb7-0ac0-78ea-8e88-6a644436ec89",
+        "detection_id": "0190ebb7-0ac0-721e-8a8a-c0001020b4b7",
         "detected_at": "2024-07-25T21:06:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -160,9 +160,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ebb7-0ac0-714e-8854-fcf07e3f6255",
+        "detection_id": "0190ebb7-0ac0-7c54-8638-f88ea23f8c76",
         "detected_at": "2024-07-25T21:06:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -180,9 +180,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ee5a-b380-7d02-8e42-f8130bb9d446",
+        "detection_id": "0190ee5a-b380-79c4-8c7b-629e960d8325",
         "detected_at": "2024-07-26T09:24:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -200,9 +200,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ee5a-b380-70a3-8b2c-ba5e6c56d4bd",
+        "detection_id": "0190ee5a-b380-737c-843d-f405eb7a574f",
         "detected_at": "2024-07-26T09:24:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -220,9 +220,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ee5a-b380-7420-87e2-f8ab9523e46a",
+        "detection_id": "0190ee5a-b380-7c5b-8881-c6b9a69eaa06",
         "detected_at": "2024-07-26T09:24:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",
@@ -240,9 +240,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ee5a-b380-7557-8a5c-8f9ad3772b04",
+        "detection_id": "0190ee5a-b380-740e-8573-5a2a845d7080",
         "detected_at": "2024-07-26T09:24:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -260,9 +260,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190ee5a-b380-7154-84e9-6b12a0bb7388",
+        "detection_id": "0190ee5a-b380-71d8-81a4-737e4df1bbc2",
         "detected_at": "2024-07-26T09:24:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -280,9 +280,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7a36-88e8-9961bf1ae86d",
+        "detection_id": "0190f0e8-6340-78b6-821f-d6c94da32326",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -300,9 +300,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7ef5-85b2-a3490ce8d4f6",
+        "detection_id": "0190f0e8-6340-72ed-817e-c907b53d5ab8",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",
@@ -320,9 +320,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7fec-8714-04f97908d86a",
+        "detection_id": "0190f0e8-6340-7393-8144-42b70789ae2f",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -340,9 +340,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-750c-834a-58389d1f1210",
+        "detection_id": "0190f0e8-6340-7ca0-8597-2e84fab0133c",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -360,9 +360,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-7af8-8e3c-a650fea5000b",
+        "detection_id": "0190f0e8-6340-7a4f-8af7-5768e2d0707e",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "low",
         "confidence_raw": "l",
@@ -380,9 +380,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f0e8-6340-737f-8f11-7ddd88275d97",
+        "detection_id": "0190f0e8-6340-7e5f-8ed5-ef238aa4dc5e",
         "detected_at": "2024-07-26T21:18:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -400,9 +400,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-72db-88e1-535e79990c72",
+        "detection_id": "0190f391-8a40-76c5-8f0f-97992bbbfc0f",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "low",
         "confidence_raw": "l",
@@ -420,9 +420,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7a57-8933-d5db0ebf21d5",
+        "detection_id": "0190f391-8a40-7aee-8b1d-97812fc59829",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -440,9 +440,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7ac3-847c-149f1239be44",
+        "detection_id": "0190f391-8a40-7fc5-8dee-11447c1ed39a",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",
@@ -460,9 +460,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7338-8502-0e6e3daf1bab",
+        "detection_id": "0190f391-8a40-7a91-882b-444cff732972",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -480,9 +480,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-738f-865c-0a51c3c0721b",
+        "detection_id": "0190f391-8a40-767d-8790-dd3b9089c49f",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -500,9 +500,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7372-8951-1667f0834864",
+        "detection_id": "0190f391-8a40-74bd-8f17-3249b6215898",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -520,9 +520,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-712c-861b-9e5e4dfa3e05",
+        "detection_id": "0190f391-8a40-73cb-82df-b2573471431d",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "nominal",
         "confidence_raw": "n",
@@ -540,9 +540,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-70ea-8464-2b5de2d1bbe0",
+        "detection_id": "0190f391-8a40-78bc-8adb-d9df00713a9c",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",
@@ -560,9 +560,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-705e-84d5-284d1ee44087",
+        "detection_id": "0190f391-8a40-7499-8b1e-3a1e593bc402",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "low",
         "confidence_raw": "l",
@@ -580,9 +580,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7d11-8448-cc43a76576ba",
+        "detection_id": "0190f391-8a40-7808-8b50-ba414638157a",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "low",
         "confidence_raw": "l",
@@ -600,9 +600,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7749-861c-7f09f0ccd377",
+        "detection_id": "0190f391-8a40-769d-816e-5c4803a80c65",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "low",
         "confidence_raw": "l",
@@ -620,9 +620,9 @@ export const firesActive = {
         ]
       },
       "properties": {
-        "detection_id": "0190f391-8a40-7f67-8fb0-ed386ed7ad7b",
+        "detection_id": "0190f391-8a40-7708-8404-80d3616b3985",
         "detected_at": "2024-07-27T09:42:00Z",
-        "satellite": "VIIRS_SNPP",
+        "satellite": "VIIRS_NOAA20",
         "product": "NRT",
         "confidence": "high",
         "confidence_raw": "h",

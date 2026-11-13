@@ -34,6 +34,7 @@ from app.repositories.base import Body
 from app.repositories.cache import CycleCache
 from app.repositories.freshness import source_freshness
 from app.schemas.query import Bbox, PointQuery
+from ingestion.connectors.firms import LIVE_SATELLITE
 from shared.aqi import (
     AQI_CATEGORIES,
     AQI_CATEGORY_LABEL,
@@ -162,7 +163,7 @@ ACTIVE_FIRES = text(f"""
            f.frp_mw, f.daynight,
            ST_Y(f.geom::geometry) AS lat, ST_X(f.geom::geometry) AS lon
     FROM fire_detections AS f
-    WHERE f.satellite = 'VIIRS_SNPP'
+    WHERE f.satellite = :satellite
       AND f.detected_at >= :window_start AND f.detected_at < :window_end
       AND ST_Intersects(f.geom::geometry, {ENVELOPE})
     ORDER BY f.detected_at DESC, f.id
@@ -345,7 +346,12 @@ class DatabaseRepository:
     def active_fires(self, bbox: Bbox) -> Body:
         now = utc_now()
         window_start = now - timedelta(hours=FIRE_WINDOW_HOURS)
-        params = {**bbox._asdict(), "window_start": window_start, "window_end": now}
+        params = {
+            **bbox._asdict(),
+            "satellite": LIVE_SATELLITE,
+            "window_start": window_start,
+            "window_end": now,
+        }
         with self.sessions() as session:
             self._check_bbox(session, bbox)
             rows = session.execute(ACTIVE_FIRES, params).all()

@@ -119,10 +119,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * VIIRS SNPP fire detections from the last 72 hours
-         * @description Raw FIRMS VIIRS SNPP detections (one feature per pixel) with `detected_at` in
-         *     `[window_start, window_end)`. Same satellite and 72 h window as the model's fire
-         *     features; v1 ingests no other satellite (PM-03, DATA-06).
+         * Live VIIRS fire detections from the last 72 hours
+         * @description Raw FIRMS detections from the live VIIRS satellite (one feature per pixel) with
+         *     `detected_at` in `[window_start, window_end)`. Same satellite and 72 h window as
+         *     the model's live fire features: VIIRS NOAA-20 since FIRMS retired SNPP on
+         *     2026-11-02.
          *     All confidence levels are returned; **`confidence = "low"` detections must be
          *     shown as low confidence**.
          */
@@ -439,10 +440,11 @@ export interface components {
                 /** @description Satellite overpass time. */
                 detected_at: components["schemas"]["UtcTimestamp"];
                 /**
-                 * @description v1 only ingests VIIRS SNPP. Another satellite would be a new enum value (additive).
+                 * @description The live satellite, VIIRS_NOAA20 since SNPP's retirement on 2026-11-02.
+                 *     VIIRS_SNPP is kept for compatibility (v1 is additive-only) and is no longer returned.
                  * @enum {unknown}
                  */
-                satellite: "VIIRS_SNPP";
+                satellite: "VIIRS_SNPP" | "VIIRS_NOAA20";
                 /** @enum {unknown} */
                 product: "URT" | "RT" | "NRT" | "SP";
                 /**

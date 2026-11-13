@@ -20,6 +20,7 @@ from app.main import app
 from app.models.values import HORIZON_HOURS
 from app.repositories.cache import CycleCache
 from app.repositories.database import DatabaseRepository
+from ingestion.connectors.firms import LIVE_SATELLITE
 from shared.aqi import AQI_CATEGORIES, AQI_TABLE_VERSION
 
 FIRES = "/api/v1/fires/active"
@@ -35,7 +36,7 @@ def hours_ago(hours: float) -> datetime:
     return datetime.now(UTC) - timedelta(hours=hours)
 
 
-def add_fire(c, age_hours=1.0, *, satellite="VIIRS_SNPP", confidence="nominal", raw="n", lat=39.8,
+def add_fire(c, age_hours=1.0, *, satellite=LIVE_SATELLITE, confidence="nominal", raw="n", lat=39.8,
              lon=-121.6, frp=12.34, daynight="D") -> str:
     fire_id = uuid7()
     c.execute(
@@ -167,12 +168,12 @@ def get(path: str, status: int = 200, **params) -> dict:
 # --- /fires/active ---
 
 
-def test_fires_keep_only_the_72_hour_viirs_snpp_window(engine):
+def test_fires_keep_only_the_72_hour_live_satellite_window(engine):
     with engine.begin() as c:
         inside = add_fire(c, age_hours=71)
         add_fire(c, age_hours=73)
         add_fire(c, age_hours=-1)  # a future row is outside [window_start, window_end)
-        add_fire(c, satellite="VIIRS_NOAA20")
+        add_fire(c, satellite="VIIRS_SNPP")  # retired 2026-11-02; live is NOAA-20 (#49)
     body = get(FIRES)
     assert [f["properties"]["detection_id"] for f in body["features"]] == [inside]
     assert body["detection_count"] == 1 and body["window_hours"] == 72
@@ -334,7 +335,7 @@ def test_a_quiet_feed_is_not_stale_when_its_job_ran(engine):
 
 
 def test_a_stopped_fire_feed_is_stale_even_when_its_job_ran(engine):
-    """No SNPP detection in the 72 h /fires/active window (decision #47)."""
+    """No detection in the 72 h /fires/active window (decision #48)."""
     with engine.begin() as c:
         add_run(c, "firms", finished_ago_minutes=10, watermark_ago_minutes=73 * 60)
     firms = next(source for source in get(META)["sources"] if source["source"] == "firms")
@@ -358,7 +359,7 @@ def test_full_california_bboxes_stay_fast(engine):
                 id, external_id, satellite, product, geom, detected_at, received_at,
                 confidence_raw, confidence_level, frp_mw, daynight
             )
-            SELECT gen_random_uuid()::text, n::text, 'VIIRS_SNPP', 'NRT',
+            SELECT gen_random_uuid()::text, n::text, 'VIIRS_NOAA20', 'NRT',
                    ST_SetSRID(ST_MakePoint(-124 + mod(n, 900) * 0.01,
                                            33 + mod(n, 800) * 0.01), 4326)::geography,
                    now() - make_interval(mins => mod(n, 4300)), now(),

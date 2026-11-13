@@ -7,6 +7,3 @@ export const SOURCE_LABELS: Record<SourceFreshness["source"], string> = {
   firms: "NASA FIRMS fires",
   nws_obs: "NWS weather",
 };
-
-/** Credit for the live data on the map, shown in the map's attribution control. */
-export const DATA_ATTRIBUTION = "Data: U.S. EPA AirNow, NASA FIRMS, National Weather Service";

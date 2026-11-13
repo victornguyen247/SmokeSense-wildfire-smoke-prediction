@@ -106,7 +106,7 @@ def test_firms_is_also_stale_when_its_data_is_older_than_the_fire_window(data_ag
         for i in freshness_from_runs(latest, NOW, THRESHOLDS, max_data_age_minutes())
     }
     assert items["firms"]["stale"] is stale
-    # Only FIRMS is judged by data age (decision #47).
+    # Only FIRMS is judged by data age (decision #48).
     assert items["airnow"]["stale"] is False
 
 
