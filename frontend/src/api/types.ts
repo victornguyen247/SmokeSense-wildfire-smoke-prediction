@@ -160,6 +160,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/observations/wind/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest surface wind per NWS station (at most 3 hours old)
+         * @description One feature per NWS station (`weather_observations`): its most recent wind
+         *     reading, if `valid_at` is at most 3 h before `generated_at`. NWS stations report
+         *     once an hour at about :53 and can arrive late, hence 3 h rather than the 2 h used
+         *     for PM2.5. Added for WEB-03's wind layer; measured wind only, not a forecast.
+         */
+        get: operations["getLatestWind"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -499,6 +522,32 @@ export interface components {
                 correction: "regulatory" | "purpleair_barkjohn";
             };
         };
+        WindObservationCollection: {
+            /** @constant */
+            type: "FeatureCollection";
+            generated_at: components["schemas"]["UtcTimestamp"];
+            /** @constant */
+            max_age_hours: 3;
+            features: components["schemas"]["WindObservationFeature"][];
+        };
+        WindObservationFeature: {
+            /** @constant */
+            type: "Feature";
+            geometry: components["schemas"]["PointGeometry"];
+            properties: {
+                /** @description NWS station identifier, e.g. `KCIC`. */
+                station_id: string;
+                /** @description Observation time. */
+                valid_at: components["schemas"]["UtcTimestamp"];
+                /** @description Wind speed, m/s, rounded to 0.1. */
+                wind_speed_ms: number;
+                /**
+                 * @description Direction the wind blows FROM, degrees clockwise from north (meteorological
+                 *     convention, as stored). Null when calm or variable.
+                 */
+                wind_dir_deg: number | null;
+            };
+        };
         Meta: {
             generated_at: components["schemas"]["UtcTimestamp"];
             /** @constant */
@@ -819,6 +868,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObservationCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["OutOfScope"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getLatestWind: {
+        parameters: {
+            query?: {
+                /**
+                 * @description `minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order). Clipped to California; defaults to all of it.
+                 * @example -122.95,39.40,-121.50,40.10
+                 */
+                bbox?: components["parameters"]["BboxOptional"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest wind readings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WindObservationCollection"];
                 };
             };
             400: components["responses"]["BadRequest"];

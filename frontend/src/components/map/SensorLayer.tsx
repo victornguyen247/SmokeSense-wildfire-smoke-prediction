@@ -8,6 +8,7 @@ import { categoryColorExpression, categoryInfo, formatPm25 } from "../../utils/a
 import { formatLocalDateTime } from "../../utils/formatTime";
 import { removeFromMap, setLayersVisible } from "../../utils/map";
 import { bindPointPopup, type PopupLine } from "../../utils/popup";
+import { sdfIcon } from "../../utils/sdfIcon";
 
 const SOURCE_ID = "observations-pm25";
 const LAYER_ID = "observations-pm25-square";
@@ -45,7 +46,7 @@ export function SensorLayer({ sensors, categories, categoryLabel, visible }: Sen
       attribution: SENSOR_ATTRIBUTION,
     });
     const isAirNow: ExpressionSpecification = ["==", ["get", "provider"], "airnow"];
-    if (!map.hasImage(ICON_ID)) map.addImage(ICON_ID, squareSdf(), { sdf: true });
+    if (!map.hasImage(ICON_ID)) map.addImage(ICON_ID, squareIcon(), { sdf: true });
     map.addLayer({
       id: LAYER_ID,
       type: "symbol",
@@ -82,25 +83,8 @@ export function SensorLayer({ sensors, categories, categoryLabel, visible }: Sen
   return null;
 }
 
-/**
- * A square as a signed distance field, so MapLibre can color it per feature
- * (`icon-color`) and draw a ring (`icon-halo-*`). 0.75 alpha is the edge.
- */
-function squareSdf(): { width: number; height: number; data: Uint8Array } {
-  const size = 32;
-  const half = 10;
-  const data = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = Math.abs(x + 0.5 - size / 2);
-      const dy = Math.abs(y + 0.5 - size / 2);
-      const inside = half - Math.max(dx, dy); // > 0 inside the square
-      const alpha = Math.max(0, Math.min(255, 192 + inside * 24));
-      data.set([255, 255, 255, alpha], (y * size + x) * 4);
-    }
-  }
-  return { width: size, height: size, data };
-}
+// A 20 px square in a 32 px icon (the margin leaves room for the halo).
+const squareIcon = () => sdfIcon(32, (x, y) => Math.max(Math.abs(x - 16), Math.abs(y - 16)) <= 10);
 
 function sensorPopup(props: SensorProps, categories: AqiCategoryInfo[], categoryLabel: string): PopupLine[] {
   const label = categoryInfo(categories, props.aqi_category)?.label ?? props.aqi_category;

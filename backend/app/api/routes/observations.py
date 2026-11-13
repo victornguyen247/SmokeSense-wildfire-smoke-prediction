@@ -1,4 +1,4 @@
-"""/observations/pm25/latest: the latest PM2.5 reading per outdoor sensor."""
+"""/observations/*/latest: the latest PM2.5 reading per outdoor sensor, and wind per NWS station."""
 
 from __future__ import annotations
 
@@ -21,3 +21,11 @@ def get_latest_pm25(
     bbox: Annotated[Bbox | None, Depends(bbox_param)],
 ) -> Body:
     return observation_service.latest_pm25(repo, bbox)
+
+
+@router.get("/observations/wind/latest")
+def get_latest_wind(
+    repo: Annotated[Repository, Depends(get_repository)],
+    bbox: Annotated[Bbox | None, Depends(bbox_param)],
+) -> Body:
+    return observation_service.latest_wind(repo, bbox)

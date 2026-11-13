@@ -22,6 +22,7 @@ Forecast semantics come from the PM-03 serving contract ([`ml/serving-contract.m
 | `GET /api/v1/forecast/monitors?bbox=` | Model forecasts at AirNow monitors, all horizons | GeoJSON |
 | `GET /api/v1/fires/active?bbox=` | VIIRS SNPP fire detections, last 72 h | GeoJSON |
 | `GET /api/v1/observations/pm25/latest?bbox=` | Latest reading per outdoor sensor, at most 2 h old | GeoJSON |
+| `GET /api/v1/observations/wind/latest?bbox=` | Latest surface wind per NWS station, at most 3 h old | GeoJSON |
 | `GET /api/v1/meta` | Active model, latest forecast cycle, per-source freshness, display thresholds, AQI legend | JSON |
 | `GET /health`, `GET /api/v1/health` | Liveness | JSON |
 
@@ -201,6 +202,16 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 | both | outdoor sensors only (`location_type = outdoor`) |
 
 `station_code` is the AQS code for AirNow and the `sensor_index` for PurpleAir.
+
+### `/observations/wind/latest`
+
+Added (additive, v1) for WEB-03's wind layer. One feature per NWS station in `weather_observations`: its most recent reading, if `valid_at` is **at most 3 h** before `generated_at`.
+
+- 3 h, not 2 h as for PM2.5: stations report once an hour at about :53, and NWS data often arrives late (`/meta` `sources[nws_obs]`).
+- `wind_dir_deg` is the direction the wind blows **from**, clockwise from north, as stored. The map draws the arrow pointing the way the wind blows (`wind_dir_deg + 180`). Null means calm or variable.
+- `wind_speed_ms` is m/s, rounded to 0.1.
+- Measured wind only. NWS forecast wind (`weather_forecasts`) is not served in v1.
+- Per station, the newest reading **with a wind speed** is used, so a reading missing wind falls back to an earlier one in the window. A speed of 0 is calm and has no direction. Only NWS-style station ids (3–5 capitals or digits) are returned.
 
 ### `/meta`
 
