@@ -503,6 +503,13 @@ a {
   color: var(--color-danger-text);
 }
 
+.layer-control__warning {
+  margin-left: 24px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-warning-text);
+}
+
 .button--small {
   padding: 0 var(--space-2);
   font-size: 0.75rem;
