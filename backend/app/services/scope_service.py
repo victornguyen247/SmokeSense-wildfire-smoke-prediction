@@ -5,13 +5,12 @@ from __future__ import annotations
 from app.core.errors import ApiError
 from app.core.scope import (
     CALIFORNIA_BBOX,
+    OUT_OF_SCOPE,
     clip_to_california,
     is_california_zip,
     point_in_california,
 )
 from app.schemas.query import Bbox, PointQuery
-
-OUT_OF_SCOPE = "SmokeSense only forecasts for California."
 
 
 def resolve_bbox(bbox: Bbox | None) -> Bbox:

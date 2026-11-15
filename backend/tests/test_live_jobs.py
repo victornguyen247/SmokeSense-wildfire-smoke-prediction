@@ -179,7 +179,7 @@ def test_a_failing_source_does_not_block_the_others(monkeypatch, live_db):
         host = request.url.host
         if "firms" in host:
             return httpx.Response(
-                200, text=(FIXTURES / "firms_viirs_snpp_nrt.csv").read_text()
+                200, text=(FIXTURES / "firms_viirs_noaa20_nrt.csv").read_text()
             )
         if "airnow" in host:
             return httpx.Response(503, text="maintenance")
@@ -247,7 +247,7 @@ def test_smoke_prints_counts_only(monkeypatch, capsys):
     monkeypatch.setattr(firms.settings, "firms_map_key", "k-firms-SECRET")
 
     real = httpx.Client
-    body = (FIXTURES / "firms_viirs_snpp_nrt.csv").read_text()
+    body = (FIXTURES / "firms_viirs_noaa20_nrt.csv").read_text()
     monkeypatch.setattr(
         httpx,
         "Client",

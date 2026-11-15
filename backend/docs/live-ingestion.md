@@ -16,7 +16,7 @@ The same jobs are Celery tasks (`ingestion/tasks.py`) scheduled by beat (`ingest
 
 | Source | Task | `ingestion_runs.source` | Default cadence (env) | Window per run | Rate limit and retries |
 |---|---|---|---|---|---|
-| FIRMS VIIRS **SNPP NRT** only | `ingestion.live.firms` | `firms` | every 30 min (`LIVE_FIRMS_EVERY_MINUTES`) | California bbox + 200 km; 72 h on a first run, then from 24 h (`LIVE_FIRMS_OVERLAP_HOURS`) before the last success | 5,000 transactions / 10 min; one request per run. Retries 429 and 5xx. |
+| FIRMS VIIRS **NOAA-20 NRT** only (decision #49: SNPP left FIRMS on 2026-11-02; NOAA-21 is not added) | `ingestion.live.firms` | `firms` | every 30 min (`LIVE_FIRMS_EVERY_MINUTES`) | California bbox + 200 km; 72 h on a first run, then from 24 h (`LIVE_FIRMS_OVERLAP_HOURS`) before the last success | 5,000 transactions / 10 min; one request per run. Retries 429 and 5xx. |
 | AirNow hourly PM2.5 | `ingestion.live.airnow` | `airdata` | hourly at :25 (`LIVE_AIRNOW_MINUTE`) | California bbox; 72 h, then from 3 h (`LIVE_AIRNOW_OVERLAP_HOURS`) before the last success | 500 requests / hour; one request per run (more only if the record cap makes the connector bisect). **429 is not retried** (no data until the next hour); 5xx are. |
 | NWS station observations | `ingestion.live.nws` | `nws_obs` | hourly at :05 (`LIVE_NWS_MINUTE`) | the 109 training stations; 72 h, then from 3 h (`LIVE_NWS_OVERLAP_HOURS`) before the last success | Unpublished; "retry after ~5 s". One station at a time, `LIVE_NWS_REQUEST_SPACING_S` (0.5 s) apart, ~2 pages per station on a backfill. Retries 429 and 5xx. Sends `NWS_USER_AGENT`. |
 | Retention | `ingestion.live.retention` | (none) | daily 09:15 UTC (`LIVE_RETENTION_HOUR`, `LIVE_RETENTION_MINUTE`) | see below | |
@@ -37,7 +37,7 @@ Live FIRMS and AirNow rows go through the batch normalizers (`normalize_firms_ro
 
 | Table | Natural key | Live writer | Notes |
 |---|---|---|---|
-| `fire_detections` | (`satellite`, acquisition time, latitude, longitude), backed by the unique (`satellite`, `external_id`, `detected_at`) | FIRMS | `product = 'NRT'`, `satellite = 'VIIRS_SNPP'`. First write wins. |
+| `fire_detections` | (`satellite`, acquisition time, latitude, longitude), backed by the unique (`satellite`, `external_id`, `detected_at`) | FIRMS | `product = 'NRT'`, `satellite = 'VIIRS_NOAA20'` (`VIIRS_SNPP` before 2026-11-10). First write wins. |
 | `observations` + `monitors` | (`monitor_id`, `valid_at`) | AirNow | `correction = 'regulatory'`, `data_status = 'preliminary'`; a changed value (late revision) updates the row. |
 | `weather_observations` | (`station_id`, `valid_at`) | NWS | METAR reports only (below). |
 

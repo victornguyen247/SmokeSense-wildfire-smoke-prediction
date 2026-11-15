@@ -73,7 +73,12 @@ Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `in
 
 ## Map layers
 
-`<MapView>` creates the map. Layers for WEB-02/03 go inside it as children and get the loaded map from `useMap()` (null until the basemap has loaded).
+`<MapView>` creates the map. Layers go inside it as children and get the loaded map from `useMap()` (null until the basemap has loaded). `<ForecastMap>` is the map with its layers; it is lazy-loaded, so anything that imports MapLibre belongs under it, not in `DashboardPage`.
+
+- `ForecastGridLayer` (WEB-02): the `/grid/cells` polygons, added once per `grid_key`. Switching horizon only sets each cell's feature state from `/forecast/grid`, so it never refetches. Cells over `/meta` `low_confidence_dist_km` from a monitor are faded with a dashed outline; cells missing from a horizon are grey "no forecast".
+- `MonitorLayer` (WEB-02): `/forecast/monitors` as circles for the selected horizon; a `fallback` forecast is hollow (lower confidence). Click for a popup.
+
+Colors and labels come from `/meta` `aqi_categories` (`src/utils/aqi.ts`); no threshold is hard-coded.
 
 ## Checks
 

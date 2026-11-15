@@ -38,8 +38,9 @@ Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-
 - **Retention only on success.** `finish` deletes old grid rows and 30-day-old monitor rows, so a failed run never removes the last good forecast. `alerts.latest_forecast_id` is `ON DELETE SET NULL`.
 - **Switching the production model** mid-hour leaves both models' rows for that hour (the upsert key includes `model_key`). Readers must use the `model_key` of the newest successful `pipeline_runs` row.
 - **Crashed runs.** `start_run` closes any run still `running` after 30 minutes as `failed` (`abandoned`) with an ERROR line, so a killed worker does not leave a silent row.
-- **Not atomic across stages.** If `interpolate` fails after `predict` succeeded, monitor points
-  have the new hour and grid cells the old one until the next good run; `/meta` reports stale.
+- **Not atomic across stages.** If `interpolate` fails after `predict` succeeded, the new hour's
+  monitor rows are in `forecasts`, but the API keeps serving the newest *successful* run's cycle
+  (`pipeline_runs`), so clients never see a half-written hour; `/meta` reports stale.
 
 ## Stub -> real is configuration
 
@@ -51,7 +52,9 @@ Re-run a past hour through the task: `pipeline.hourly` with `issued_at="2026-11-
 
 A custom stage is `fn(StageContext) -> StageResult` (`pipeline/stages.py`). The `stub` model gets a
 `shadow` row in `model_versions` (the `forecasts.model_key` foreign key needs one); its forecasts are
-written with `is_shadow = false` so staging shows them.
+written with `is_shadow = false`. The API serves only a production model, so after a stub run
+`/forecast/*` returns 503 `forecast_unavailable`: to test serving locally, use
+`PIPELINE_PREDICT_STAGE=real` or `make seed-fake`.
 
 `PIPELINE_PREDICT_STAGE=real` serves the registry's production version of `PIPELINE_MODEL_NAME`
 (default `baseline`) through ML-04's `InferenceService` (`ml.inference.service`), so `baseline/v2`

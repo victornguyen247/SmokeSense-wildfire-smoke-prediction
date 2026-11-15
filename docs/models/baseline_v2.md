@@ -173,12 +173,13 @@ The caveats from the [dataset card](../datasets/smokesense_v1.md) all apply:
 - The 2020 group dominates the row count.
 - Leave-one-group-out is the intended CV.
 - Weather is observed NCEI weather at issue time.
+- **Live fires are VIIRS NOAA-20, not SNPP** (decision #49): FIRMS stopped serving SNPP on 2026-11-02, so from 2026-11-10 live fire features come from NOAA-20 NRT. Same sensor and orbit, but the model was trained on SNPP and has not been validated on NOAA-20 inputs.
 
 ## What live inference must supply
 
 The same as v1 ([baseline_v1.md](baseline_v1.md#what-live-inference-must-supply)):
 - the `FEATURES` columns, with the same meanings and units;
-- VIIRS SNPP NRT detections, 200 km / 72 h, strictly before issue time;
+- VIIRS NOAA-20 NRT detections (SNPP NRT until its 2026-11-02 retirement, decision #49), 200 km / 72 h, strictly before issue time;
 - NCEI-style observed weather from the nearest station, at most 3 h old;
 - the point's own AirNow PM2.5 lags at −1/3/6/12/24 h, with time offsets applied and negatives clamped.
 

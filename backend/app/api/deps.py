@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 from app.core.config import settings
+from app.core.database import SessionLocal
 from app.repositories.base import Repository
+from app.repositories.cache import CycleCache
+from app.repositories.database import DatabaseRepository
 from app.repositories.fixtures import FixtureRepository
+
+_forecast_cache = CycleCache()
 
 
 def get_repository() -> Repository:
-    """The data source for this request: the fixtures in mock mode.
+    """The data source for this request: the fixtures in mock mode, otherwise the database.
 
-    The database repository plugs in here when it exists. Until then MOCK_MODE=false
-    has no data source, so data routes fail with a logged internal_error.
+    With MOCK_MODE=false, /fires, /observations and /meta fail with a logged
+    internal_error until API-03 adds them.
     """
-    if not settings.mock_mode:
-        raise RuntimeError("MOCK_MODE=false needs the database repository, which isn't built yet.")
-    return FixtureRepository(settings.api_contract_dir / "fixtures")
+    if settings.mock_mode:
+        return FixtureRepository(settings.api_contract_dir / "fixtures")
+    return DatabaseRepository(SessionLocal, _forecast_cache)

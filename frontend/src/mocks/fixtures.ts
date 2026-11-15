@@ -5750,11 +5750,11 @@ export const gridCells = {
   ]
 } satisfies Body<"/api/v1/grid/cells", 200>;
 
-/** docs/api/fixtures/health.json: GET /api/v1/health 200 */
+/** docs/api/fixtures/health.json: GET /health 200, GET /api/v1/health 200 */
 export const health = {
   "status": "ok",
   "environment": "development"
-} satisfies Body<"/api/v1/health", 200>;
+} satisfies Body<"/health", 200> satisfies Body<"/api/v1/health", 200>;
 
 /** docs/api/fixtures/meta.json: GET /api/v1/meta 200 */
 export const meta = {

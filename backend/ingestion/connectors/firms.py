@@ -33,7 +33,12 @@ from ingestion.normalize import (
 
 FIRMS_BASE_URL = "https://firms.modaps.eosdis.nasa.gov/api/"
 
-DEFAULT_SOURCE = "VIIRS_SNPP_NRT"
+# fire_detections.satellite of the training fires (DATA-03, VIIRS_SNPP_SP) and of the
+# live fires. FIRMS stopped serving SNPP on 2026-11-02, so live is NOAA-20 (decision #49).
+SNPP_SATELLITE = "VIIRS_SNPP"
+LIVE_SATELLITE = "VIIRS_NOAA20"
+
+DEFAULT_SOURCE = "VIIRS_NOAA20_NRT"
 
 # Temporary development area.
 # This can be replaced with the actual pilot-fire bounding box.
@@ -142,10 +147,11 @@ def normalize_firms_row(
         "J": "VIIRS_NOAA20",
         "1": "VIIRS_NOAA21",
 
-        # FIRMS archive (_SP) VIIRS codes, confirmed against a real
-        # VIIRS_NOAA20_SP response (2021-08-05). NOAA-21's archive code is
-        # not mapped until confirmed the same way.
+        # Current FIRMS VIIRS codes. "N20" confirmed against real responses:
+        # VIIRS_NOAA20_SP (2021-08-05) and VIIRS_NOAA20_NRT (2026-11-09).
+        # "N21" follows the same pattern for NOAA-21 (not yet seen in a response).
         "N20": "VIIRS_NOAA20",
+        "N21": "VIIRS_NOAA21",
 
         # Explicit satellite names
         "SNPP": "VIIRS_SNPP",

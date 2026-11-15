@@ -113,8 +113,9 @@ to keep more, and `LIVE_RETENTION_DELETE=0` for a dry run (see `.env.example`).
 - **Secrets:** rotate by editing `/opt/smokesense/.env` on the box, then re-run the deploy.
 - **TLS:** Caddy renews certificates automatically; the `caddy_data` volume must survive.
 - **API mode:** `MOCK_MODE=true` serves fixtures, and the map shows its "Demo data" badge
-  because `/meta` reports mock mode. `MOCK_MODE=false` needs the database repository (API-02 #55,
-  API-03 #56); until then the backend refuses to start with it. Any "no mock data" criterion
+  because `/meta` reports mock mode. `MOCK_MODE=false` needs the database repository: API-02 (#55)
+  serves `/grid/cells` and `/forecast/*`, but `/fires`, `/observations` and `/meta` fail with
+  `internal_error` until API-03 (#56), so keep it `true` until then. Any "no mock data" criterion
   for staging depends on those issues, not on this deploy. The frontend image pins
   `VITE_USE_MOCKS=false`, so the browser never mocks the API itself.
 - **Port 22** is open to the internet because GitHub runners have no fixed IPs. Login is key-only
