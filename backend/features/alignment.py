@@ -188,6 +188,11 @@ def add_fire_alignment_features(
 def add_pm25_alignment_features(
     dataframe: pd.DataFrame,
     pm25_history: pd.DataFrame,
+    lag_mode: str = "own",
+    pm25_observations: pd.DataFrame | None = None,
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
 ) -> pd.DataFrame:
     """
     Add historical PM2.5 lag features to aligned rows.
@@ -198,6 +203,31 @@ def add_pm25_alignment_features(
     Lag values are calculated only from observations earlier
     than the current issue_time.
     """
+
+    if lag_mode not in ("own", "idw-loo"):
+        raise ValueError(f"Unknown PM2.5 lag mode: {lag_mode!r}")
+
+    if lag_mode == "idw-loo":
+        if pm25_observations is None:
+            raise ValueError(
+                "pm25_observations is required for lag_mode='idw-loo'"
+            )
+
+        from features.pm25_idw import compute_idw_lags
+
+        observations = pm25_observations.copy()
+        if "correction" in observations.columns:
+            observations = observations.loc[
+                observations["correction"] == "regulatory"
+            ].copy()
+
+        return compute_idw_lags(
+            dataframe,
+            observations,
+            power=idw_power,
+            max_radius_km=idw_max_radius_km,
+            k=idw_k,
+        )
 
     result = dataframe.copy()
 
@@ -617,12 +647,25 @@ def build_input_features(
     weather_observations: pd.DataFrame,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
     lookback_hours: float = 72.0,
+    lag_mode: str = "own",
+    pm25_observations: pd.DataFrame | None = None,
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
 ) -> pd.DataFrame:
     """Shared training/serving features; retain rows without future labels."""
     result = build_feature_times(forecast_points, issue_times, horizons=horizons)
     result = add_temporal_alignment_features(result)
     result = add_fire_alignment_features(result, fire_detections, lookback_hours=lookback_hours)
-    result = add_pm25_alignment_features(result, pm25_history)
+    result = add_pm25_alignment_features(
+        result,
+        pm25_history,
+        lag_mode=lag_mode,
+        pm25_observations=pm25_observations,
+        idw_power=idw_power,
+        idw_max_radius_km=idw_max_radius_km,
+        idw_k=idw_k,
+    )
     return add_weather_alignment_features(result, weather_observations)
 
 
@@ -636,6 +679,10 @@ def build_feature_dataset(
     pilot_event_id: str | None = None,
     horizons: tuple[int, ...] = ALLOWED_HORIZONS,
     lookback_hours: float = 72.0,
+    lag_mode: str = "own",
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
 ) -> pd.DataFrame:
     """
     Build the complete GEO-01 feature dataset.
@@ -663,6 +710,11 @@ def build_feature_dataset(
         weather_observations=weather_observations,
         horizons=horizons,
         lookback_hours=lookback_hours,
+        lag_mode=lag_mode,
+        pm25_observations=pm25_observations if lag_mode == "idw-loo" else None,
+        idw_power=idw_power,
+        idw_max_radius_km=idw_max_radius_km,
+        idw_k=idw_k,
     )
 
     result = add_pm25_target(
