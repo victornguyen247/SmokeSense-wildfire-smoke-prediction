@@ -20,7 +20,7 @@ Each event's rows are checked for leakage (dataset_build/checks.py) before dedup
 data.parquet and manifest.json to the output folder (gitignored).
 """
 from __future__ import annotations
-import numpy as np
+
 import argparse
 import hashlib
 import json
@@ -30,6 +30,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import bindparam, create_engine, text
 

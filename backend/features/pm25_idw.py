@@ -324,8 +324,7 @@ def compute_idw_lags(
                 .head(k)
             )
 
-            # Distinct monitor IDs may share coordinates.
-            # At zero distance, use colocated readings.
+
             prediction = idw_average(
                 neighbors["pm25"].to_numpy(
                     dtype=float
