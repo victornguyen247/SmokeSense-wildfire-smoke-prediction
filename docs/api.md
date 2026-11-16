@@ -6,7 +6,7 @@ The yet to be agreed contract between the frontend and backend (PM-02). Both sid
 |---|---|
 | [`api/openapi.yaml`](api/openapi.yaml) | OpenAPI 3.1 spec: every endpoint, parameter, response and error |
 | [`api/fixtures/*.json`](api/fixtures/) | One realistic response per endpoint (Park Fire, see [Fixtures](#fixtures)) |
-| [`api/fixture_manifest.json`](api/fixture_manifest.json) | Which response each fixture is an example of. Read by `validate.py` and the backend contract tests |
+| [`api/fixture_manifest.json`](api/fixture_manifest.json) | Which response each fixture is an example of. Read by `validate.py`, the backend contract tests and the frontend's `npm run gen:api` |
 | [`api/validate.py`](api/validate.py) | Validates the spec, then every fixture against it. Runs in CI (`api-spec` job) |
 | [`api/gen_fixtures.py`](api/gen_fixtures.py) | Generates the fixtures. CI reruns it and fails if the output differs from the committed fixtures |
 
