@@ -3051,7 +3051,14 @@ export const forecastPoint = {
         "source": "idw",
         "nearest_monitor_dist_km": 2.2
       }
-    ]
+    ],
+    "active_alert": {
+      "severity": "unhealthy_sensitive",
+      "first_triggered_at": "2024-07-27T09:00:00Z",
+      "peak_pm25_predicted": 105.1,
+      "peak_target_time": "2024-07-28T00:00:00Z",
+      "horizon_hours": 6
+    }
   },
   "nearest_monitor": {
     "forecast_point_id": "airnow:9355aeb39438a63427fe3226",
@@ -3132,7 +3139,8 @@ export const forecastPointNoForecast = {
     "has_forecast": false,
     "no_forecast_reason": "no_monitor_within_50km",
     "nearest_monitor_dist_km": 60,
-    "forecasts": []
+    "forecasts": [],
+    "active_alert": null
   },
   "nearest_monitor": {
     "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
@@ -6088,3 +6096,124 @@ export const observationsPm25Latest = {
     }
   ]
 } satisfies Body<"/api/v1/observations/pm25/latest", 200>;
+
+/** docs/api/fixtures/observations_wind_latest.json: GET /api/v1/observations/wind/latest 200 */
+export const observationsWindLatest = {
+  "type": "FeatureCollection",
+  "generated_at": "2024-07-27T18:40:00Z",
+  "max_age_hours": 3,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.85836,
+          39.79539
+        ]
+      },
+      "properties": {
+        "station_id": "KCIC",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 4.6,
+        "wind_dir_deg": 230
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.25222,
+          40.15019
+        ]
+      },
+      "properties": {
+        "station_id": "KRBL",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 5.7,
+        "wind_dir_deg": 200
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.618,
+          39.49
+        ]
+      },
+      "properties": {
+        "station_id": "KOVE",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 0,
+        "wind_dir_deg": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -122.21794,
+          39.51636
+        ]
+      },
+      "properties": {
+        "station_id": "KWLW",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 6.2,
+        "wind_dir_deg": 210
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.08174,
+          38.95482
+        ]
+      },
+      "properties": {
+        "station_id": "KAUN",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 3.1,
+        "wind_dir_deg": 250
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.56777,
+          39.10203
+        ]
+      },
+      "properties": {
+        "station_id": "KMYV",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 3.6,
+        "wind_dir_deg": 190
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.4366,
+          39.13609
+        ]
+      },
+      "properties": {
+        "station_id": "KBAB",
+        "valid_at": "2024-07-27T15:53:00Z",
+        "wind_speed_ms": 4.1,
+        "wind_dir_deg": 180
+      }
+    }
+  ]
+} satisfies Body<"/api/v1/observations/wind/latest", 200>;

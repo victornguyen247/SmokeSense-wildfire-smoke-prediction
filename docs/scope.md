@@ -36,7 +36,7 @@ Status as of 2026-10-27.
 ## 4. In scope after Phase 3 (Phases 4-5)
 | Item | Issue | What | Owner | Supports |
 |---|---|---|---|---|
-| Email alerts | #90 | Email alerts for registered users: a user registers an email and location; the system emails them when their location is forecast Unhealthy for Sensitive Groups (PM2.5 >= 35.5 ug/m3, EPA 2024 AQI) at 1, 3, 6, 12 or 24 h. Alert category: Unhealthy for Sensitive Groups (PM2.5 >= 35.5 ug/m3, EPA 2024 AQI). Trigger: the forecast passes that horizon's served cut-off in the active model's release.json (baseline_v2: 35.5 / 29.5 / 25.5 / 21.5 / 20.0 ug/m3 at 1 / 3 / 6 / 12 / 24 h; 1 h uses persistence). Chosen because it catches about 70% of real events at 6 h vs about 56% with a fixed 35.5 (0.69-0.74 vs 0.56-0.57 depending on the rows evaluated; baseline_v2 card and gate note); cut-offs update when the model is retrained. Minimal design: a subscriptions table (email, ZIP or rounded point, confirmed, token); subscribe, double opt-in confirm, one-click unsubscribe; one job after each hourly run, at most one email per user per episode; console mail backend on staging and the demo, a real provider only if time allows; subscriber data deleted at teardown; fallback: an in-app warning on the location card. The public statewide map stays. | Tin (backend), Malije (UI) | Live demo |
+| Email alerts | #90, #109–#116 | Email alerts for registered users: a user registers an email and location; the system emails them when their location is forecast Unhealthy for Sensitive Groups (PM2.5 >= 35.5 ug/m3, EPA 2024 AQI) at 1, 3, 6, 12 or 24 h. Alert category: Unhealthy for Sensitive Groups (PM2.5 >= 35.5 ug/m3, EPA 2024 AQI). Trigger: the forecast passes that horizon's served cut-off in the active model's release.json (baseline_v2: 35.5 / 29.5 / 25.5 / 21.5 / 20.0 ug/m3 at 1 / 3 / 6 / 12 / 24 h; 1 h uses persistence). Chosen because it catches about 70% of real events at 6 h vs about 56% with a fixed 35.5 (0.69-0.74 vs 0.56-0.57 depending on the rows evaluated; baseline_v2 card and gate note); cut-offs update when the model is retrained. Minimal design: a subscriptions table (email, ZIP or rounded point, confirmed, token); subscribe, double opt-in confirm, one-click unsubscribe; one job after each hourly run, at most one email per user per episode; console mail backend on staging and the demo, a real provider only if time allows; subscriber data deleted at teardown; fallback: an in-app warning on the location card. The public statewide map stays. Contract: docs/alerts.md. | Contract: Tin (PM-06, #109). Tables + endpoints: Shresta (#110, #111). Episode engine: Phuong (#112; Miaoqing reviews cut-offs). Sender + alert job: Vuong (#113, #114). UI: Malije (#115). Phase 4 gate: Vuong + Tin (PM-07, #116). | Live demo |
 
 Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 
@@ -70,7 +70,7 @@ Issues filed 2026-10-27 (DATA-07, API-08, ML-06).
 A new request becomes an issue labelled scope-change that names what gets cut or moved. Tin and Vuong decide in the weekly meeting and the advisor is told in writing. If it is not approved, it goes to stretch.
 
 ## 9. Dates and gates
-10/30 Phase 2 due. 11/6 Phase 3 gate (PM-05, #61: at least 24 consecutive hourly pipeline runs on staging, a ZIP gives a real forecast, no mock data). About 11/29 code freeze. 12/4 poster, slides and script. 12/8 project complete. 12/9 final report. 12/11 Senior Design Day.
+10/30 Phase 2 due. 11/6 Phase 3 gate (PM-05, #61: at least 24 consecutive hourly pipeline runs on staging, a ZIP gives a real forecast, no mock data). 11/24 Phase 4 gate (PM-07, #116: alert demo on staging, subscribe → confirm → one alert email → unsubscribe). About 11/29 code freeze. 12/4 poster, slides and script. 12/8 project complete. 12/9 final report. 12/11 Senior Design Day.
 
 ## 10. Risks
 - The 11/6 gate needs 24 consecutive hourly runs, so the pipeline (#53) must be running on staging by about 11/4-11/5.
@@ -82,12 +82,13 @@ A new request becomes an issue labelled scope-change that names what gets cut or
 
 ## 11. Decisions taken with this freeze
 - Forecast retention: monitor forecasts are kept 30 days (docs/schema.md; needed to score forecasts against observations); grid forecasts keep only the latest run (about 354k rows a day otherwise). OPS-04 (#53) implements this.
-- Phase 4-5 owners: City AQ History: Tin, Malije; Alerts: Shresta, Malije; HRRR-Smoke benchmark: Miaoqing, Phuong.
+- Phase 4-5 owners: City AQ History: Tin, Malije; Alerts: see section 4 (updated 2026-11-09); HRRR-Smoke benchmark: Miaoqing, Phuong.
 - No hosting after Senior Design Day; the demo is recorded.
 - Scope is frozen; changes go through section 8.
 - Rain: the error breakdown by rain in ML-03 (#44) comes first; rain features go into a v2.1 experiment only if that shows an effect.
 - ML-01 trees are re-saved with scikit-learn 1.6.0 (release v1.0.1, not yet published); the repo pin stays.
 - 2026-10-30 (Vuong's review of #88): email alerts for registered users are in scope (SMS out); City AQ History uses monthly city averages from grid points, no EPA AQS backfill; the HRRR-Smoke benchmark moves to stretch.
-- 2026-10-31 (agreed with Vuong): City AQ History moves to stretch; email alerts get the minimal design in section 4, owners Tin (backend) and Malije (UI); the alert threshold is to be decided by team vote.
+- 2026-10-31 (agreed with Vuong): City AQ History moves to stretch; email alerts get the minimal design in section 4, owners Tin (backend) and Malije (UI) (owners superseded 2026-11-09, below); the alert threshold is to be decided by team vote.
 - 2026-11-02 (team vote, option B; team delegated the decision to Tin): email alerts trigger when the forecast passes that horizon's served cut-off in the active model's release.json, not a fixed 35.5 (section 4).
 - Merge order: #86 (merged), then #68, #87, #88.
+- 2026-11-09 (PM-06, #109): the email alerts contract is docs/alerts.md (decision #47). Alert owners follow the Phase 4 issues: Contract: Tin (PM-06, #109). Tables + endpoints: Shresta (#110, #111). Episode engine: Phuong (#112; Miaoqing reviews cut-offs). Sender + alert job: Vuong (#113, #114). UI: Malije (#115). Phase 4 gate: Vuong + Tin (PM-07, #116).

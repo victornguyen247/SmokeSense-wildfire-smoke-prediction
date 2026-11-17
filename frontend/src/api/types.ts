@@ -160,6 +160,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/observations/wind/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest surface wind per NWS station (at most 3 hours old)
+         * @description One feature per NWS station (`weather_observations`): its most recent wind
+         *     reading, if `valid_at` is at most 3 h before `generated_at`. NWS stations report
+         *     once an hour at about :53 and can arrive late, hence 3 h rather than the 2 h used
+         *     for PM2.5. Added for WEB-03's wind layer; measured wind only, not a forecast.
+         */
+        get: operations["getLatestWind"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -399,6 +422,12 @@ export interface components {
                     /** @constant */
                     source?: "idw";
                 })[];
+                /**
+                 * @description Optional (added in PM-06). The cell's open alert episode (`alerts` row with
+                 *     `status = 'open'`), for the in-app warning on the location card; null or
+                 *     absent when there is none. Treat absent as null. See docs/alerts.md.
+                 */
+                active_alert?: null | components["schemas"]["ActiveAlert"];
             };
             /**
              * @description Physically nearest forecast-point monitor to the query location, of any source;
@@ -416,6 +445,73 @@ export interface components {
                 /** @description One per horizon, ordered 1, 3, 6, 12, 24. */
                 forecasts: components["schemas"]["MonitorForecastValue"][];
             };
+        };
+        /**
+         * @description An open alert episode for a grid cell (`alerts` table). It opens when any horizon's
+         *     `pm25_predicted` reaches that horizon's cut-off in the cycle model's
+         *     `model_versions.thresholds` (decision #45). Those cut-offs are model thresholds, not
+         *     AQI breakpoints, so a 24 h value can open an episode while its `aqi_category` is
+         *     still `moderate`.
+         */
+        ActiveAlert: {
+            /**
+             * @description v1 only raises `unhealthy_sensitive`. More values may be added (additive).
+             * @enum {string}
+             */
+            severity: "unhealthy_sensitive";
+            /** @description `issued_at` of the cycle that opened the episode. */
+            first_triggered_at: components["schemas"]["UtcTimestamp"];
+            /** @description Highest predicted PM2.5 in any cycle of the episode so far. */
+            peak_pm25_predicted: components["schemas"]["Pm25"];
+            /** @description When that peak is predicted to occur. */
+            peak_target_time: components["schemas"]["UtcTimestamp"];
+            /** @description Horizon of the peak forecast. */
+            horizon_hours: components["schemas"]["HorizonHours"];
+        };
+        /**
+         * Format: email
+         * @description Trimmed and lower-cased by the server before use.
+         */
+        AlertEmail: string;
+        /**
+         * @description Body of `POST /api/v1/alerts/subscriptions`: an email plus exactly one location form,
+         *     `zip` or `lat` + `lon`. Anything else is 400 `invalid_query`.
+         */
+        AlertSubscribeRequest: {
+            email: components["schemas"]["AlertEmail"];
+            zip: string;
+        } | {
+            email: components["schemas"]["AlertEmail"];
+            lat: number;
+            lon: number;
+        };
+        /**
+         * @description `202` from `POST /api/v1/alerts/subscriptions` for every valid request, whether or not
+         *     the email is known and whether or not a confirmation email was sent (rate limit), so
+         *     the response never reveals who has subscribed.
+         */
+        AlertSubscribeAccepted: {
+            /** @constant */
+            status: "pending_confirmation";
+        };
+        /** @description Body of `POST /api/v1/alerts/confirm` and `POST /api/v1/alerts/unsubscribe`. */
+        AlertTokenRequest: {
+            /**
+             * @description The token from the email link (32 bytes, base64url without padding: 43 characters).
+             *     A string that is not a well-formed token gets 404 `invalid_token`, not 400, so the
+             *     token pages show one "invalid link" message.
+             */
+            token: string;
+        };
+        /** @description `200` from `POST /api/v1/alerts/confirm`. */
+        AlertConfirmResult: {
+            /** @enum {string} */
+            status: "confirmed" | "already_confirmed";
+        };
+        /** @description `200` from `POST /api/v1/alerts/unsubscribe`. Repeating it returns the same body. */
+        AlertUnsubscribeResult: {
+            /** @constant */
+            status: "unsubscribed";
         };
         FireDetectionCollection: {
             /** @constant */
@@ -497,6 +593,32 @@ export interface components {
                  * @enum {unknown}
                  */
                 correction: "regulatory" | "purpleair_barkjohn";
+            };
+        };
+        WindObservationCollection: {
+            /** @constant */
+            type: "FeatureCollection";
+            generated_at: components["schemas"]["UtcTimestamp"];
+            /** @constant */
+            max_age_hours: 3;
+            features: components["schemas"]["WindObservationFeature"][];
+        };
+        WindObservationFeature: {
+            /** @constant */
+            type: "Feature";
+            geometry: components["schemas"]["PointGeometry"];
+            properties: {
+                /** @description NWS station identifier, e.g. `KCIC`. */
+                station_id: string;
+                /** @description Observation time. */
+                valid_at: components["schemas"]["UtcTimestamp"];
+                /** @description Wind speed, m/s, rounded to 0.1. */
+                wind_speed_ms: number;
+                /**
+                 * @description Direction the wind blows FROM, degrees clockwise from north (meteorological
+                 *     convention, as stored). Null when calm or variable.
+                 */
+                wind_dir_deg: number | null;
             };
         };
         Meta: {
@@ -581,7 +703,7 @@ export interface components {
         /** @description The only error shape. `code` is stable and machine-readable; `message` is for people. */
         Error: {
             /** @enum {unknown} */
-            code: "invalid_query" | "invalid_bbox" | "out_of_scope" | "zip_not_found" | "forecast_unavailable" | "not_found" | "internal_error";
+            code: "invalid_query" | "invalid_bbox" | "out_of_scope" | "zip_not_found" | "forecast_unavailable" | "not_found" | "internal_error" | "invalid_token" | "token_expired";
             message: string;
         };
     };
@@ -819,6 +941,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObservationCollection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["OutOfScope"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getLatestWind: {
+        parameters: {
+            query?: {
+                /**
+                 * @description `minLon,minLat,maxLon,maxLat` (WGS84, GeoJSON order). Clipped to California; defaults to all of it.
+                 * @example -122.95,39.40,-121.50,40.10
+                 */
+                bbox?: components["parameters"]["BboxOptional"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest wind readings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WindObservationCollection"];
                 };
             };
             400: components["responses"]["BadRequest"];

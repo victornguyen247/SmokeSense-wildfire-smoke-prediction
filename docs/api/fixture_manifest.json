@@ -8,6 +8,7 @@
     "forecast_monitors.json": [{ "path": "/api/v1/forecast/monitors", "status": 200 }],
     "fires_active.json": [{ "path": "/api/v1/fires/active", "status": 200 }],
     "observations_pm25_latest.json": [{ "path": "/api/v1/observations/pm25/latest", "status": 200 }],
+    "observations_wind_latest.json": [{ "path": "/api/v1/observations/wind/latest", "status": 200 }],
     "meta.json": [{ "path": "/api/v1/meta", "status": 200 }],
     "health.json": [
       { "path": "/health", "status": 200 },

@@ -40,6 +40,7 @@ BBOX_PATHS = [
     "/api/v1/forecast/monitors",
     "/api/v1/fires/active",
     "/api/v1/observations/pm25/latest",
+    "/api/v1/observations/wind/latest",
 ]
 # FastAPI's own pages, which serve the spec rather than being part of it.
 NON_CONTRACT_PATHS = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
