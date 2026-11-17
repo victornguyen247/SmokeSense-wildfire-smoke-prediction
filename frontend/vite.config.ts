@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
@@ -33,5 +34,11 @@ export default defineConfig({
   build: {
     // Vite's own check would flag the exempt chunks above; chunkBudget() replaces it.
     chunkSizeWarningLimit: Number.POSITIVE_INFINITY,
+  },
+  // Component tests (`npm test`): jsdom, with the mock-mode API answers from src/mocks.
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/setup.ts'],
   },
 })
