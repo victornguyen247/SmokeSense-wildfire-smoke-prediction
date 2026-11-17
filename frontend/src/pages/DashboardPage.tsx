@@ -5,11 +5,14 @@ import { AqiLegend } from "../components/forecast/AqiLegend";
 import { Disclaimer } from "../components/forecast/Disclaimer";
 import { ForecastStatus } from "../components/forecast/ForecastStatus";
 import { HorizonControl } from "../components/forecast/HorizonControl";
+import { LayerControl, type LayerVisibility } from "../components/map/LayerControl";
 import { ErrorMessage } from "../components/ui/ErrorMessage";
 import { MockModeBadge } from "../components/ui/MockModeBadge";
 import { Spinner } from "../components/ui/Spinner";
 import { useForecastData } from "../hooks/useForecastData";
 import { useMeta } from "../hooks/useMeta";
+import { useObservedData } from "../hooks/useObservedData";
+import { FIRE_ATTRIBUTION, SENSOR_ATTRIBUTION } from "../constants/sources";
 import { formatAgeMinutes } from "../utils/formatTime";
 
 // MapLibre is most of the bundle; load it separately so the page and panel render first.
@@ -20,6 +23,8 @@ export function DashboardPage() {
   const meta = useMeta();
   const metaData = meta.status === "success" ? meta.data : undefined;
   const { cells, grid, monitors } = useForecastData(metaData);
+  const { fires, sensors } = useObservedData();
+  const [visible, setVisible] = useState<LayerVisibility>({ forecast: true, fires: true, sensors: true });
 
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonHours | null>(null);
   const horizon = selectedHorizon ?? metaData?.horizons[0] ?? 1;
@@ -45,6 +50,9 @@ export function DashboardPage() {
               gridHorizon={gridHorizon}
               monitors={monitors.data}
               horizon={horizon}
+              fires={fires.data}
+              sensors={sensors.data}
+              visible={visible}
             />
           </Suspense>
           {metaData?.forecast_stale && <StaleNotice meta={metaData} />}
@@ -93,6 +101,31 @@ export function DashboardPage() {
                   )}
                 </>
               )}
+              <LayerControl
+                visible={visible}
+                onChange={(key, on) => setVisible((current) => ({ ...current, [key]: on }))}
+                options={[
+                  { key: "forecast", label: "Smoke forecast", detail: "grid and monitors" },
+                  {
+                    key: "fires",
+                    label: "Active fires",
+                    detail: fires.data && `${fires.data.detection_count} in ${fires.data.window_hours} h`,
+                    attribution: FIRE_ATTRIBUTION,
+                    loading: fires.status === "loading",
+                    error: fires.error,
+                    onRetry: fires.retry,
+                  },
+                  {
+                    key: "sensors",
+                    label: "PM2.5 sensors",
+                    detail: sensors.data && `${sensors.data.features.length} reporting`,
+                    attribution: `${SENSOR_ATTRIBUTION}. Measured, so drawn as squares; dark ring: AirNow.`,
+                    loading: sensors.status === "loading",
+                    error: sensors.error,
+                    onRetry: sensors.retry,
+                  },
+                ]}
+              />
               <AqiLegend meta={metaData} />
             </section>
           )}
