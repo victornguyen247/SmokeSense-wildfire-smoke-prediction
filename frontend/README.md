@@ -77,6 +77,10 @@ Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `in
 
 - `ForecastGridLayer` (WEB-02): the `/grid/cells` polygons, added once per `grid_key`. Switching horizon only sets each cell's feature state from `/forecast/grid`, so it never refetches. Cells over `/meta` `low_confidence_dist_km` from a monitor are faded with a dashed outline; cells missing from a horizon are grey "no forecast".
 - `MonitorLayer` (WEB-02): `/forecast/monitors` as circles for the selected horizon; a `fallback` forecast is hollow (lower confidence). Click for a popup.
+- `SensorLayer` (WEB-03): `/observations/pm25/latest` as squares colored by AQI category (measured values are squares, forecasts circles). AirNow has a dark ring, PurpleAir a white one.
+- `FireLayer` (WEB-03): `/fires/active` as near-black dots (red is an AQI color); `low` confidence is hollow.
+
+The point layers are always mounted once `/meta` has loaded and fill in as their data arrives, so they stack in a fixed order whatever loads first. Each layer is shown or hidden with the panel's layer control, which keeps its data. Data credits are in `src/constants/sources.ts` and in the map's attribution.
 
 Colors and labels come from `/meta` `aqi_categories` (`src/utils/aqi.ts`); no threshold is hard-coded.
 
