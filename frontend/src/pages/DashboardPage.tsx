@@ -12,7 +12,7 @@ import { Spinner } from "../components/ui/Spinner";
 import { useForecastData } from "../hooks/useForecastData";
 import { useMeta } from "../hooks/useMeta";
 import { useObservedData } from "../hooks/useObservedData";
-import { FIRE_ATTRIBUTION, SENSOR_ATTRIBUTION } from "../constants/sources";
+import { FIRE_ATTRIBUTION, SENSOR_ATTRIBUTION, WIND_ATTRIBUTION } from "../constants/sources";
 import { formatAgeMinutes } from "../utils/formatTime";
 
 // MapLibre is most of the bundle; load it separately so the page and panel render first.
@@ -23,8 +23,11 @@ export function DashboardPage() {
   const meta = useMeta();
   const metaData = meta.status === "success" ? meta.data : undefined;
   const { cells, grid, monitors } = useForecastData(metaData);
-  const { fires, sensors } = useObservedData();
-  const [visible, setVisible] = useState<LayerVisibility>({ forecast: true, fires: true, sensors: true });
+  const { fires, sensors, wind } = useObservedData(metaData);
+  // /meta marks FIRMS stale when no detection arrived for the whole fire window: then an
+  // empty fire layer means the feed stopped, not that there are no fires.
+  const firesStale = metaData?.sources.find((s) => s.source === "firms")?.stale ?? false;
+  const [visible, setVisible] = useState<LayerVisibility>({ forecast: true, fires: true, sensors: true, wind: true });
 
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonHours | null>(null);
   const horizon = selectedHorizon ?? metaData?.horizons[0] ?? 1;
@@ -52,6 +55,7 @@ export function DashboardPage() {
               horizon={horizon}
               fires={fires.data}
               sensors={sensors.data}
+              wind={wind.data}
               visible={visible}
             />
           </Suspense>
@@ -111,6 +115,9 @@ export function DashboardPage() {
                     label: "Active fires",
                     detail: fires.data && `${fires.data.detection_count} in ${fires.data.window_hours} h`,
                     attribution: FIRE_ATTRIBUTION,
+                    warning: firesStale
+                      ? "The fire feed is delayed, so recent fires may be missing from the map."
+                      : undefined,
                     loading: fires.status === "loading",
                     error: fires.error,
                     onRetry: fires.retry,
@@ -123,6 +130,15 @@ export function DashboardPage() {
                     loading: sensors.status === "loading",
                     error: sensors.error,
                     onRetry: sensors.retry,
+                  },
+                  {
+                    key: "wind",
+                    label: "Wind",
+                    detail: wind.data && `${wind.data.features.length} stations`,
+                    attribution: `${WIND_ATTRIBUTION}. Arrows point where the wind blows; ◎ is calm.`,
+                    loading: wind.status === "loading",
+                    error: wind.error,
+                    onRetry: wind.retry,
                   },
                 ]}
               />

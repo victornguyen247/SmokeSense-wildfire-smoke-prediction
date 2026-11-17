@@ -227,6 +227,32 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v1/observations/wind/latest:
+    get:
+      tags: [observations]
+      operationId: getLatestWind
+      summary: Latest surface wind per NWS station (at most 3 hours old)
+      description: |
+        One feature per NWS station (`weather_observations`): its most recent wind
+        reading, if `valid_at` is at most 3 h before `generated_at`. NWS stations report
+        once an hour at about :53 and can arrive late, hence 3 h rather than the 2 h used
+        for PM2.5. Added for WEB-03's wind layer; measured wind only, not a forecast.
+      parameters:
+        - $ref: "#/components/parameters/BboxOptional"
+      responses:
+        "200":
+          description: Latest wind readings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindObservationCollection"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/OutOfScope"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/meta:
     get:
       tags: [meta]
@@ -703,6 +729,48 @@ components:
             correction:
               enum: [regulatory, purpleair_barkjohn]
               description: "`regulatory` for AirNow; PurpleAir values are Barkjohn-corrected."
+
+    WindObservationCollection:
+      type: object
+      required: [type, generated_at, max_age_hours, features]
+      additionalProperties: false
+      properties:
+        type: { const: FeatureCollection }
+        generated_at: { $ref: "#/components/schemas/UtcTimestamp" }
+        max_age_hours: { const: 3 }
+        features:
+          type: array
+          items: { $ref: "#/components/schemas/WindObservationFeature" }
+    WindObservationFeature:
+      type: object
+      required: [type, geometry, properties]
+      additionalProperties: false
+      properties:
+        type: { const: Feature }
+        geometry: { $ref: "#/components/schemas/PointGeometry" }
+        properties:
+          type: object
+          required: [station_id, valid_at, wind_speed_ms, wind_dir_deg]
+          additionalProperties: false
+          properties:
+            station_id:
+              type: string
+              pattern: "^[A-Z0-9]{3,5}$"
+              description: NWS station identifier, e.g. `KCIC`.
+            valid_at:
+              $ref: "#/components/schemas/UtcTimestamp"
+              description: Observation time.
+            wind_speed_ms:
+              type: number
+              minimum: 0
+              description: Wind speed, m/s, rounded to 0.1.
+            wind_dir_deg:
+              type: [number, "null"]
+              minimum: 0
+              maximum: 360
+              description: |
+                Direction the wind blows FROM, degrees clockwise from north (meteorological
+                convention, as stored). Null when calm or variable.
 
     # ---------- meta ----------
     Meta:

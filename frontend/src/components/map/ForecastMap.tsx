@@ -6,6 +6,7 @@ import type {
   Meta,
   MonitorForecastCollection,
   ObservationCollection,
+  WindObservationCollection,
 } from "../../api/models";
 import { FireLayer } from "./FireLayer";
 import { ForecastGridLayer } from "./ForecastGridLayer";
@@ -13,6 +14,7 @@ import type { LayerVisibility } from "./LayerControl";
 import MapView from "./MapView";
 import { MonitorLayer } from "./MonitorLayer";
 import { SensorLayer } from "./SensorLayer";
+import { WindLayer } from "./WindLayer";
 
 type ForecastMapProps = {
   meta: Meta | undefined;
@@ -22,6 +24,7 @@ type ForecastMapProps = {
   horizon: HorizonHours;
   fires: FireDetectionCollection | undefined;
   sensors: ObservationCollection | undefined;
+  wind: WindObservationCollection | undefined;
   visible: LayerVisibility;
 };
 
@@ -37,6 +40,7 @@ export default function ForecastMap({
   horizon,
   fires,
   sensors,
+  wind,
   visible,
 }: ForecastMapProps) {
   if (!meta) return <MapView />;
@@ -67,6 +71,7 @@ export default function ForecastMap({
         categoryLabel={meta.aqi_category_label}
         visible={visible.forecast}
       />
+      <WindLayer wind={wind} visible={visible.wind} />
       <FireLayer fires={fires} visible={visible.fires} />
     </MapView>
   );

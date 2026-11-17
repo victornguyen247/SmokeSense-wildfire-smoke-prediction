@@ -346,6 +346,23 @@ def main(out):
         "aqi_table_version": AQI_TABLE, "features": obs,
     })
 
+    # --- /observations/wind/latest: NWS stations around the fire (real station ids) ---
+    # Southwesterly afternoon wind pushing smoke up the valley; KOVE is calm.
+    wind_valid = datetime(2024, 7, 27, 15, 53, tzinfo=UTC)  # = nws_obs latest_data_at in /meta
+    stations = [
+        ("KCIC", 39.79539, -121.85836, 4.6, 230), ("KRBL", 40.15019, -122.25222, 5.7, 200),
+        ("KOVE", 39.49000, -121.61800, 0.0, None), ("KWLW", 39.51636, -122.21794, 6.2, 210),
+        ("KAUN", 38.95482, -121.08174, 3.1, 250), ("KMYV", 39.10203, -121.56777, 3.6, 190),
+        ("KBAB", 39.13609, -121.43660, 4.1, 180),
+    ]
+    write("observations_wind_latest.json", {
+        "type": "FeatureCollection", "generated_at": iso(NOW), "max_age_hours": 3,
+        "features": [{
+            "type": "Feature", "geometry": pt(lat, lon),
+            "properties": {"station_id": sid, "valid_at": iso(wind_valid), "wind_speed_ms": speed, "wind_dir_deg": deg},
+        } for sid, lat, lon, speed, deg in stations],
+    })
+
     # --- /meta ---
     def source(name, last_ok, latest, stale_after):
         age = int((NOW - latest).total_seconds() // 60)
