@@ -1,10 +1,19 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PointForecast } from "../../api/models";
 import { forecastPoint, forecastPointNoForecast, meta } from "../../mocks/fixtures";
 import { PointForecastCard } from "./PointForecastCard";
 import { AlertWarning } from "./AlertWarning";
+
+// The sign-up form shows in mock mode only, until the alert endpoints exist on the API (#111).
+const env = vi.hoisted(() => ({ useMocks: true }));
+vi.mock("../../constants/env", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../constants/env")>()),
+  get USE_MOCKS() {
+    return env.useMocks;
+  },
+}));
 
 const success = (data: PointForecast) => ({ status: "success" as const, data, retry: () => {} });
 
@@ -53,5 +62,18 @@ describe("PointForecastCard alerts", () => {
     expect(screen.queryByText(/Model expects smoke/)).toBeNull();
     // The sign-up form is still offered.
     expect(screen.getByRole("textbox", { name: "Email address" })).toBeTruthy();
+  });
+
+  describe("against the real API", () => {
+    afterEach(() => {
+      env.useMocks = true;
+    });
+
+    it("keeps the warning but hides the sign-up form", () => {
+      env.useMocks = false;
+      render(card(forecastPoint));
+      expect(screen.getByText("Model expects smoke unhealthy for sensitive groups.")).toBeTruthy();
+      expect(screen.queryByRole("textbox", { name: "Email address" })).toBeNull();
+    });
   });
 });

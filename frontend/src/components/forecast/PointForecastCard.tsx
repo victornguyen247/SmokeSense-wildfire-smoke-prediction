@@ -2,6 +2,7 @@ import type { ApiError } from "../../api/client";
 import type { PointQuery } from "../../api/forecast";
 import type { AqiCategoryInfo, HorizonHours, Meta, PointForecast } from "../../api/models";
 import type { QueryState } from "../../hooks/useApiQuery";
+import { USE_MOCKS } from "../../constants/env";
 import { categoryInfo, formatPm25, NO_DATA_COLOR } from "../../utils/aqi";
 import { formatLocalDateTime, formatLocalHour } from "../../utils/formatTime";
 import { ErrorMessage } from "../ui/ErrorMessage";
@@ -63,8 +64,10 @@ export function PointForecastCard({ label, query, forecast, meta, horizon, onClo
         </>
       )}
 
-      {/* Keyed by location, so a new location starts a fresh form. */}
-      {forecast.status === "success" && <AlertSignup key={label} query={query} label={label} />}
+      {/* Keyed by location, so a new location starts a fresh form. Mock mode only until the
+          alert POST endpoints exist on the API (#111): the real backend answers them with 405.
+          Remove the USE_MOCKS check when #111 merges. */}
+      {USE_MOCKS && forecast.status === "success" && <AlertSignup key={label} query={query} label={label} />}
 
       <p className="point-card__disclaimer">
         Experimental model estimate, not an official warning. Follow AirNow.gov and your local air district.

@@ -94,6 +94,15 @@ describe("AlertSignup", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Something went wrong. Please try again.");
   });
 
+  it("asks to try again when an error response isn't JSON", async () => {
+    // e.g. an HTML 502 page from a proxy in front of the API.
+    server.use(
+      http.post(SUBSCRIPTIONS, () => new HttpResponse("<html>Bad Gateway</html>", { status: 502 })),
+    );
+    await signUp("a@b.co");
+    expect((await screen.findByRole("alert")).textContent).toBe("Something went wrong. Please try again.");
+  });
+
   it("asks to try again when the network fails", async () => {
     server.use(http.post(SUBSCRIPTIONS, () => HttpResponse.error()));
     await signUp("a@b.co");
