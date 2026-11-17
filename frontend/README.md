@@ -81,6 +81,10 @@ Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `in
 - `FireLayer` (WEB-03): `/fires/active` as near-black dots (red is an AQI color); `low` confidence is hollow.
 - `WindLayer` (WEB-03): `/observations/wind/latest` as arrows at NWS stations, pointing where the wind blows (the API sends where it blows from) and sized by speed; calm is a bullseye. Icons are signed distance fields (`src/utils/sdfIcon.ts`), so one image takes any color.
 
+- `LocationPicker` (WEB-04): a click on the map (not on a feature with a popup, and not a double-click zoom) asks `/forecast/point` for that spot and pins it.
+
+The location card (`LocationSearch` + `PointForecastCard`) takes a ZIP (format checked in the browser; whether it is in California is the API's call), the browser's location, or a map click. Outside California, an unknown ZIP and a blocked location each get a plain-language message.
+
 The point layers are always mounted once `/meta` has loaded and fill in as their data arrives, so they stack in a fixed order whatever loads first. Each layer is shown or hidden with the panel's layer control, which keeps its data. Data credits are in `src/constants/sources.ts` and in the map's attribution.
 
 Colors and labels come from `/meta` `aqi_categories` (`src/utils/aqi.ts`); no threshold is hard-coded.
