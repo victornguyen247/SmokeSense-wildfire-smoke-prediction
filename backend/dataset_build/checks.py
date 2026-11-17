@@ -92,6 +92,61 @@ def check_lags(rows: pd.DataFrame, history: pd.DataFrame) -> int:
     return len(rows)
 
 
+def check_idw_lags(
+    rows: pd.DataFrame,
+    observations: pd.DataFrame,
+    *,
+    power: float = 2.0,
+    max_radius_km: float = 100.0,
+    k: int = 4,
+) -> int:
+    """Verify IDW lag features against recomputed neighbor values."""
+    from features.pm25_idw import compute_idw_lags
+
+    points = rows[
+        ["forecast_point_id", "location_lat", "location_lon", "issue_time"]
+    ].drop_duplicates()
+
+    source = observations.copy()
+    if "correction" in source.columns:
+        source = source.loc[
+            source["correction"] == "regulatory"
+        ].copy()
+
+    expected = compute_idw_lags(
+        points,
+        source,
+        power=power,
+        max_radius_km=max_radius_km,
+        k=k,
+    )
+
+    actual = rows.merge(
+        expected,
+        on=["forecast_point_id", "issue_time"],
+        how="left",
+        suffixes=("", "_expected"),
+        validate="many_to_one",
+        sort=False,
+    )
+    if len(actual) != len(rows):
+        raise LeakageError("IDW check: evaluation row count changed")
+
+    for lag in LAGS:
+        column = f"pm25_lag_{lag}h"
+        expected_column = f"{column}_expected"
+        for row in actual.itertuples(index=False):
+            got = getattr(row, column)
+            want = getattr(row, expected_column)
+            if not _same(got, want):
+                raise LeakageError(
+                    f"IDW lag mismatch: {row.forecast_point_id}, "
+                    f"{row.issue_time}, {column}: {got} != {want}"
+                )
+
+    return len(rows)
+
+
 def check_targets(rows: pd.DataFrame, observations: pd.DataFrame) -> int:
     issue = pd.to_datetime(rows["issue_time"], utc=True)
     target = pd.to_datetime(rows["target_time"], utc=True)
@@ -107,12 +162,36 @@ def check_targets(rows: pd.DataFrame, observations: pd.DataFrame) -> int:
     return len(rows)
 
 
-def check_event(rows: pd.DataFrame, frames: dict, sample: int = 400, seed: int = 0) -> dict:
-    """Run every check on a sample of one event's rows; returns rows checked per check."""
+
+def check_event(
+    rows: pd.DataFrame,
+    frames: dict,
+    sample: int = 400,
+    seed: int = 0,
+    lag_mode: str = "own",
+    idw_power: float = 2.0,
+    idw_max_radius_km: float = 100.0,
+    idw_k: int = 4,
+) -> dict:
+    """Run every check on a sample of one event's rows."""
     s = rows.sample(min(sample, len(rows)), random_state=seed) if len(rows) else rows
+
+    if lag_mode == "own":
+        lag_count = check_lags(s, frames["pm25_history"])
+    elif lag_mode == "idw-loo":
+        lag_count = check_idw_lags(
+            s,
+            frames["pm25_observations"],
+            power=idw_power,
+            max_radius_km=idw_max_radius_km,
+            k=idw_k,
+        )
+    else:
+        raise ValueError(f"Unknown lag mode: {lag_mode}")
+
     return {
         "fires": check_fires(s, frames["fires"]),
         "weather": check_weather(s, frames["weather"]),
-        "lags": check_lags(s, frames["pm25_history"]),
+        "lags": lag_count,
         "target": check_targets(s, frames["pm25_observations"]),
     }
