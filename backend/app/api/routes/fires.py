@@ -1,4 +1,4 @@
-"""/fires/active: VIIRS SNPP fire detections from the last 72 hours."""
+"""/fires/active: live VIIRS fire detections (NOAA-20) from the last 72 hours."""
 
 from __future__ import annotations
 

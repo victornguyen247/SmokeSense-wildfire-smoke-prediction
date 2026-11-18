@@ -21,6 +21,7 @@ from app.api.deps import get_repository
 from app.core.config import settings
 from app.core.scope import CALIFORNIA_BBOX
 from app.main import app
+from app.repositories.database import DatabaseRepository
 from app.repositories.fixtures import FixtureRepository
 from app.schemas.query import Bbox
 from app.services import meta_service
@@ -192,14 +193,14 @@ def test_unexpected_error_is_internal_error_with_cors():
 
 def test_meta_mock_mode_comes_from_the_setting(monkeypatch):
     assert client.get("/api/v1/meta").json()["mock_mode"] is True
-    # /meta has no database version until API-03, so call the service.
+    # Calling the service keeps this test off the database.
     monkeypatch.setattr(settings, "mock_mode", False)
     assert meta_service.meta(FixtureRepository(CONTRACT_DIR / "fixtures"))["mock_mode"] is False
 
 
-def test_mock_mode_off_fails_data_routes_but_not_health(monkeypatch):
+def test_mock_mode_off_uses_the_database_and_health_needs_none(monkeypatch):
     monkeypatch.setattr(settings, "mock_mode", False)
-    assert_error_shape(client.get("/api/v1/meta"), 500, "internal_error")
+    assert isinstance(get_repository(), DatabaseRepository)
     assert client.get("/health").status_code == 200
 
 

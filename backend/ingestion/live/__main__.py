@@ -105,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "freshness":
         from ingestion.db import SessionLocal
-        from ingestion.live.freshness import source_freshness
+        from app.repositories.freshness import source_freshness
 
         with SessionLocal() as session:
             print(json.dumps(source_freshness(session), indent=2))
