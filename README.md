@@ -47,6 +47,7 @@ Then open:
 - API health check: http://localhost:8000/health
 - API docs (auto-generated): http://localhost:8000/docs
 - Frontend: http://localhost:5173
+- Mailpit (outgoing email inbox): http://localhost:8025
 
 The stack runs without API keys; ingestion of live feeds needs them. Add yours to
 `backend/.env` (see [docs/data-sources.md](docs/data-sources.md)) and restart.
@@ -57,7 +58,7 @@ Verify the database came up with PostGIS enabled:
 make db-check     # prints POSTGIS="3.4.x" ...
 ```
 
-Ports on the host: Postgres `5433`, Redis `6380`, API `8000`, frontend `5173`.
+Ports on the host: Postgres `5433`, Redis `6380`, API `8000`, frontend `5173`, Mailpit `8025`.
 The non-default database ports avoid clashing with a local Postgres or Redis.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the common `make` commands (migrations, tests, linting).

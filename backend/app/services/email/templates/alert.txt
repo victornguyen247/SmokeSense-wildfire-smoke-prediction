@@ -1,0 +1,7 @@
+Smoke alert for $location: $category
+
+PM2.5 is forecast to reach about $pm25 ug/m3 in $horizon_hours h (valid $valid_time_utc UTC).
+
+Unsubscribe: $unsubscribe_url
+
+$experimental_line

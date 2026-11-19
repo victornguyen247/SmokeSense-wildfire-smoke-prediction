@@ -78,6 +78,11 @@ SHA whose images still exist in GHCR. It skips the build and redeploys that tag.
 that already ran is **not** undone, so keep migrations additive (add columns/tables first,
 remove in a later release).
 
+## Viewing Mailpit
+
+Email is caught by Mailpit, never sent. Its UI is bound to the box's localhost, not routed through
+Caddy: run `ssh -L 8025:localhost:8025 deploy@<host>` and open http://localhost:8025.
+
 ## Neon storage
 
 Neon's free tier is about 0.5 GB per project and the worker ingests FIRMS, AirNow and NWS

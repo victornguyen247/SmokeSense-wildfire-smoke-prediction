@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     # --- Redis / Celery ---
     redis_url: str = "redis://redis:6379/0"
 
+    # --- Email (API-07) ---
+    # smtp: Mailpit (local and staging, nothing leaves the system); memory: tests.
+    email_backend: str = "smtp"  # smtp | memory
+    email_smtp_host: str = "mailpit"
+    email_smtp_port: int = 1025
+    email_from: str = "SmokeSense <alerts@smokesense.local>"
+
     # --- External data-source API keys ---
     # Obtain these from each provider; leave blank locally until needed.
     firms_map_key: str = ""       # NASA FIRMS

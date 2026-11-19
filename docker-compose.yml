@@ -31,6 +31,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # Catches all outgoing email (API-07). Web UI: http://localhost:8025, SMTP: mailpit:1025.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "8025:8025"
+
   backend:
     build:
       context: ./backend
@@ -52,6 +58,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   worker:
     build:

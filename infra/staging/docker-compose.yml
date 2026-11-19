@@ -94,6 +94,15 @@ services:
       retries: 5
     logging: *logging
 
+  # Catches all outgoing email (API-07). The UI is bound to the box's localhost and is NOT
+  # routed through Caddy: reach it with `ssh -L 8025:localhost:8025 deploy@<host>`.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    logging: *logging
+
   frontend:
     image: ${IMAGE_REPO:?set by deploy.sh}-frontend:${IMAGE_TAG:?set by deploy.sh}
     restart: unless-stopped

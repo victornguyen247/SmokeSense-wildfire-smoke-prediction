@@ -1,0 +1,9 @@
+Confirm your SmokeSense alerts for $location
+
+Confirm that you want smoke alerts for this location:
+$confirm_url
+
+If you did not ask for this, ignore this email or unsubscribe:
+$unsubscribe_url
+
+$experimental_line
