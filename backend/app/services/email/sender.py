@@ -4,8 +4,8 @@ import logging
 
 from app.core.config import get_settings
 
-from .backends import EmailBackend, EmailSendError, MemoryBackend, SmtpBackend
-from .message import EmailMessage
+from .backends import EmailBackend, MemoryBackend, SmtpBackend
+from .message import EmailMessage, EmailSendError
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +15,25 @@ memory_backend = MemoryBackend()
 
 def get_backend() -> EmailBackend:
     settings = get_settings()
-    name = settings.email_backend.strip().lower()
-    if name == "memory":
+    if settings.email_backend == "memory":
+        # Memory drops mail silently; it is for tests and local runs only.
+        if settings.environment in ("staging", "production"):
+            raise EmailSendError("EMAIL_BACKEND=memory is not allowed in staging or production")
         return memory_backend
-    if name == "smtp":
-        return SmtpBackend(settings.email_smtp_host, settings.email_smtp_port, settings.email_from)
-    raise EmailSendError(f"Unknown EMAIL_BACKEND {name!r} (use smtp or memory)")
+    return SmtpBackend(settings.email_smtp_host, settings.email_smtp_port, settings.email_from)
 
 
-def send(message: EmailMessage) -> None:
-    """Deliver one message through the configured backend.
+def send_many(messages: list[EmailMessage]) -> None:
+    """Deliver messages through the configured backend, one SMTP connection for all.
 
     Never logs the recipient or the body.
     """
+    if not messages:
+        return
     backend = get_backend()
-    backend.deliver(message)
-    logger.info("email sent via %s", type(backend).__name__)
+    backend.deliver_many(messages)
+    logger.info("sent %d email(s) via %s", len(messages), type(backend).__name__)
+
+
+def send(message: EmailMessage) -> None:
+    send_many([message])

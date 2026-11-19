@@ -5,15 +5,11 @@ from email.message import EmailMessage as MimeMessage
 from email.utils import formatdate, make_msgid
 from typing import Protocol
 
-from .message import EmailMessage
-
-
-class EmailSendError(Exception):
-    """Delivery failed. The message never contains the recipient or the body."""
+from .message import EmailMessage, EmailSendError
 
 
 class EmailBackend(Protocol):
-    def deliver(self, message: EmailMessage) -> None: ...
+    def deliver_many(self, messages: list[EmailMessage]) -> None: ...
 
 
 def build_mime(message: EmailMessage, sender: str) -> MimeMessage:
@@ -38,13 +34,15 @@ class SmtpBackend:
         self.port = port
         self.sender = sender
 
-    def deliver(self, message: EmailMessage) -> None:
-        mime = build_mime(message, self.sender)
+    def deliver_many(self, messages: list[EmailMessage]) -> None:
+        """Send all messages over one connection."""
         try:
+            mimes = [build_mime(m, self.sender) for m in messages]
             with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
-                smtp.send_message(mime)
-        except (OSError, smtplib.SMTPException) as exc:
-            # smtplib errors can embed the recipient address, so report only the type.
+                for mime in mimes:
+                    smtp.send_message(mime)
+        except (OSError, ValueError, smtplib.SMTPException) as exc:
+            # These errors can embed the recipient address, so report only the type.
             raise EmailSendError(f"SMTP delivery failed ({type(exc).__name__})") from None
 
 
@@ -54,5 +52,5 @@ class MemoryBackend:
     def __init__(self) -> None:
         self.outbox: list[EmailMessage] = []
 
-    def deliver(self, message: EmailMessage) -> None:
-        self.outbox.append(message)
+    def deliver_many(self, messages: list[EmailMessage]) -> None:
+        self.outbox.extend(messages)

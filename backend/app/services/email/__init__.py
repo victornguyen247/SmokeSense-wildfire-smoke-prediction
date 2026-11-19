@@ -1,6 +1,5 @@
-from .backends import EmailSendError
-from .message import EXPERIMENTAL_LINE, EmailMessage
-from .sender import memory_backend, send
+from .message import EXPERIMENTAL_LINE, EmailMessage, EmailSendError
+from .sender import memory_backend, send, send_many
 from .templates import render_alert, render_confirmation
 
 __all__ = [
@@ -11,4 +10,5 @@ __all__ = [
     "render_alert",
     "render_confirmation",
     "send",
+    "send_many",
 ]
