@@ -1,8 +1,12 @@
-"""Live FIRMS job: VIIRS SNPP NRT detections over California + 200 km.
+"""Live FIRMS job: VIIRS NOAA-20 NRT detections over California + 200 km.
 
-SNPP NRT only, the sensor the model was trained on (decisions #11, #13): no NOAA-20,
-NOAA-21 or MODIS. Rows are normalized by the batch connector's normalize_firms_row,
-so a live row is built exactly like a historical one (product NRT instead of SP).
+The model was trained on VIIRS SNPP (decisions #11, #13), but NASA stopped serving
+SNPP in FIRMS on 2026-11-02 13:00 UTC. NOAA-20 carries the same VIIRS sensor in the
+same orbit, about 50 minutes apart, so it is the closest live substitute (decision #49).
+NOAA-21 is deliberately not added: the model learned fire counts from one satellite,
+and two would roughly double them. No MODIS either. Rows are normalized by the batch
+connector's normalize_firms_row, so a live row is built exactly like a historical one
+(product NRT instead of SP).
 """
 
 from __future__ import annotations
@@ -15,7 +19,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from ingestion.batch.firms_extent import FIRMS_MARGIN_KM, expand_bbox_km
-from ingestion.connectors.firms import fetch_firms_rows, normalize_firms_row
+from ingestion.connectors.firms import (
+    LIVE_SATELLITE,
+    fetch_firms_rows,
+    normalize_firms_row,
+)
 from ingestion.live.common import (
     CA_BBOX,
     DEFAULT_WINDOW_HOURS,
@@ -30,8 +38,8 @@ from ingestion.live.common import (
 from ingestion.live.store import fire_key, insert_fire_detections
 
 SOURCE = "firms"  # ingestion_runs.source
-PRODUCT = "VIIRS_SNPP_NRT"
-SATELLITE = "VIIRS_SNPP"
+PRODUCT = "VIIRS_NOAA20_NRT"
+SATELLITE = LIVE_SATELLITE  # "VIIRS_NOAA20"
 
 # The FIRMS area API serves 1..5 days per request, counted back from today (UTC).
 MAX_DAY_RANGE = 5
@@ -57,7 +65,7 @@ def fetch_records(
     now: datetime,
     window_hours: int = DEFAULT_WINDOW_HOURS,
 ) -> tuple[int, list[dict]]:
-    """(rows returned by FIRMS, normalized SNPP rows inside the window, deduped)."""
+    """(rows returned by FIRMS, normalized NOAA-20 rows inside the window, deduped)."""
     if not settings.firms_map_key:
         raise RuntimeError("FIRMS_MAP_KEY is not set")
 
@@ -73,7 +81,7 @@ def fetch_records(
     records: dict[tuple, dict] = {}
     for row in rows:
         record = normalize_firms_row(row, source=PRODUCT, ingested_at=now)
-        # The product is SNPP-only; anything else would be a FIRMS-side surprise.
+        # The product is NOAA-20-only; anything else would be a FIRMS-side surprise.
         if record["satellite"] != SATELLITE or record["confidence_level"] is None:
             continue
         if not earliest <= record["detected_at"] <= now:

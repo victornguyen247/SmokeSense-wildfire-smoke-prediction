@@ -108,7 +108,7 @@ def ingest_firms_poc() -> dict:
 
         source = os.getenv(
             "FIRMS_SOURCE",
-            "VIIRS_SNPP_NRT",
+            "VIIRS_NOAA20_NRT",
         )
 
         bbox = os.getenv(
@@ -246,7 +246,7 @@ def ingest_airnow_live() -> dict:
 
 @celery_app.task(name="ingestion.live.firms")
 def ingest_firms_live() -> dict:
-    """FIRMS VIIRS SNPP NRT, California + 200 km."""
+    """FIRMS VIIRS NOAA-20 NRT, California + 200 km."""
     return live_firms.run()
 
 

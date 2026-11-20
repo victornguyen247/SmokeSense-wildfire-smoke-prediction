@@ -1,4 +1,4 @@
-"""DATA-06 live FIRMS job: SNPP NRT only, California + 200 km, idempotent upserts."""
+"""DATA-06 live FIRMS job: NOAA-20 NRT only (decision #49), California + 200 km, idempotent upserts."""
 
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ from sqlalchemy import text
 from ingestion.connectors.firms import get_firms_records
 from ingestion.live import firms
 
-FIXTURE = (Path(__file__).parent / "fixtures/live/firms_viirs_snpp_nrt.csv").read_text()
+FIXTURE = (
+    Path(__file__).parent / "fixtures/live/firms_viirs_noaa20_nrt.csv"
+).read_text()
 NOW = datetime(2026, 10, 24, 2, 0, tzinfo=timezone.utc)
 KEY = "firms-live-test-key-0123456789"
 
@@ -25,15 +27,15 @@ def mock_client(seen: list[str] | None = None, body: str = FIXTURE) -> httpx.Cli
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
-def test_requests_snpp_nrt_only_over_california_plus_200km(monkeypatch):
+def test_requests_noaa20_nrt_only_over_california_plus_200km(monkeypatch):
     monkeypatch.setattr(firms.settings, "firms_map_key", KEY)
     seen: list[str] = []
     firms.fetch_records(mock_client(seen), NOW - timedelta(hours=72), NOW)
 
     assert len(seen) == 1
     path = httpx.URL(seen[0]).path
-    assert "/VIIRS_SNPP_NRT/" in path
-    for other in ("NOAA20", "NOAA21", "MODIS", "_SP"):
+    assert "/VIIRS_NOAA20_NRT/" in path
+    for other in ("SNPP", "NOAA21", "MODIS", "_SP"):
         assert other not in path
     assert (
         f"/{firms.firms_bbox()}/4" in path
@@ -47,16 +49,16 @@ def test_requests_snpp_nrt_only_over_california_plus_200km(monkeypatch):
     )
 
 
-def test_keeps_snpp_in_window_and_dedupes(monkeypatch):
+def test_keeps_noaa20_in_window_and_dedupes(monkeypatch):
     monkeypatch.setattr(firms.settings, "firms_map_key", KEY)
     fetched, records = firms.fetch_records(
         mock_client(), NOW - timedelta(hours=72), NOW
     )
 
     assert fetched == 6
-    # Dropped: the exact duplicate row, the NOAA-20 ("J") row, and the one older than 72 h.
+    # Dropped: the exact duplicate row, the SNPP ("N") row, and the one older than 72 h.
     assert len(records) == 3
-    assert {r["satellite"] for r in records} == {"VIIRS_SNPP"}
+    assert {r["satellite"] for r in records} == {"VIIRS_NOAA20"}
     assert {r["product"] for r in records} == {"NRT"}
     assert all(NOW - timedelta(hours=72) <= r["detected_at"] <= NOW for r in records)
 
@@ -81,7 +83,7 @@ def test_live_rows_match_the_batch_normalizer(monkeypatch):
         ),
     )
     batch = get_firms_records(
-        KEY, source="VIIRS_SNPP_NRT", bbox=firms.firms_bbox(), day_range=4
+        KEY, source="VIIRS_NOAA20_NRT", bbox=firms.firms_bbox(), day_range=4
     )
 
     drop = {"received_at", "ingested_at"}
@@ -126,7 +128,7 @@ def test_rerun_is_idempotent_and_rows_are_marked_live(monkeypatch, live_db):
         ).all()
     assert len(rows) == 3
     assert {r.ingestion_run_id for r in rows} == {first["run_id"]}
-    assert {(r.satellite, r.product) for r in rows} == {("VIIRS_SNPP", "NRT")}
+    assert {(r.satellite, r.product) for r in rows} == {("VIIRS_NOAA20", "NRT")}
     assert len(runs) == 2 and all(r.source == "firms" and r.finished_at for r in runs)
 
 
@@ -138,7 +140,7 @@ def test_existing_historical_detection_is_not_duplicated(monkeypatch, live_db):
             text("""
             insert into fire_detections (id, external_id, satellite, product, geom, detected_at,
                 received_at, confidence_raw, confidence_level, frp_mw)
-            values ('hist-1', 'firms:hist', 'VIIRS_SNPP', 'SP',
+            values ('hist-1', 'firms:hist', 'VIIRS_NOAA20', 'SP',
                 ST_GeogFromText('SRID=4326;POINT(-122.54321 40.12345)'),
                 '2026-10-23T09:12:00Z', now(), 'n', 'nominal', 99.0)""")
         )

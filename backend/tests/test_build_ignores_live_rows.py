@@ -5,6 +5,9 @@ Live rows share observations, fire_detections and weather_observations with the
 DATA-03 rows the dataset is built from (decision #34). Before the build filtered on
 ingestion_run_id, live rows inside an event's window and bbox changed the dataset's
 sha256 (found by running scripts/reproduce_data04.sh with live rows loaded).
+
+Fires also differ by satellite (decision #49): historical rows are VIIRS SNPP, live rows
+VIIRS NOAA-20, since FIRMS stopped serving SNPP on 2026-11-02.
 """
 
 from __future__ import annotations
@@ -30,6 +33,11 @@ EVENT = SimpleNamespace(
     ncei_start_date="2021-08-05",
 )
 POINT = "ST_GeogFromText('POINT(-121.84 39.76)')"
+FIRE_SQL = (
+    "insert into fire_detections (id, external_id, satellite, product, geom, "
+    "detected_at, received_at, confidence_raw, confidence_level, ingestion_run_id) "
+    f"values (:id, :ext, :sat, :product, {POINT}, :ts, :ts, 'n', 'nominal', :run)"
+)
 
 
 def seed(live_db) -> None:
@@ -63,20 +71,38 @@ def seed(live_db) -> None:
                 ),
                 p,
             )
-            s.execute(
-                text(
-                    "insert into fire_detections (id, external_id, satellite, product, geom, "
-                    "detected_at, received_at, confidence_raw, confidence_level, ingestion_run_id) "
-                    f"values (:id, :ext, 'VIIRS_SNPP', 'SP', {POINT}, :ts, :ts, 'n', 'nominal', :run)"
-                ),
-                p,
-            )
+            # Historical fires are SNPP (_SP); live fires NOAA-20 NRT.
+            sat, product = ("VIIRS_NOAA20", "NRT") if run else ("VIIRS_SNPP", "SP")
+            s.execute(text(FIRE_SQL), {**p, "sat": sat, "product": product})
             s.execute(
                 text(
                     "insert into weather_observations (station_id, valid_at, received_at, geom, "
                     f"temp_c, ingestion_run_id) values ('KCIC', :ts, :ts, {POINT}, 30, :run)"
                 ),
                 p,
+            )
+        # Decoy fires on the other satellite: neither "historical" nor "live" reads them.
+        decoys = (
+            (
+                "13",
+                "run-1",
+                "VIIRS_SNPP",
+                "NRT",
+            ),  # live SNPP, from before the retirement
+            ("14", None, "VIIRS_NOAA20", "SP"),  # historical NOAA-20
+        )
+        for hour, run, sat, product in decoys:
+            ts = f"2021-08-05T{hour}:00Z"
+            s.execute(
+                text(FIRE_SQL),
+                {
+                    "id": f"f-{hour}",
+                    "ext": f"x-{hour}",
+                    "ts": ts,
+                    "run": run,
+                    "sat": sat,
+                    "product": product,
+                },
             )
         s.commit()
 
@@ -108,7 +134,10 @@ def test_default_reads_historical_rows_only(live_db):
 
 
 def test_live_scope_reads_live_rows_only(live_db):
-    """GEO-03's case: features from live rows, at historical and live-only monitors."""
+    """GEO-03's case: features from live rows, at historical and live-only monitors.
+
+    Live fires are NOAA-20 only: the live SNPP row (13) and historical NOAA-20 row (14)
+    are ignored."""
     seed(live_db)
     points, hours = read(live_db, row_scope="live")
     assert points == ["airnow:hist", "airnow:live"]
@@ -120,11 +149,12 @@ def test_live_scope_reads_live_rows_only(live_db):
 
 
 def test_any_scope_reads_both(live_db):
+    """Both scopes and both satellites."""
     seed(live_db)
     points, hours = read(live_db, row_scope="any")
     assert points == ["airnow:hist", "airnow:live"]
     assert hours == {
-        "fires": [10, 11, 12],
+        "fires": [10, 11, 12, 13, 14],
         "weather": [10, 11, 12],
         "pm25_observations": [10, 11, 12],
     }

@@ -1,4 +1,4 @@
-.PHONY: up up-d down build logs migrate revision seed seed-grid test lint fmt db-check env protect
+.PHONY: up up-d down build logs migrate revision seed seed-grid seed-fake test lint fmt db-check env protect
 
 # Create local env files from the templates (safe to re-run; never overwrites).
 env:
@@ -36,6 +36,10 @@ seed:
 
 seed-grid:
 	docker compose exec backend python -m app.db.seed_ca_forecast_grid $(ARGS)
+
+# One invented forecast cycle, for running the API before the pipeline exists (local only).
+seed-fake:
+	docker compose exec backend python -m app.db.seed_fake_forecasts $(ARGS)
 
 # --- Quality ---
 test:

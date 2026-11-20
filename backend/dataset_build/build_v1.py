@@ -8,7 +8,7 @@ docs/data-decisions.md #17-22:
   points  (18) per event, AirNow monitors with valid regulatory pm25 inside the tight bbox
           during [start, end] and in California scope; forecast_point_id = monitors.external_id
   times   (19) every UTC hour in [start 00:00, end 23:00] x ALLOWED_HORIZONS
-  inputs  (20) fires: VIIRS_SNPP in firms_bbox x [firms_start_date, end];
+  inputs  (20) fires: VIIRS_SNPP (historical rows) in firms_bbox x [firms_start_date, end];
           PM2.5 history and labels: regulatory AirNow in the tight bbox x [airnow_start_date,
           airnow_end_date]; weather: weather_observations in ncei_bbox x [ncei_start_date, end];
           build_feature_dataset(..., lookback_hours=72)
@@ -30,8 +30,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -41,18 +42,32 @@ from dataset_build.checks import check_event  # noqa: E402
 from dataset_build.site_registry import load_registry  # noqa: E402
 from features.alignment import ALLOWED_HORIZONS, build_feature_dataset  # noqa: E402
 from features.validation import validate_feature_dataset  # noqa: E402
+from ingestion.connectors.firms import LIVE_SATELLITE, SNPP_SATELLITE  # noqa: E402
 from ingestion.batch.batch_ingest import PilotEvent, load_pilot_events  # noqa: E402
 
 VERSION = "1.0.0"
+IDW_VERSION = "1.1.0"
+IDW_OUT = BACKEND / "data" / "datasets" / "smokesense_v1.1"
+
+DEFAULT_IDW_POWER = 2.0
+DEFAULT_IDW_RADIUS_KM = 100.0
+DEFAULT_IDW_K = 4
+
 CONFIG = BACKEND / "docs" / "pilot_events.json"
 OUT = BACKEND / "data" / "datasets" / "smokesense_v1"
-SNPP = "VIIRS_SNPP"  # fire_detections.satellite for VIIRS SNPP (ingestion/connectors/firms.py)
 LOOKBACK_HOURS = 72.0
 # Which rows of observations / fire_detections / weather_observations a query reads.
 # Live DATA-06 rows share those tables and carry an ingestion_run_id; historical DATA-03
 # rows have none (decision #34). smokesense_v1 is built from "historical" only, so it
 # does not change when live rows arrive; GEO-03 reuses these functions with "live".
 ROW_SCOPES = ("historical", "live", "any")
+# fire_detections.satellite each row_scope reads (decision #49). smokesense_v1 trained on
+# SNPP; FIRMS dropped SNPP on 2026-11-02, so live fires are NOAA-20.
+FIRE_SATELLITES = {
+    "historical": (SNPP_SATELLITE,),
+    "live": (LIVE_SATELLITE,),
+    "any": (SNPP_SATELLITE, LIVE_SATELLITE),
+}
 
 
 def scope_sql(row_scope: str, alias: str = "") -> str:
@@ -147,7 +162,7 @@ def forecast_points(
     keep = rows["aqs_code"].map(in_california_scope)
     dropped = [{"event": ev.event_id, "name": r.name, "aqs": f"{r.aqs_code[:2]}-{r.aqs_code[2:5]}-{r.aqs_code[5:]}"}
                for r in rows[~keep].itertuples()]
-    return rows[keep].drop(columns="name").reset_index(drop=True), dropped
+    return rows.loc[keep.astype(bool)].drop(columns="name").reset_index(drop=True), dropped
 
 
 def load_inputs(c, ev: PilotEvent, row_scope: str = "historical") -> dict[str, pd.DataFrame]:
@@ -158,9 +173,9 @@ def load_inputs(c, ev: PilotEvent, row_scope: str = "historical") -> dict[str, p
     fires = pd.read_sql(text(f"""
         select detected_at, ST_Y(geom::geometry) as latitude, ST_X(geom::geometry) as longitude, frp_mw
         from fire_detections
-        where satellite = :sat and {table_scope} and detected_at >= :lo and detected_at < :hi
-          and ST_Intersects(geom::geometry, {ENV})"""),
-        c, params=dict(sat=SNPP, lo=utc_day(ev.firms_start_date), hi=end, **_box(ev.firms_bbox)))
+        where satellite in :sats and {table_scope} and detected_at >= :lo and detected_at < :hi
+          and ST_Intersects(geom::geometry, {ENV})""").bindparams(bindparam("sats", expanding=True)),
+        c, params=dict(sats=list(FIRE_SATELLITES[row_scope]), lo=utc_day(ev.firms_start_date), hi=end, **_box(ev.firms_bbox)))
     obs = pd.read_sql(text(f"""
         select m.external_id as monitor_id, o.valid_at, o.pm25, o.correction, o.qa_flag,
                ST_Y(m.geom::geometry) as latitude, ST_X(m.geom::geometry) as longitude
@@ -182,22 +197,7 @@ def load_inputs(c, ev: PilotEvent, row_scope: str = "historical") -> dict[str, p
     return {"fires": fires, "pm25_history": history, "pm25_observations": obs, "weather": weather}
 
 
-def build_event(
-    c, ev: PilotEvent, registry: dict, row_scope: str = "historical"
-) -> tuple[pd.DataFrame, dict]:
-    points, dropped = forecast_points(c, ev, registry, row_scope)
-    frames = load_inputs(c, ev, row_scope)
-    info_codes = dict(zip(points["forecast_point_id"], points["aqs_code"]))
-    points = points.drop(columns="aqs_code")
-    rows = build_feature_dataset(
-        forecast_points=points, issue_times=issue_times(ev.start_date, ev.end_date),
-        fire_detections=frames["fires"], pm25_history=frames["pm25_history"],
-        weather_observations=frames["weather"], pm25_observations=frames["pm25_observations"],
-        pilot_event_id=ev.event_id, horizons=ALLOWED_HORIZONS, lookback_hours=LOOKBACK_HOURS)
-    checked = check_event(rows, frames)
-    info = {"forecast_points": len(points), "out_of_scope": dropped, "rows": len(rows), "_aqs": info_codes,
-            "inputs": {k: len(v) for k, v in frames.items()}, "leakage_rows_checked": checked}
-    return rows, info
+
 
 
 def dedupe(per_event: dict[str, pd.DataFrame], tiers: dict[str, str], groups: dict[str, str]) -> pd.DataFrame:
@@ -271,12 +271,58 @@ def git_commit() -> str:
     except Exception:
         return "unknown"
 
+def build_event(
+    c, ev: PilotEvent, registry: dict, row_scope: str = "historical",
+    lag_mode: str = "own",
+    idw_power: float = DEFAULT_IDW_POWER,
+    idw_max_radius_km: float = DEFAULT_IDW_RADIUS_KM,
+    idw_k: int = DEFAULT_IDW_K,
+) -> tuple[pd.DataFrame, dict]:
+    points, dropped = forecast_points(c, ev, registry, row_scope)
+    frames = load_inputs(c, ev, row_scope)
+    info_codes = dict(zip(points["forecast_point_id"], points["aqs_code"]))
+    points = points.drop(columns="aqs_code")
+
+    rows = build_feature_dataset(
+        forecast_points=points, issue_times=issue_times(ev.start_date, ev.end_date),
+        fire_detections=frames["fires"], pm25_history=frames["pm25_history"],
+        weather_observations=frames["weather"], pm25_observations=frames["pm25_observations"],
+        pilot_event_id=ev.event_id, horizons=ALLOWED_HORIZONS, lookback_hours=LOOKBACK_HOURS,
+        lag_mode=lag_mode, idw_power=idw_power,
+        idw_max_radius_km=idw_max_radius_km, idw_k=idw_k,
+    )
+
+    checked = check_event(
+        rows, frames, lag_mode=lag_mode,
+        idw_power=idw_power, idw_max_radius_km=idw_max_radius_km, idw_k=idw_k,
+    )
+
+    info = {"forecast_points": len(points), "out_of_scope": dropped, "rows": len(rows), "_aqs": info_codes,
+            "inputs": {k: len(v) for k, v in frames.items()}, "leakage_rows_checked": checked}
+    return rows, info
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--out", default=None)
     ap.add_argument("--only", nargs="+", metavar="EVENT_ID")
+    ap.add_argument("--lag-mode", choices=("own", "idw-loo"), default="own")
+    ap.add_argument("--idw-power", type=float, default=DEFAULT_IDW_POWER)
+    ap.add_argument("--idw-radius-km", type=float, default=DEFAULT_IDW_RADIUS_KM)
+    ap.add_argument("--idw-k", type=int, default=DEFAULT_IDW_K)
     args = ap.parse_args()
+
+    if args.lag_mode == "idw-loo":
+        if not np.isfinite(args.idw_power) or args.idw_power <= 0:
+            ap.error("--idw-power must be positive and finite")
+        if not np.isfinite(args.idw_radius_km) or args.idw_radius_km <= 0:
+            ap.error("--idw-radius-km must be positive and finite")
+        if args.idw_k < 1:
+            ap.error("--idw-k must be >= 1")
+
+    is_idw = args.lag_mode == "idw-loo"
+    dataset_name = "smokesense_v1.1" if is_idw else "smokesense_v1"
+    dataset_version = IDW_VERSION if is_idw else VERSION
+    default_out = IDW_OUT if is_idw else OUT
 
     t0 = time.time()
     events = load_pilot_events(CONFIG)
@@ -289,9 +335,18 @@ def main() -> int:
             if args.only and ev.event_id not in args.only:
                 continue
             t = time.time()
-            per_event[ev.event_id], info[ev.event_id] = build_event(c, ev, registry)
+            per_event[ev.event_id], info[ev.event_id] = build_event(
+                c, ev, registry,
+                lag_mode=args.lag_mode,
+                idw_power=args.idw_power,
+                idw_max_radius_km=args.idw_radius_km,
+                idw_k=args.idw_k,
+            )
             print(f"{ev.event_id}: {info[ev.event_id]['forecast_points']} points, {info[ev.event_id]['rows']:,} rows, "
                   f"leakage checks {info[ev.event_id]['leakage_rows_checked']} ({time.time() - t:.0f}s)", flush=True)
+
+    if not per_event:
+        raise SystemExit("No events were selected for the dataset build.")
 
     df = cast(dedupe(per_event, tiers, groups))
     validate_feature_dataset(df)
@@ -302,12 +357,12 @@ def main() -> int:
     if out_of_scope:
         raise SystemExit(f"forecast points outside California scope: {out_of_scope}")
 
-    out = Path(args.out)
+    out = Path(args.out) if args.out else default_out
     out.mkdir(parents=True, exist_ok=True)
     parquet = out / "data.parquet"
     df.to_parquet(parquet, index=False, engine="pyarrow")
     manifest = {
-        "name": "smokesense_v1", "version": VERSION,
+        "name": dataset_name, "version": dataset_version,
         "built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "build_seconds": round(time.time() - t0),
         "git_commit": git_commit(),
@@ -318,6 +373,18 @@ def main() -> int:
         "groups": {g: sorted(eid for eid in info if groups[eid] == g) for g in sorted(set(groups[e] for e in info))},
         **stats(df),
     }
+
+    if is_idw:
+        manifest["lag_mode"] = "idw-loo"
+        manifest["idw_config"] = {
+            "power": args.idw_power,
+            "max_radius_km": args.idw_radius_km,
+            "k": args.idw_k,
+            "excluded_monitor": "forecast_point_id",
+            "lag_hours": [1, 3, 6, 12, 24],
+            "timestamp_rule": "exact issue_time - lag_hours",
+        }
+
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n")
     print(f"wrote {len(df):,} rows to {parquet} ({manifest['build_seconds']}s)")
     return 0

@@ -37,6 +37,8 @@ class ForecastPoint(Base):
         CheckConstraint("(kind = 'monitor') = (monitor_id IS NOT NULL)"),
         Index("ix_forecast_points_geom", "geom", postgresql_using="gist"),
         Index("ix_forecast_points_cell_geom", "cell_geom", postgresql_using="gist"),
+        Index("ix_forecast_points_cell_geom_planar", text("(cell_geom::geometry)"),
+              postgresql_using="gist"),
         Index("ux_forecast_points_monitor_id", "monitor_id", unique=True,
               postgresql_where=text("monitor_id IS NOT NULL")),
         Index("ix_forecast_points_city_id", "city_id"),
