@@ -8,9 +8,12 @@ import pandas as pd
 from ml.evaluation.error_analysis import (
     add_analysis_groups,
     summarize_groups,
+    load_served_thresholds,
 )
 
-ROOT = Path("data/release/ml03_extracted")
+DATASET = Path("data/datasets/smokesense_v1/data.parquet")
+PREDICTIONS = Path("data/models/baseline_v2/oof_predictions.parquet")
+RELEASE = Path("data/models/baseline_v2/release.json")
 OUTPUT = Path("data/release/ml03_analysis")
 
 KEY = [
@@ -29,13 +32,9 @@ FEATURES = [
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    predictions = pd.read_parquet(
-        ROOT / "baseline_v2/oof_predictions.parquet"
-    )
-
-    dataset = pd.read_parquet(
-        ROOT / "smokesense_v1/data.parquet"
-    )
+    predictions = pd.read_parquet(PREDICTIONS)
+    dataset = pd.read_parquet(DATASET)
+    served_thresholds = load_served_thresholds(RELEASE)
 
     # Normalize timestamps before joining.
     for frame in (predictions, dataset):
@@ -89,6 +88,9 @@ def main():
                 six_hour,
                 group_col=group_col,
                 pred_col=model,
+                prediction_threshold=(
+                    served_thresholds[6] if model == "v2" else 35.5
+                ),
             )
 
             filename = f"{group_col}_{model}.csv"
@@ -108,7 +110,9 @@ def main():
                         "mae",
                         "bias",
                         "recall",
+                        "served_recall",
                         "f1",
+                        "served_f1",
                     ]
                 ].to_string(index=False)
             )

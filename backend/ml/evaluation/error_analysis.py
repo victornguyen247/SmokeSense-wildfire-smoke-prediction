@@ -6,16 +6,40 @@ Analyze existing predictions without retraining models.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 from ml.evaluation.metrics import UNHEALTHY_SG, scores
 
 
+def load_served_thresholds(path: str | Path) -> dict[int, float]:
+    """Load served per-horizon prediction cut-offs from release.json."""
+    with Path(path).open(encoding="utf-8") as handle:
+        metadata = json.load(handle)
+    return {int(h): float(spec["threshold"]) for h, spec in metadata.items()}
+
+
+def detection_scores(y: np.ndarray, pred: np.ndarray, threshold: float) -> dict:
+    """Observed exceedance is always >=35.5; threshold applies to predictions."""
+    truth = y >= UNHEALTHY_SG
+    alarms = pred >= threshold
+    tp = int(np.count_nonzero(truth & alarms))
+    fp = int(np.count_nonzero(~truth & alarms))
+    fn = int(np.count_nonzero(truth & ~alarms))
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}
+
+
 def summarize_groups(
     frame: pd.DataFrame,
     group_col: str,
     pred_col: str = "v2",
+    prediction_threshold: float = UNHEALTHY_SG,
 ) -> pd.DataFrame:
     """Calculate prediction error metrics for each group."""
 
@@ -48,6 +72,7 @@ def summarize_groups(
 
         metric = scores(y, p)
 
+        served_metrics = detection_scores(y, p, prediction_threshold)
         error = p - y
         positive = y >= UNHEALTHY_SG
 
@@ -62,6 +87,10 @@ def summarize_groups(
             "precision": metric["precision_35_5"],
             "recall": metric["recall_35_5"],
             "f1": metric["f1_35_5"],
+            "prediction_threshold": prediction_threshold,
+            "served_precision": served_metrics["precision"],
+            "served_recall": served_metrics["recall"],
+            "served_f1": served_metrics["f1"],
         })
 
     return pd.DataFrame(results)

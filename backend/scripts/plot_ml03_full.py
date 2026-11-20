@@ -56,7 +56,7 @@ def grouped_plot(group, order, metric, ylabel, filename):
     ax.grid(axis="y", alpha=0.2)
     ax.set_axisbelow(True)
 
-    if metric == "recall":
+    if metric in {"recall", "served_recall"}:
         ax.set_ylim(0, 1)
 
     fig.tight_layout()
@@ -109,8 +109,8 @@ def main():
         "distance_group",
         ["0-25", "25-50", "50-100",
          "100-200", "No nearby fire"],
-        "recall",
-        "Recall at 35.5 µg/m³",
+        "served_recall",
+        "Recall (observed >=35.5; served model cut-offs)",
         "ml03_distance_recall.png",
     )
 
@@ -125,8 +125,8 @@ def main():
     grouped_plot(
         "time_group",
         ["00-06", "06-12", "12-18", "18-24"],
-        "recall",
-        "Recall at 35.5 µg/m³",
+        "served_recall",
+        "Recall (observed >=35.5; served model cut-offs)",
         "ml03_time_recall.png",
     )
 

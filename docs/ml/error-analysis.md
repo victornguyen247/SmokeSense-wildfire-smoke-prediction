@@ -23,7 +23,7 @@ The official DATA-04 v1.0.0 release contains:
 
 - 141,954 historical forecast rows.
 - 20 pilot wildfire events.
-- 13 cross-validation groups.
+- 13 cross-validation groups (multiple pilot events share some held-out groups; the 20 event identifiers are not 20 independent CV folds).
 - Forecast horizons of 1, 3, 6, 12, and 24 hours.
 
 This report uses the released baseline-v2 out-of-fold predictions, not newly trained models.
@@ -46,7 +46,8 @@ Detection metrics:
 - Recall.
 - F1.
 
-The operational exceedance threshold is 35.5 µg/m³.
+Observed exceedance is defined as PM2.5 >= 35.5 µg/m³ throughout.
+We report two detection operating points: a **fixed-35.5** comparison in which both models alarm at 35.5, and a **served** comparison in which baseline_v2 alarms at the per-horizon thresholds in `data/models/baseline_v2/release.json` (1/3/6/12/24 h: 35.5/29.5/25.5/21.5/20.0 µg/m³). Persistence always alarms at 35.5. Only the prediction cut-off changes, not the observed exceedance definition. At 1 h, the service uses persistence rather than baseline_v2 because baseline_v2's 1 h MAE is worse.
 
 This numerical threshold is derived from the EPA 2024 PM2.5 AQI breakpoint for the Unhealthy for Sensitive Groups category. The EPA breakpoint applies to 24-hour PM2.5 concentrations; SmokeSense uses the same numerical threshold for evaluating hourly concentration forecasts. Results must not be interpreted as official hourly AQI classifications.
 
@@ -64,33 +65,29 @@ Group-level results are descriptive. Differences between categories do not estab
 
 ### 3.1 Results across forecasting horizons
 
-| Horizon | Persistence MAE | Baseline-v2 MAE | Persistence F1 | Baseline-v2 F1 |
-|---|---:|---:|---:|---:|
-| 1h | 7.576 | 8.007 | 0.826 | 0.813 |
-| 3h | 10.370 | 9.871 | 0.749 | 0.727 |
-| 6h | 12.821 | 11.743 | 0.683 | 0.656 |
-| 12h | 15.088 | 13.067 | 0.614 | 0.545 |
-| 24h | 15.739 | 14.350 | 0.574 | 0.513 |
+| Horizon | Persistence MAE | Baseline-v2 MAE | Persistence F1 (35.5) | v2 F1 (fixed 35.5) | v2 F1 (served) |
+|---|---:|---:|---:|---:|---:|
+| 1h | 7.576 | 8.007 | 0.826 | 0.813 | N/A (serves persistence) |
+| 3h | 10.370 | 9.871 | 0.749 | 0.727 | 0.757 |
+| 6h | 12.821 | 11.743 | 0.683 | 0.656 | 0.694 |
+| 12h | 15.088 | 13.067 | 0.614 | 0.545 | 0.623 |
+| 24h | 15.739 | 14.350 | 0.574 | 0.513 | 0.573 |
 
-MAE is measured in µg/m³.
+MAE is measured in µg/m³. F1 truth is always observed PM2.5 >= 35.5 µg/m³. Values at served cut-offs follow `docs/models/baseline_v2_gate.md` and should be reproduced from `release.json` and the released OOF predictions before poster publication.
 
-Baseline_v2 improves MAE at four of the five horizons, but its F1 is lower than persistence at every horizon.
+Baseline_v2 improves MAE at four of five horizons. It has lower F1 under the **fixed 35.5** alarm rule, but at its **served cut-offs** its F1 is higher at 3, 6, and 12 h and roughly equal at 24 h. At 1 h the service intentionally uses persistence.
 
 ### 3.2 Exceedance recall
 
-| Horizon | Persistence recall | Baseline-v2 recall |
-|---|---:|---:|
-| 1h | 0.826 | 0.761 |
-| 3h | 0.748 | 0.648 |
-| 6h | 0.682 | 0.567 |
-| 12h | 0.612 | 0.426 |
-| 24h | 0.571 | 0.411 |
+| Horizon | Persistence recall (35.5) | v2 recall (fixed 35.5) | v2 recall (served cut-off) |
+|---|---:|---:|---:|
+| 1h | 0.826 | 0.761 | N/A (serves persistence) |
+| 3h | 0.748 | 0.648 | 0.751 |
+| 6h | 0.682 | 0.567 | 0.735 |
+| 12h | 0.612 | 0.426 | 0.682 |
+| 24h | 0.571 | 0.411 | 0.687 |
 
-Baseline_v2 has higher precision than persistence at every horizon, but lower recall.
-
-At six hours, baseline_v2 reduces MAE by approximately 8.4% on the paired evaluation rows while reducing recall by approximately 11.5 percentage points.
-
-This demonstrates that improved average concentration prediction does not necessarily imply improved fixed-threshold exceedance detection.
+At fixed 35.5, baseline_v2 has higher precision but lower recall than persistence at all horizons. At the served 6 h alarm cut-off of 25.5, baseline_v2 **increases** recall to 0.735 compared with persistence at 0.682, while reducing precision (0.657 vs 0.683); F1 is 0.694 vs 0.683. This is an operating-point tradeoff, not a contradiction. These served-threshold figures use a pooled cut-off and should not be confused with strictly fold-specific performance; see the model gate for that limitation.
 
 ## 4. Severe-Smoke Underprediction
 
@@ -125,11 +122,11 @@ Consecutive observations may also be temporally correlated.
 
 ## 5. Environmental Error Analysis
 
-All results in this section use 27,824 paired six-hour forecasts across 20 events.
+All results in this section use 27,824 paired six-hour forecasts across 20 events. MAE and bias are independent of alarm cut-off. The historical recall values in the tables below use the **fixed 35.5** prediction cut-off, while the updated recall figures are generated with baseline_v2's **served six-hour 25.5** cut-off and persistence's 35.5 cut-off. The generated CSVs include both `recall` (fixed) and `served_recall`.
 
 ### 5.1 Distance to wildfire
 
-| Distance | Baseline-v2 MAE | Baseline-v2 recall | Persistence recall |
+| Distance | Baseline-v2 MAE | Baseline-v2 recall (fixed 35.5) | Persistence recall (35.5) |
 |---|---:|---:|---:|
 | 0-25 km | 13.02 | 0.489 | 0.611 |
 | 25-50 km | 10.97 | 0.672 | 0.772 |
@@ -137,7 +134,7 @@ All results in this section use 27,824 paired six-hour forecasts across 20 event
 | 100-200 km | 5.67 | 0.105 | 0.474 |
 | No nearby fire | 7.40 | 0.000 | 0.050 |
 
-Within 25 km of a fire, baseline_v2 has MAE of 13.02 µg/m³ and recall of 48.9%.
+Within 25 km of a fire, baseline_v2 has MAE of 13.02 µg/m³ and **fixed-35.5** recall of 48.9%.
 
 The 100-200 km and no-nearby-fire categories contain only 19 and 20 observed exceedances, respectively. Their recall estimates are less stable.
 
@@ -145,7 +142,7 @@ The 100-200 km and no-nearby-fire categories contain only 19 and 20 observed exc
 
 ### 5.2 Wind alignment
 
-| Wind category | Baseline-v2 MAE | Baseline-v2 bias | Baseline-v2 recall |
+| Wind category | Baseline-v2 MAE | Baseline-v2 bias | Baseline-v2 recall (fixed 35.5) |
 |---|---:|---:|---:|
 | Crosswind | 10.65 | -3.97 | 0.575 |
 | Downwind | 11.17 | -5.68 | 0.552 |
@@ -164,14 +161,14 @@ Negative baseline-v2 bias occurs in every wind category.
 
 ### 5.3 Local solar hour
 
-| Issue-time group | Baseline-v2 MAE | Baseline-v2 recall |
+| Issue-time group | Baseline-v2 MAE | Baseline-v2 recall (fixed 35.5) |
 |---|---:|---:|
 | 00-06 | 12.93 | 0.583 |
 | 06-12 | 12.27 | 0.578 |
 | 12-18 | 11.47 | 0.531 |
 | 18-24 | 10.32 | 0.576 |
 
-The 12-18 group has the lowest baseline-v2 recall.
+At the fixed-35.5 alarm cut-off, the 12-18 group has the lowest baseline-v2 recall.
 
 The time categories represent the local solar hour at forecast issue time, rather than forecast target time.
 
@@ -184,10 +181,15 @@ PE-012 is particularly notable:
 | Metric | Persistence | Baseline v2 |
 |---|---:|---:|
 | MAE | 17.14 | 17.68 |
-| Recall | 0.721 | 0.569 |
+| Recall (fixed 35.5) | 0.721 | 0.569 |
+| Recall (served cut-off) | 0.721 | 0.783 |
+| F1 (fixed 35.5) | 0.721 | 0.682 |
+| F1 (served cut-off) | 0.721 | 0.737 |
 | Bias | -0.01 | -11.97 |
 
-For this event, baseline_v2 performs worse than persistence on both MAE and exceedance recall.
+For PE-012, baseline_v2 performs worse than persistence on MAE and fixed-threshold recall. At its served 25.5 µg/m³ cut-off, however, baseline_v2 achieves higher recall and F1. This illustrates why operational threshold selection must be distinguished from regression accuracy.
+
+PE-014 contains no observed exceedances, so its recall is undefined. A zero in the generated served-recall output should not be interpreted as measured detection failure for this event.
 
 Event-level differences suggest that pooled evaluation metrics can conceal important variability.
 
@@ -225,7 +227,7 @@ The ML-02 experiment and full baseline-v2 evaluation use different experimental 
 
 ## 7. Main Findings
 
-1. **Regression accuracy and exceedance detection diverge.** Baseline_v2 reduces MAE at four of five horizons but has lower F1 and recall than persistence at every horizon.
+1. **Regression accuracy and threshold choice must be evaluated separately.** Baseline_v2 reduces MAE at four of five horizons and trades recall for precision at a fixed 35.5 cut-off. At the served 6 h cut-off of 25.5, however, baseline_v2 recall is 0.735 versus persistence 0.682, with F1 0.694 versus 0.683. The 1 h service falls back to persistence.
 
 2. **Severe-smoke underprediction is substantial.** For 648 severe six-hour observations across 14 events, baseline_v2 has a mean bias of -127.19 µg/m³ and underpredicts 95.99% of observations.
 
@@ -270,8 +272,9 @@ Official source:
 
 Primary artifacts:
 
-- `data/release/ml03_extracted/smokesense_v1/data.parquet`
-- `data/release/ml03_extracted/baseline_v2/oof_predictions.parquet`
+- `data/datasets/smokesense_v1/data.parquet`
+- `data/models/baseline_v2/oof_predictions.parquet`
+- `data/models/baseline_v2/release.json` (served cut-offs)
 
 ML-03 scripts:
 
@@ -293,6 +296,6 @@ Figures:
 
 Validation:
 
-- Six ML-03 unit tests passed.
+- Run `python -m pytest tests/test_ml03_error_analysis.py -v` (includes three new cut-off tests).
 - Environmental analysis script completed successfully.
 - Ruff checks passed for the analysis and plotting scripts.

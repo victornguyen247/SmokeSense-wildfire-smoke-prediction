@@ -9,6 +9,8 @@ from ml.evaluation.error_analysis import (
     summarize_groups,
     add_analysis_groups,
     load_ml02_analysis_data,
+    load_served_thresholds,
+    detection_scores,
 )
 
 
@@ -144,3 +146,32 @@ def test_environmental_group_boundaries():
         "12-18",
         "18-24",
     ]
+
+
+def test_served_threshold_recall():
+    # Observed exceedance cut-off remains 35.5, only the alarm moves.
+    y = np.array([10.0, 40.0, 50.0, 20.0])
+    p = np.array([12.0, 30.0, 37.0, 26.0])
+    fixed = detection_scores(y, p, 35.5)
+    served = detection_scores(y, p, 25.5)
+    assert fixed["recall"] == pytest.approx(0.5)
+    assert served["recall"] == pytest.approx(1.0)
+    assert served["precision"] == pytest.approx(2 / 3)
+
+
+def test_served_cutoff_read_from_release(tmp_path):
+    release = tmp_path / "release.json"
+    release.write_text('{"1": {"threshold": 35.5}, "6": {"threshold": 25.5}}')
+    assert load_served_thresholds(release) == {1: 35.5, 6: 25.5}
+
+
+def test_group_summary_reports_both_cutoffs():
+    df = pd.DataFrame({
+        "group_id": ["A", "A", "A"],
+        "target_pm25": [40.0, 50.0, 10.0],
+        "v2": [30.0, 40.0, 12.0],
+    })
+    r = summarize_groups(df, "group_id", prediction_threshold=25.5).iloc[0]
+    assert r["recall"] == pytest.approx(0.5)
+    assert r["served_recall"] == pytest.approx(1.0)
+    assert r["prediction_threshold"] == pytest.approx(25.5)
