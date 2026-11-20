@@ -17,7 +17,8 @@
     "has_forecast": false,
     "no_forecast_reason": "no_monitor_within_50km",
     "nearest_monitor_dist_km": 60.0,
-    "forecasts": []
+    "forecasts": [],
+    "active_alert": null
   },
   "nearest_monitor": {
     "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
