@@ -479,7 +479,7 @@ Episode rules for email alerts (open, continue, resolve after 3 clear runs): [`a
 
 ### `alert_subscriptions`
 
-Email alert subscriptions (PM-06, [`alerts.md`](alerts.md); built in API-04, #110; **not migrated yet**). One row per subscription to one grid cell. Personal data: deleted on unsubscribe, 48 h after an unconfirmed sign-up, and entirely at teardown before Senior Design Day.
+Email alert subscriptions (PM-06, [`alerts.md`](alerts.md); built in API-04, #110). One row per subscription to one grid cell. Personal data: deleted on unsubscribe, 48 h after an unconfirmed sign-up, and entirely at teardown before Senior Design Day.
 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |

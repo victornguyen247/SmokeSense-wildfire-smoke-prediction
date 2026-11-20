@@ -4,6 +4,7 @@ Importing this package registers every table on Base.metadata, which is what
 Alembic's env.py compares against for autogenerate.
 """
 
+from app.models.alerts import AlertNotification, AlertSubscription
 from app.models.base import Base
 from app.models.operations import BatchIngestionProgress, IngestionRun, PipelineRun
 from app.models.predictions import Alert, Forecast, ForecastVerification, ModelVersion
@@ -19,6 +20,8 @@ from app.models.timeseries import (
 
 __all__ = [
     "Alert",
+    "AlertNotification",
+    "AlertSubscription",
     "Base",
     "BatchIngestionProgress",
     "City",
