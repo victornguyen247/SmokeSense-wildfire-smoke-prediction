@@ -283,7 +283,7 @@ def main(out):
     write("forecast_point.json", point_response(39.7285, -121.8375))            # downtown Chico
     write("forecast_point_no_forecast.json", point_response(39.75, -122.85))    # Mendocino NF, Glenn Co.
 
-    # --- /fires/active (72 h window, VIIRS SNPP only, every confidence level) ---
+    # --- /fires/active (72 h window, live VIIRS NOAA-20 only, every confidence level) ---
     rng = random.Random(4)
     passes = [  # time, daynight, n, centre, spread
         (datetime(2024, 7, 25, 9, 36, tzinfo=UTC), "N", 3, (39.80, -121.78), 0.02),
@@ -304,8 +304,8 @@ def main(out):
                 "type": "Feature",
                 "geometry": pt(lat, lon),
                 "properties": {
-                    "detection_id": uuid7(f"fire:VIIRS_SNPP:{t}:{i}", t), "detected_at": iso(t),
-                    "satellite": "VIIRS_SNPP", "product": "NRT", "confidence": conf, "confidence_raw": raw,
+                    "detection_id": uuid7(f"fire:VIIRS_NOAA20:{t}:{i}", t), "detected_at": iso(t),
+                    "satellite": "VIIRS_NOAA20", "product": "NRT", "confidence": conf, "confidence_raw": raw,
                     "frp_mw": r1(frp), "daynight": dn,
                 },
             })

@@ -13,11 +13,7 @@ _forecast_cache = CycleCache()
 
 
 def get_repository() -> Repository:
-    """The data source for this request: the fixtures in mock mode, otherwise the database.
-
-    With MOCK_MODE=false, /fires, /observations and /meta fail with a logged
-    internal_error until API-03 adds them.
-    """
+    """The data source for this request: the fixtures in mock mode, otherwise the database."""
     if settings.mock_mode:
         return FixtureRepository(settings.api_contract_dir / "fixtures")
     return DatabaseRepository(SessionLocal, _forecast_cache)
