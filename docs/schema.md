@@ -464,7 +464,7 @@ A partial unique index enforces at most one open alert per point per severity.
 | `aqi_table_version` | TEXT | NOT NULL | e.g. `epa-2024` — which breakpoint table was used |
 | `peak_pm25_predicted` | FLOAT |  | Worst predicted value during this episode |
 | `peak_target_time` | TIMESTAMPTZ |  | When the peak is predicted to occur |
-| `horizon_hours` | INT |  | Horizon of the peak forecast |
+| `horizon_hours` | INT |  | Earliest exceeding horizon at episode creation; preserved when the peak changes (API-06) |
 | `model_key` | TEXT | NOT NULL | Model that raised the alert — copied at creation |
 | `latest_forecast_id` | TEXT | FK → forecasts(id), nullable, ON DELETE SET NULL | Latest supporting forecast. NULL after 30-day trim — alert survives. |
 
