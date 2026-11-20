@@ -209,7 +209,7 @@ One feature per sensor: its most recent hourly reading, if `valid_at` is **at mo
 - The active production `model_key`, the newest `issued_at` and how old it is, `grid_key`, the [display thresholds and labels](#display-thresholds-and-labels), the AQI legend, and freshness per live source (`airnow`, `firms`, `nws_obs`). PurpleAir has no live job (decision #41), so it is left out of `sources`, and `/observations` returns only AirNow for now.
 - Freshness is `generated_at − latest_data_at`, where `latest_data_at` is the newest data timestamp ingested (`ingestion_runs.watermark`). `last_success_at` is when ingestion last succeeded. When FIRMS has no new overpasses, the latter can be recent while the former is hours old.
 - `mock_mode` is true when the API serves the fixtures instead of real data (API-01 `MOCK_MODE=true`). The frontend shows a "Demo data" badge when either this or its own mock mode (`VITE_USE_MOCKS`) is on. The API sets it from the `MOCK_MODE` setting, not from the repository, so it can't report demo data as live.
-- **Stale thresholds** are settings: `PIPELINE_STALE_AFTER_MINUTES` (150, shared with the pipeline status) and `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>` (AirNow 150, NWS 150, FIRMS 90). They are about two missed runs and can change without touching the UI. FIRMS is also stale when its newest detection is older than `FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS` (4320, the 72 h `/fires/active` window; decision #47). The values in the fixture are placeholders.
+- **Stale thresholds** are settings: `PIPELINE_STALE_AFTER_MINUTES` (150, shared with the pipeline status) and `FRESHNESS_STALE_AFTER_MINUTES_<SOURCE>` (AirNow 150, NWS 150, FIRMS 90). They are about two missed runs and can change without touching the UI. FIRMS is also stale when its newest detection is older than `FRESHNESS_MAX_DATA_AGE_MINUTES_FIRMS` (4320, the 72 h `/fires/active` window; decision #48). The values in the fixture are placeholders.
 
 ## Email alerts (PM-06)
 
@@ -223,7 +223,7 @@ The full contract (flow, endpoints, tables, episode rules, sending, email copy, 
 
 - The bodies are `components/schemas/Alert*` in `openapi.yaml`. The paths themselves are added by API-05 (#111) with the routes, because the contract tests require the app to serve exactly the spec's paths, and the spec tooling only handles GET today.
 - Validation errors are 400 `invalid_query`, like everywhere else. Location errors are the same as `/forecast/point` (404 `out_of_scope`, `zip_not_found`).
-- Email links open frontend pages (`/alerts/confirm?token=…`, `/alerts/unsubscribe?token=…`) that POST the token. No GET changes state.
+- Email links open frontend pages with the token in the fragment (`/alerts/confirm#token=…`, `/alerts/unsubscribe#token=…`), which POST the token. No GET changes state. Only the RFC 8058 one-click URL carries `?token=`, and the API drops or masks the query string of `/api/v1/alerts/*` in access logs. The `/alerts/*` pages send `Referrer-Policy: no-referrer` (`docs/alerts.md` §2).
 - `GET /forecast/point` has an optional `cell.active_alert`: `null` or the cell's open episode `{severity, first_triggered_at, peak_pm25_predicted, peak_target_time, horizon_hours}`. It drives the in-app warning. Treat a missing field as `null`. [`forecast_point.json`](api/fixtures/forecast_point.json) shows an open episode.
 
 ## Fixtures
@@ -284,4 +284,4 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
 | Attribution text | Team | In the frontend, per map layer (`src/constants/sources.ts`), not in this contract; check it against each provider's terms before launch |
-| Alert POST paths in `openapi.yaml`, and non-GET support in `validate.py`, `fixture_manifest.json`, the contract tests and `sync-api.mjs` | API-05 (#111) | Bodies are in the spec (`Alert*`); paths land with the routes |
+| Alert POST paths in `openapi.yaml`, and non-GET support in `validate.py`, `fixture_manifest.json`, the contract tests and `sync-api.mjs` | API-05 (#111) | Bodies are in the spec (`Alert*`); paths land with the routes. `frontend/scripts/sync-api.mjs` types GET fixtures only, so the POST paths and their types go on top of #103, which rewrites that script |
