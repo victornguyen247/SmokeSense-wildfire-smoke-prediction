@@ -1,7 +1,27 @@
 <!doctype html>
 <html><body>
-<h2>Smoke alert for $location: $category</h2>
-<p>PM2.5 is forecast to reach about $pm25 ug/m3 in $horizon_hours h (valid $valid_time_utc UTC).</p>
+<p>SmokeSense's model expects that smoke near $place may reach levels that are
+unhealthy for sensitive groups.</p>
+<p>Forecast PM2.5, issued $issued_local:</p>
+$horizon_lines_html
+$confidence_block_html
+<p><strong>What this means</strong><br>
+Smoke at this level can affect people with heart or lung disease (including
+asthma), older adults, children, pregnant people and people who work or
+exercise outdoors. Some values above may be below the official "Unhealthy for
+Sensitive Groups" level (35.5 µg/m³). The model tends to under-predict heavy
+smoke, so we alert at a lower value for longer forecasts.</p>
+<p><strong>What you can do</strong></p>
+<ul>
+<li>Check current conditions before spending time outside.</li>
+<li>Cut back on hard or long outdoor activity.</li>
+<li>Keep windows and doors closed when it smells smoky. Use an air purifier
+or set your AC to recirculate if you have one.</li>
+<li>If you have asthma or heart or lung disease, keep your medicine close
+and follow your care plan.</li>
+</ul>
+<p>See the forecast on the map: <a href="$map_url">$map_url</a></p>
+<p>$experimental_line</p>
+<p>You get at most one SmokeSense alert a day.</p>
 <p><a href="$unsubscribe_url">Unsubscribe</a></p>
-<p><em>$experimental_line</em></p>
 </body></html>

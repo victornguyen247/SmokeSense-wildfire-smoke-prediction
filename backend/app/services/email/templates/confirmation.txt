@@ -1,9 +1,14 @@
-Confirm your SmokeSense alerts for $location
+Hi,
 
-Confirm that you want smoke alerts for this location:
+Someone asked SmokeSense to email this address when wildfire smoke is
+forecast for $place.
+
+To turn on the alerts, open this link:
 $confirm_url
 
-If you did not ask for this, ignore this email or unsubscribe:
-$unsubscribe_url
+The link expires in 48 hours ($expires_local).
+
+If this wasn't you, ignore this email. Nothing more will be sent unless the
+link is used, and the request is deleted after 48 hours.
 
 $experimental_line

@@ -1,5 +1,7 @@
 """API-07: email templates and backends. No network: SMTP is replaced by a fake."""
 
+from datetime import datetime, timezone
+
 import pytest
 
 from app.core.config import Settings
@@ -17,17 +19,25 @@ from app.services.email import (
 )
 
 UNSUB = "https://example.test/unsubscribe?token=abc"
+MAP = "https://example.test/?zip=96001"
+ISSUED = datetime(2024, 7, 27, 17, 0, tzinfo=timezone.utc)  # Sat, Jul 27, 10 AM PDT
+TARGET_6H = datetime(2024, 7, 27, 23, 0, tzinfo=timezone.utc)  # Sat, Jul 27, 4 PM PDT
+TARGET_24H = datetime(2024, 7, 28, 17, 0, tzinfo=timezone.utc)  # Sun, Jul 28, 10 AM PDT
+EXPIRES = datetime(2024, 7, 29, 17, 0, tzinfo=timezone.utc)
 
 
 def _messages():
     return [
         render_confirmation(
-            to="a@example.test", location="Redding, CA",
-            confirm_url="https://example.test/confirm?token=xyz", unsubscribe_url=UNSUB,
+            to="a@example.test", place="ZIP 96001",
+            confirm_url="https://example.test/confirm?token=xyz",
+            unsubscribe_url=UNSUB, expires_at=EXPIRES,
         ),
         render_alert(
-            to="a@example.test", location="Redding, CA",
-            horizon_hours=6, pm25=41.234, valid_time_utc="2026-11-19T18:00:00Z", unsubscribe_url=UNSUB,
+            to="a@example.test", place="ZIP 96001",
+            horizons=[(6, TARGET_6H, 41.234)],
+            issued_at=ISSUED, map_url=MAP,
+            nearest_monitor_dist_km=5.0, unsubscribe_url=UNSUB,
         ),
     ]
 
@@ -47,22 +57,63 @@ def memory_mode(monkeypatch):
 
 
 @pytest.mark.parametrize("message", _messages())
-def test_every_template_has_experimental_line_and_unsubscribe(message):
+def test_every_template_has_experimental_line(message):
     for body in (message.text, message.html):
         assert EXPERIMENTAL_LINE in body
-        assert UNSUB in body
 
 
-def test_alert_category_comes_from_aqi_table():
+def test_alert_has_unsubscribe_and_section6_copy():
     alert = _messages()[1]
-    assert "Unhealthy for Sensitive Groups" in alert.subject  # 41.2 ug/m3
-    assert "41.2" in alert.text
+    assert alert.subject == "Smoke alert for ZIP 96001: unhealthy for sensitive groups expected"
+    assert "41.2" in alert.text  # truncated, not rounded from 41.234
+    assert "In 6 h, around Sat, Jul 27, 4 PM PDT" in alert.text
+    assert "What this means" in alert.text
+    assert "What you can do" in alert.text
+    assert f"See the forecast on the map: {MAP}" in alert.text
+    assert "You get at most one SmokeSense alert a day." in alert.text
+    assert UNSUB in alert.text and UNSUB in alert.html
+    assert "lower confidence" not in alert.text
+
+
+def test_alert_24h_only_subject_is_not_moderate():
+    # 20.0 µg/m³ is Moderate on the AQI table, but the subject is the episode risk.
+    alert = render_alert(
+        to="a@example.test", place="ZIP 96001",
+        horizons=[(24, TARGET_24H, 20.0)],
+        issued_at=ISSUED, map_url=MAP,
+        nearest_monitor_dist_km=5.0, unsubscribe_url=UNSUB,
+    )
+    assert "Moderate" not in alert.subject
+    assert "unhealthy for sensitive groups expected" in alert.subject
+    assert "Moderate" in alert.text  # body still shows the AQI label for that value
+
+
+def test_alert_horizons_earliest_first_and_low_confidence():
+    alert = render_alert(
+        to="a@example.test", place="ZIP 96001",
+        horizons=[(24, TARGET_24H, 22.0), (6, TARGET_6H, 40.0)],
+        issued_at=ISSUED, map_url=MAP,
+        nearest_monitor_dist_km=30.0, unsubscribe_url=UNSUB,
+    )
+    six = alert.text.index("In 6 h")
+    twenty_four = alert.text.index("In 24 h")
+    assert six < twenty_four
+    assert "The nearest air monitor is 30 km away" in alert.text
+    assert "lower confidence" in alert.text
+
+
+def test_confirmation_subject_and_expires_local():
+    conf = _messages()[0]
+    assert conf.subject == "Confirm your SmokeSense smoke alerts for ZIP 96001"
+    assert "expires in 48 hours (Mon, Jul 29, 10 AM PDT)" in conf.text
 
 
 def test_html_escapes_values():
     m = render_alert(
-        to="a@example.test", location="<script>x</script>",
-        horizon_hours=1, pm25=1.0, valid_time_utc="t", unsubscribe_url=UNSUB,
+        to="a@example.test", place="<script>x</script>",
+        horizons=[(1, TARGET_6H, 1.0)],
+        issued_at=ISSUED, map_url=MAP,
+        nearest_monitor_dist_km=1.0, unsubscribe_url=UNSUB,
     )
     assert "<script>" not in m.html
     assert "<script>" in m.text  # plain text is not escaped

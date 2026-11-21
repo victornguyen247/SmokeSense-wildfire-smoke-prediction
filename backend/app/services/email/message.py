@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-# Every email must carry this line (API-07 / PM-06 §7). Templates and tests share it, so
+# Every email must carry this line (PM-06 §6). Templates and tests share it, so
 # changing the copy is a one-line edit here.
 EXPERIMENTAL_LINE = (
-    "SmokeSense forecasts are experimental model estimates, not official warnings."
+    "SmokeSense is a student forecast, not an official source. "
+    "Check AirNow.gov and your local air district and public health agency."
 )
 
 
