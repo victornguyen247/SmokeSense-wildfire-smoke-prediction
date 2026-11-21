@@ -3051,7 +3051,14 @@ export const forecastPoint = {
         "source": "idw",
         "nearest_monitor_dist_km": 2.2
       }
-    ]
+    ],
+    "active_alert": {
+      "severity": "unhealthy_sensitive",
+      "first_triggered_at": "2024-07-27T09:00:00Z",
+      "peak_pm25_predicted": 105.1,
+      "peak_target_time": "2024-07-28T00:00:00Z",
+      "horizon_hours": 6
+    }
   },
   "nearest_monitor": {
     "forecast_point_id": "airnow:9355aeb39438a63427fe3226",
@@ -3132,7 +3139,8 @@ export const forecastPointNoForecast = {
     "has_forecast": false,
     "no_forecast_reason": "no_monitor_within_50km",
     "nearest_monitor_dist_km": 60,
-    "forecasts": []
+    "forecasts": [],
+    "active_alert": null
   },
   "nearest_monitor": {
     "forecast_point_id": "airnow:c604ca94c3f2553abf7a0269",
