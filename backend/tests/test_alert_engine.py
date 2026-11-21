@@ -67,7 +67,7 @@ def db(request):
         Column("active", Boolean),
     )
     metadata.create_all(engine)
-    with Session(engine) as session:
+    with Session(engine, autoflush=False) as session:
         session.execute(
             points.insert(),
             [
@@ -109,6 +109,9 @@ def run(
     model="model/1",
 ):
     when = START + timedelta(hours=hour)
+    # live_db disables autoflush: persist a caller's pending failed run before
+    # get() checks whether this cycle already exists, rather than adding it twice.
+    db.flush()
     if db.get(PipelineRun, str(hour)) is None:
         db.add(
             PipelineRun(
