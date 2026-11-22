@@ -1,0 +1,27 @@
+SmokeSense's model expects that smoke near $place may reach levels that are
+unhealthy for sensitive groups.
+
+Forecast PM2.5, issued $issued_local:
+$horizon_lines
+
+${confidence_block}What this means
+Smoke at this level can affect people with heart or lung disease (including
+asthma), older adults, children, pregnant people and people who work or
+exercise outdoors. Some values above may be below the official "Unhealthy for
+Sensitive Groups" level (35.5 µg/m³). The model tends to under-predict heavy
+smoke, so we alert at a lower value for longer forecasts.
+
+What you can do
+  - Check current conditions before spending time outside.
+  - Cut back on hard or long outdoor activity.
+  - Keep windows and doors closed when it smells smoky. Use an air purifier
+    or set your AC to recirculate if you have one.
+  - If you have asthma or heart or lung disease, keep your medicine close
+    and follow your care plan.
+
+See the forecast on the map: $map_url
+
+$experimental_line
+
+You get at most one SmokeSense alert a day.
+Unsubscribe: $unsubscribe_url
