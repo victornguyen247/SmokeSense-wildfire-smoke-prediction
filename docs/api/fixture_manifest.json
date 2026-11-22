@@ -14,6 +14,34 @@
       { "path": "/api/v1/health", "status": 200 }
     ],
     "error_out_of_scope.json": [{ "path": "/api/v1/forecast/point", "status": 404 }],
-    "error_invalid_query.json": [{ "path": "/api/v1/forecast/point", "status": 400 }]
+    "error_invalid_query.json": [{ "path": "/api/v1/forecast/point", "status": 400 }],
+    "alerts_subscribe_accepted.json": [
+      {
+        "path": "/api/v1/alerts/subscriptions",
+        "method": "post",
+        "status": 202,
+        "request": { "email": "someone@example.com", "zip": "95928" }
+      }
+    ],
+    "alerts_confirm_confirmed.json": [
+      {
+        "path": "/api/v1/alerts/confirm",
+        "method": "post",
+        "status": 200,
+        "request": { "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" }
+      }
+    ],
+    "alerts_unsubscribe_unsubscribed.json": [
+      {
+        "path": "/api/v1/alerts/unsubscribe",
+        "method": "post",
+        "status": 200,
+        "request": { "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" }
+      }
+    ],
+    "error_invalid_token.json": [
+      { "path": "/api/v1/alerts/confirm", "method": "post", "status": 404, "request": { "token": "not-a-token" } },
+      { "path": "/api/v1/alerts/unsubscribe", "method": "post", "status": 404, "request": { "token": "not-a-token" } }
+    ]
   }
 }

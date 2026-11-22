@@ -12,7 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.contract import load_contract
 from app.api.errors import register_error_handlers
-from app.api.routes import fires, forecast, meta, observations
+from app.api.routes import alerts, fires, forecast, meta, observations
 from app.core.config import settings
 from app.core.logging import mask_access_log_queries
 from app.services import meta_service
@@ -48,7 +48,7 @@ app.add_middleware(
 # The grid responses are large and compress ~10x (docs/api.md, "/grid/cells").
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-for router in (forecast.router, fires.router, observations.router, meta.router):
+for router in (forecast.router, fires.router, observations.router, meta.router, alerts.router):
     app.include_router(router, prefix=API_PREFIX)
 
 

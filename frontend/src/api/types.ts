@@ -161,6 +161,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/alerts/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for smoke alert emails for one location (double opt-in)
+         * @description Resolves the location to its grid cell like `GET /forecast/point`, saves a pending
+         *     subscription and emails a confirmation link (docs/alerts.md section 2). Every valid
+         *     request gets the same 202, whether the email is new, pending, already active or
+         *     rate-limited (3 confirmation emails per email per 24 h), so the response never
+         *     reveals who has subscribed.
+         */
+        post: operations["postAlertSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a subscription with the token from the confirmation email
+         * @description Activates the pending subscription the token belongs to. If the email already had an
+         *     active subscription, it is replaced. Repeating the request returns `already_confirmed`.
+         */
+        post: operations["postAlertConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unsubscribe and delete the subscription (JSON body, or RFC 8058 one-click)
+         * @description Deletes the subscription the token belongs to. Idempotent: a well-formed token whose
+         *     subscription is already gone gets the same 200.
+         *
+         *     The unsubscribe page sends `{"token"}` as JSON. Mail providers send the RFC 8058
+         *     one-click POST instead: the token in the `token` query parameter and the form body
+         *     `List-Unsubscribe=One-Click`. The query string of this path is never logged.
+         */
+        post: operations["postAlertUnsubscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/meta": {
         parameters: {
             query?: never;
@@ -692,6 +762,27 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /**
+         * @description `code` is `invalid_token`: the token is malformed, or (confirm only) no subscription
+         *     has it, because it was never issued, was replaced by a newer sign-up, or was deleted.
+         */
+        InvalidToken: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `code` is `token_expired`: the confirmation link is older than 48 h. */
+        TokenExpired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Unexpected server error. `code` is `internal_error`; `message` never contains a stack trace. */
         InternalError: {
             headers: {
@@ -899,6 +990,96 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["OutOfScope"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postAlertSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertSubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. A confirmation email is sent unless the request changes nothing. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertSubscribeAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["OutOfScope"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postAlertConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Confirmed, or already confirmed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertConfirmResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["InvalidToken"];
+            410: components["responses"]["TokenExpired"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    postAlertUnsubscribe: {
+        parameters: {
+            query?: {
+                /** @description The unsubscribe token, for the one-click POST only. When given, the body is ignored. */
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Required unless the `token` query parameter is given. */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AlertTokenRequest"];
+                "application/x-www-form-urlencoded": {
+                    /** @constant */
+                    "List-Unsubscribe"?: "One-Click";
+                };
+            };
+        };
+        responses: {
+            /** @description Unsubscribed; the subscription is deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertUnsubscribeResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["InvalidToken"];
             500: components["responses"]["InternalError"];
         };
     };
