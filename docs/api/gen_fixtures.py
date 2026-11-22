@@ -28,6 +28,10 @@ HORIZONS = (1, 3, 6, 12, 24)
 LOW_CONFIDENCE_KM = 25
 MAX_IDW_KM = 50
 AQI_LABEL = "AQI category (hourly PM2.5)"
+# baseline_v2 per-horizon alert cut-offs (model_versions.thresholds, decision #45; docs/alerts.md)
+ALERT_THRESHOLDS = {1: 35.5, 3: 29.5, 6: 25.5, 12: 21.5, 24: 20.0}
+# The fixture's open episode started at an earlier cycle than ISSUED.
+EPISODE_OPENED = ISSUED - timedelta(hours=9)
 
 # GEO-02 grid (backend/app/db/seed_ca_forecast_grid.py): squares aligned to EPSG:3310 multiples.
 CELL_M = 12_500
@@ -200,6 +204,21 @@ def monitor_forecasts(m):
     return [fv(h, m["by_h"][h][0], "model", m["by_h"][h][1], 0.0) for h in HORIZONS]
 
 
+def active_alert(forecasts):
+    """The cell's open episode (docs/alerts.md), or None if no horizon reaches its cut-off.
+    The fixture takes the peak from this cycle only; a real episode keeps the highest so far."""
+    if not any(f["pm25"] >= ALERT_THRESHOLDS[f["horizon_hours"]] for f in forecasts):
+        return None
+    peak = max(forecasts, key=lambda f: f["pm25"])
+    return {
+        "severity": "unhealthy_sensitive",
+        "first_triggered_at": iso(EPISODE_OPENED),
+        "peak_pm25_predicted": peak["pm25"],
+        "peak_target_time": peak["target_time"],
+        "horizon_hours": peak["horizon_hours"],
+    }
+
+
 def envelope():
     return {"issued_at": iso(ISSUED), "model_key": MODEL_KEY, "aqi_table_version": AQI_TABLE}
 
@@ -223,6 +242,7 @@ def point_response(qlat, qlon):
             "no_forecast_reason": None if forecasts else "no_monitor_within_50km",
             "nearest_monitor_dist_km": nearest_eligible_km(c["lat"], c["lon"]),
             "forecasts": forecasts,
+            "active_alert": active_alert(forecasts),
         },
         "nearest_monitor": {
             "forecast_point_id": m["forecast_point_id"], "aqs_code": m["aqs_code"], "name": m["name"],
