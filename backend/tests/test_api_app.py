@@ -71,15 +71,37 @@ def test_unexpected_error_is_internal_error_without_details():
     assert "secret" not in response.text and "Traceback" not in response.text
 
 
-def test_cors_allows_the_frontend_origin_read_only():
+def test_cors_allows_the_frontend_origin_get_and_post():
     response = client.options(
         "/health",
         headers={"Origin": FRONTEND_ORIGIN, "Access-Control-Request-Method": "GET"},
     )
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
-    assert response.headers["access-control-allow-methods"] == "GET"
+    # POST is for the alert endpoints (docs/alerts.md section 2); nothing else accepts it.
+    assert response.headers["access-control-allow-methods"] == "GET, POST"
     assert "access-control-allow-credentials" not in response.headers
+
+
+def test_cors_preflight_allows_a_json_post_to_the_alert_endpoints():
+    response = client.options(
+        "/api/v1/alerts/subscriptions",
+        headers={
+            "Origin": FRONTEND_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
+
+
+def test_cors_rejects_other_methods():
+    preflight = client.options(
+        "/api/v1/alerts/subscriptions",
+        headers={"Origin": FRONTEND_ORIGIN, "Access-Control-Request-Method": "DELETE"},
+    )
+    assert preflight.status_code == 400
 
 
 def test_cors_rejects_unknown_origins():

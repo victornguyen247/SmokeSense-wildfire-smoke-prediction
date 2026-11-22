@@ -1,5 +1,5 @@
 {
-  "description": "Which GET response each docs/api/fixtures/*.json file is an example of. Read by docs/api/validate.py and the backend contract tests (backend/tests/test_api_contract.py). Lives outside fixtures/ so CI's regenerate-and-diff check only sees generated files.",
+  "description": "Which response each docs/api/fixtures/*.json file is an example of. Each target has a path and status; \"method\" is optional (default \"get\"), and a non-GET target gives the JSON body to send as \"request\". Read by docs/api/validate.py, the backend contract tests (backend/tests/test_api_contract.py) and frontend/scripts/sync-api.mjs. Lives outside fixtures/ so CI's regenerate-and-diff check only sees generated files.",
   "fixtures": {
     "grid_cells.json": [{ "path": "/api/v1/grid/cells", "status": 200 }],
     "forecast_grid.json": [{ "path": "/api/v1/forecast/grid", "status": 200 }],

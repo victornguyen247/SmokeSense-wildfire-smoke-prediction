@@ -127,7 +127,8 @@ def test_memory_backend_records_messages():
 
 
 def test_memory_backend_refused_on_staging(monkeypatch):
-    use_settings(monkeypatch, email_backend="memory", environment="staging")
+    # Staging settings need a token secret to load (API-05); this test is about the backend.
+    use_settings(monkeypatch, email_backend="memory", environment="staging", alerts_token_secret="k" * 32)
     with pytest.raises(EmailSendError):
         send(_messages()[0])
 

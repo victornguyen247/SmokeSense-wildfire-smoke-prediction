@@ -2,8 +2,9 @@
 
 Run from anywhere: python docs/api/validate.py
 Fails if the spec is invalid, a fixture does not match its response schema, a fixture
-is not listed in fixture_manifest.json, an operation has no 200 fixture, or an error response does
-not use the shared Error schema.
+is not listed in fixture_manifest.json, an operation has no 2xx fixture, an error response does
+not use the shared Error schema, or a non-GET target's "request" body is missing or does not
+match the operation's request body schema.
 """
 
 import json
@@ -26,11 +27,18 @@ ERROR_SCHEMA = {"$ref": "#/components/schemas/Error"}
 MANIFEST_PATH = HERE / "fixture_manifest.json"
 
 # fixture file -> [(path, method, status)], from the manifest shared with the backend
-# contract tests. Every v1 endpoint is a GET.
+# contract tests. A target's method defaults to GET.
+MANIFEST = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))["fixtures"]
 FIXTURES = {
-    name: [(t["path"], "get", str(t["status"])) for t in targets]
-    for name, targets in json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))["fixtures"].items()
+    name: [(t["path"], t.get("method", "get"), str(t["status"])) for t in targets]
+    for name, targets in MANIFEST.items()
 }
+# (path, method) -> the example request bodies the manifest sends to non-GET operations.
+REQUESTS: dict[tuple[str, str], list] = {}
+for _targets in MANIFEST.values():
+    for _t in _targets:
+        if _t.get("method", "get") != "get":
+            REQUESTS.setdefault((_t["path"], _t["method"]), []).append(_t.get("request"))
 
 
 def escape(token: str) -> str:
@@ -70,11 +78,11 @@ def main() -> int:
         errors.append(f"{name}: listed in fixture_manifest.json but missing")
 
     targets = FIXTURES
-    covered = {(p, m) for ts in targets.values() for p, m, s in ts if s == "200"}
+    covered = {(p, m) for ts in targets.values() for p, m, s in ts if s.startswith("2")}
     for path, ops in spec["paths"].items():
         for method in ops.keys() & HTTP_METHODS:
             if (path, method) not in covered:
-                errors.append(f"{method.upper()} {path}: no 200 fixture")
+                errors.append(f"{method.upper()} {path}: no 2xx fixture")
             # Every 4xx/5xx must be the one Error shape, never FastAPI's 422 {"detail": [...]}.
             for status in ops[method].get("responses", {}):
                 if status.startswith(("4", "5")):
@@ -82,6 +90,19 @@ def main() -> int:
                     schema = response.get("content", {}).get("application/json", {}).get("schema")
                     if schema != ERROR_SCHEMA:
                         errors.append(f"{method.upper()} {path} {status}: does not use the Error schema")
+
+    # Each non-GET target's example request must match the operation's request body.
+    for (path, method), bodies in sorted(REQUESTS.items()):
+        pointer = f"/paths/{escape(path)}/{method}/requestBody/content/application~1json/schema"
+        validator = Draft202012Validator(
+            {"$ref": f"{SPEC_URI}#{pointer}"}, registry=registry, format_checker=Draft202012Validator.FORMAT_CHECKER
+        )
+        for body in bodies:
+            if body is None:
+                errors.append(f'{method.upper()} {path}: manifest target has no "request" body')
+                continue
+            for e in list(validator.iter_errors(body))[:10]:
+                errors.append(f"{method.upper()} {path} request: {e.message[:200]}")
 
     for name, ts in targets.items():
         if name not in on_disk:

@@ -3,10 +3,12 @@
 
 import type { paths } from "../api/types";
 
-/** Body of a GET response, as declared in the spec. */
-type Body<P extends keyof paths, S extends number> =
-  paths[P]["get"]["responses"] extends Record<S, { content: { "application/json": infer B } }>
-    ? B
+/** Body of a response, as declared in the spec. The method defaults to GET. */
+type Body<P extends keyof paths, S extends number, M extends keyof paths[P] = "get"> =
+  paths[P][M] extends { responses: infer R }
+    ? R extends Record<S, { content: { "application/json": infer B } }>
+      ? B
+      : never
     : never;
 
 /** docs/api/fixtures/error_invalid_query.json: GET /api/v1/forecast/point 400 */
