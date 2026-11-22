@@ -168,6 +168,16 @@ def test_smtp_backend_sets_one_click_headers_over_one_connection(monkeypatch):
     assert not memory_backend.outbox
 
 
+def test_a_real_length_unsubscribe_url_is_sent_unencoded():
+    # A real one-click URL (43-char token) is longer than 78 characters. It must go out as
+    # a plain <url>, not an RFC 2047 encoded-word that providers don't decode here.
+    url = "https://smokesense-staging.example.sslip.io/api/v1/alerts/unsubscribe?token=" + "A" * 43
+    message = EmailMessage(to="a@example.com", subject="s", text="t", html="<p>h</p>", unsubscribe_url=url)
+    raw = backends.build_mime(message, "SmokeSense <alerts@example.test>").as_bytes().decode()
+    assert f"List-Unsubscribe: <{url}>" in raw.splitlines()
+    assert "=?utf-8?" not in raw
+
+
 @pytest.mark.parametrize("exc", [
     backends.smtplib.SMTPRecipientsRefused({"a@example.test": (550, b"no")}),
     ConnectionRefusedError("a@example.test"),

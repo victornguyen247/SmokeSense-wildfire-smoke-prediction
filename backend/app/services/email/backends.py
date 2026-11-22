@@ -1,6 +1,7 @@
 """Delivery backends. `send` in `sender.py` picks one from EMAIL_BACKEND."""
 
 import smtplib
+from email import policy
 from email.message import EmailMessage as MimeMessage
 from email.utils import formatdate, make_msgid
 from typing import Protocol
@@ -8,12 +9,18 @@ from typing import Protocol
 from .message import EmailMessage, EmailSendError
 
 
+# The default policy folds headers at 78 characters, and a header with no spaces to fold
+# at (List-Unsubscribe's URL carries a 43-character token) is then RFC 2047-encoded,
+# which mail providers don't decode in that header. 998 is RFC 5322's hard line limit.
+MIME_POLICY = policy.default.clone(max_line_length=998)
+
+
 class EmailBackend(Protocol):
     def deliver_many(self, messages: list[EmailMessage]) -> None: ...
 
 
 def build_mime(message: EmailMessage, sender: str) -> MimeMessage:
-    mime = MimeMessage()
+    mime = MimeMessage(policy=MIME_POLICY)
     mime["From"] = sender
     mime["To"] = message.to
     mime["Subject"] = message.subject
