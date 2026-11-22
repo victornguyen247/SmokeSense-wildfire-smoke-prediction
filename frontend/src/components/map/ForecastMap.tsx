@@ -1,4 +1,7 @@
+import { useMemo } from "react";
+
 import type {
+  AqiCategoryInfo,
   FireDetectionCollection,
   GridCellCollection,
   GridForecast,
@@ -49,6 +52,12 @@ export default function ForecastMap({
   selectedLocation,
   onPickLocation,
 }: ForecastMapProps) {
+  // /meta is refetched every few minutes as a new object. Keep the categories stable while
+  // their content is the same, so the layers aren't removed and re-added (which would
+  // close popups and change the layer order).
+  const categoriesKey = JSON.stringify(meta?.aqi_categories ?? []);
+  const categories = useMemo(() => JSON.parse(categoriesKey) as AqiCategoryInfo[], [categoriesKey]);
+
   if (!meta) return <MapView />;
   return (
     <MapView>
@@ -56,7 +65,7 @@ export default function ForecastMap({
         <ForecastGridLayer
           cells={cells}
           horizon={gridHorizon}
-          categories={meta.aqi_categories}
+          categories={categories}
           lowConfidenceDistKm={meta.low_confidence_dist_km}
           visible={visible.forecast}
         />
@@ -66,14 +75,14 @@ export default function ForecastMap({
           the basemap labels. */}
       <SensorLayer
         sensors={sensors}
-        categories={meta.aqi_categories}
+        categories={categories}
         categoryLabel={meta.aqi_category_label}
         visible={visible.sensors}
       />
       <MonitorLayer
         monitors={monitors}
         horizon={horizon}
-        categories={meta.aqi_categories}
+        categories={categories}
         categoryLabel={meta.aqi_category_label}
         visible={visible.forecast}
       />

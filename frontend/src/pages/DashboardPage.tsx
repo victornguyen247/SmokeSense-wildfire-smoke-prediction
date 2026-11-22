@@ -1,6 +1,6 @@
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 
-import { getForecastPoint, type PointQuery } from "../api/forecast";
+import { getForecastPoint, pointQueryKey, type PointQuery } from "../api/forecast";
 import type { HorizonHours, Meta } from "../api/models";
 import { AqiLegend } from "../components/forecast/AqiLegend";
 import { Disclaimer } from "../components/forecast/Disclaimer";
@@ -42,9 +42,10 @@ export function DashboardPage() {
 
   // WEB-04: the location the card shows, from a ZIP, the browser's location or a map click.
   const [point, setPoint] = useState<{ query: PointQuery; label: string } | null>(null);
+  // Keyed by forecast cycle too, so an open card (and its alert warning) follows each new run.
   const pointForecast = useApiQuery(
     (signal) => getForecastPoint(point!.query, signal),
-    point ? `point:${"zip" in point.query ? point.query.zip : `${point.query.lat},${point.query.lon}`}` : null,
+    point ? `point:${pointQueryKey(point.query)}@${metaData?.latest_issued_at ?? ""}` : null,
   );
   const pickOnMap = useCallback((lat: number, lon: number) => {
     // ~10 m: enough for a 12.5 km grid, and the key doesn't change on tiny mouse moves.
@@ -52,12 +53,13 @@ export function DashboardPage() {
     setPoint({ query, label: `${query.lat.toFixed(3)}, ${query.lon.toFixed(3)}` });
   }, []);
   // Pin the clicked or located spot; for a ZIP, the ZCTA centroid the API resolved it to.
-  const pinned =
-    point && "lat" in point.query
-      ? point.query
-      : pointForecast.status === "success"
-        ? { lat: pointForecast.data.query.lat, lon: pointForecast.data.query.lon }
-        : null;
+  // Memoized so the map's marker isn't recreated on every render.
+  const resolvedLat = pointForecast.status === "success" ? pointForecast.data.query.lat : null;
+  const resolvedLon = pointForecast.status === "success" ? pointForecast.data.query.lon : null;
+  const pinned = useMemo(() => {
+    if (point && "lat" in point.query) return point.query;
+    return resolvedLat !== null && resolvedLon !== null ? { lat: resolvedLat, lon: resolvedLon } : null;
+  }, [point, resolvedLat, resolvedLon]);
 
   return (
     <div className="app">

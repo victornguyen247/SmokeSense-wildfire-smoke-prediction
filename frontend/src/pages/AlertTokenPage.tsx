@@ -61,7 +61,8 @@ function stripToken(): void {
 
 async function submit(kind: Kind, token: string): Promise<Result> {
   try {
-    if (kind === "confirm") return RESULTS[(await confirmAlerts(token)).status];
+    // An unknown status (a newer API) reads as a failure rather than crashing the page.
+    if (kind === "confirm") return RESULTS[(await confirmAlerts(token)).status] ?? RESULTS.failed;
     await unsubscribeFromAlerts(token);
     return RESULTS.unsubscribed;
   } catch (err) {

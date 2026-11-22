@@ -28,6 +28,18 @@ describe("AlertWarning", () => {
     expect(warning.style.borderLeftColor).not.toBe("");
   });
 
+  it("says the peak has passed when its hour is behind us", () => {
+    const alert = { ...forecastPoint.cell.active_alert!, peak_target_time: "2020-01-01T00:00:00Z" };
+    render(<AlertWarning alert={alert} categories={meta.aqi_categories} />);
+    expect(screen.getByRole("status").textContent).toContain("The forecast peak was about");
+  });
+
+  it("gives the coming peak", () => {
+    const alert = { ...forecastPoint.cell.active_alert!, peak_target_time: new Date(Date.now() + 3_600_000).toISOString() };
+    render(<AlertWarning alert={alert} categories={meta.aqi_categories} />);
+    expect(screen.getByRole("status").textContent).toMatch(/^Model expects smoke .+\.Peak about /);
+  });
+
   it("shows nothing when there is no open episode", () => {
     const { container } = render(<AlertWarning alert={null} categories={meta.aqi_categories} />);
     expect(container.innerHTML).toBe("");

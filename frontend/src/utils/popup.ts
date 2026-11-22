@@ -8,6 +8,9 @@ import maplibregl, {
 // One popup per map, shared by every layer: overlapping features (a monitor on a
 // sensor) open one popup, the topmost layer's, since its handler was bound last.
 const popups = new WeakMap<MapLibreMap, maplibregl.Popup>();
+// The layer whose feature the shared popup shows now: only that layer's cleanup closes it,
+// so re-binding another layer (e.g. on a /meta refresh) leaves an open popup alone.
+const popupOwners = new WeakMap<MapLibreMap, string>();
 
 function sharedPopup(map: MapLibreMap): maplibregl.Popup {
   let popup = popups.get(map);
@@ -46,7 +49,7 @@ export function popupContent(lines: PopupLine[]): HTMLElement {
 
 /**
  * Open a popup when a point in `layerId` is clicked, and show a pointer over it.
- * Returns the cleanup that removes the popup and the listeners.
+ * Returns the cleanup that removes the listeners, and the popup if this layer opened it.
  */
 export function bindPointPopup(
   map: MapLibreMap,
@@ -57,6 +60,7 @@ export function bindPointPopup(
   const onClick = (event: MapLayerMouseEvent) => {
     const feature = event.features?.[0];
     if (!feature || feature.geometry.type !== "Point") return;
+    popupOwners.set(map, layerId);
     popup
       .setLngLat(feature.geometry.coordinates as [number, number])
       .setDOMContent(popupContent(build(feature)))
@@ -74,7 +78,10 @@ export function bindPointPopup(
   popupLayers.add(layerId);
   return () => {
     popupLayers.delete(layerId);
-    if (popup.isOpen()) popup.remove();
+    if (popupOwners.get(map) === layerId) {
+      popupOwners.delete(map);
+      if (popup.isOpen()) popup.remove();
+    }
     map.off("click", layerId, onClick);
     map.off("mouseenter", layerId, onEnter);
     map.off("mouseleave", layerId, onLeave);

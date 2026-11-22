@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { StrictMode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MOCK_ALERT_TOKENS } from "../mocks/handlers";
 import { server } from "../test/setup";
@@ -19,6 +19,10 @@ function open(kind: "confirm" | "unsubscribe", token?: string) {
 const heading = async () => (await screen.findByRole("heading", { level: 2 })).textContent;
 
 describe("AlertTokenPage", () => {
+  afterEach(() => {
+    server.events.removeAllListeners();
+  });
+
   it("confirms a sign-up, posting the token once, and removes it from the address bar", async () => {
     const posted = vi.fn();
     server.events.on("request:start", ({ request }) => posted(request.method, new URL(request.url).pathname));
@@ -27,7 +31,6 @@ describe("AlertTokenPage", () => {
     expect(window.location.search).toBe("");
     expect(posted).toHaveBeenCalledTimes(1);
     expect(posted).toHaveBeenCalledWith("POST", "/api/v1/alerts/confirm");
-    server.events.removeAllListeners();
   });
 
   it("reads a token after # and removes it too", async () => {
@@ -60,7 +63,6 @@ describe("AlertTokenPage", () => {
     open("confirm");
     expect(await heading()).toBe("This link isn't valid.");
     expect(posted).not.toHaveBeenCalled();
-    server.events.removeAllListeners();
   });
 
   it("unsubscribes", async () => {
@@ -73,6 +75,12 @@ describe("AlertTokenPage", () => {
     open("unsubscribe", "too-short");
     expect(await heading()).toBe("This link isn't valid.");
     expect(screen.getByText(/copied the whole link/)).toBeTruthy();
+  });
+
+  it("treats a status it doesn't know as a failure", async () => {
+    server.use(http.post("*/api/v1/alerts/confirm", () => HttpResponse.json({ status: "something_new" })));
+    open("confirm", MOCK_ALERT_TOKENS.valid);
+    expect(await heading()).toBe("Something went wrong.");
   });
 
   it("asks to try again when the request fails", async () => {
