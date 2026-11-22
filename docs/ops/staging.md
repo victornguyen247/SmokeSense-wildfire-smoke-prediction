@@ -78,6 +78,11 @@ SHA whose images still exist in GHCR. It skips the build and redeploys that tag.
 that already ran is **not** undone, so keep migrations additive (add columns/tables first,
 remove in a later release).
 
+## Viewing Mailpit
+
+Email is caught by Mailpit, never sent. Its UI is bound to the box's localhost, not routed through
+Caddy: run `ssh -L 8025:localhost:8025 deploy@<host>` and open http://localhost:8025.
+
 ## Neon storage
 
 Neon's free tier is about 0.5 GB per project and the worker ingests FIRMS, AirNow and NWS
@@ -113,9 +118,8 @@ to keep more, and `LIVE_RETENTION_DELETE=0` for a dry run (see `.env.example`).
 - **Secrets:** rotate by editing `/opt/smokesense/.env` on the box, then re-run the deploy.
 - **TLS:** Caddy renews certificates automatically; the `caddy_data` volume must survive.
 - **API mode:** `MOCK_MODE=true` serves fixtures, and the map shows its "Demo data" badge
-  because `/meta` reports mock mode. `MOCK_MODE=false` needs the database repository: API-02 (#55)
-  serves `/grid/cells` and `/forecast/*`, but `/fires`, `/observations` and `/meta` fail with
-  `internal_error` until API-03 (#56), so keep it `true` until then. Any "no mock data" criterion
+  because `/meta` reports mock mode. `MOCK_MODE=false` serves real data from the database. Until OPS-04 writes
+  forecasts, `/forecast/*` returns 503 with it off. Any "no mock data" criterion
   for staging depends on those issues, not on this deploy. The frontend image pins
   `VITE_USE_MOCKS=false`, so the browser never mocks the API itself.
 - **Port 22** is open to the internet because GitHub runners have no fixed IPs. Login is key-only
