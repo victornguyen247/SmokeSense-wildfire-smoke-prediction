@@ -11,7 +11,7 @@ What each Phase 4 issue builds:
 | API-06 #112 | episode engine (forecasts → `alerts`) | Phuong (Miaoqing reviews cut-offs) | 4 |
 | API-07 #113 | mail backends, templates, Mailpit | Vuong | 5, 6 |
 | OPS-06 #114 | post-run alert job: episodes, sending, clean-up | Vuong | 4, 5, 7 |
-| WEB-05 #115 | sign-up form, token pages, in-app warning | Malije | 6c, 8 |
+| WEB-05 #115 | sign-up form, token pages, in-app warning | Malije | 2 (token pages), 6c, 8 |
 | PM-07 #116 | Phase 4 gate, privacy note, teardown | Vuong, Tin | 7, 9 |
 
 Every alert is an **experimental model estimate, not an official warning**.
@@ -19,7 +19,7 @@ Every alert is an **experimental model estimate, not an official warning**.
 ## 1. Overview and flow
 
 ```
-subscribe (email + ZIP or point) ──► pending ──► confirmation email (double opt-in)
+subscribe (email + card's ZIP or point) ──► pending ──► confirmation email (double opt-in)
         │                                              │ link → frontend page → POST /alerts/confirm
         │                                              ▼
         │                                           active ──► alert email when an episode opens
@@ -71,7 +71,7 @@ Body (`AlertTokenRequest`): `{"token"}`.
 
 ### `POST /alerts/unsubscribe`
 
-Body (`AlertTokenRequest`): `{"token"}`. Also accepts the RFC 8058 one-click POST from mail providers: `POST /api/v1/alerts/unsubscribe?token=…` with a form body `List-Unsubscribe=One-Click` (`application/x-www-form-urlencoded`). The token comes from the query string in that form.
+Body (`AlertTokenRequest`): `{"token"}`. Also accepts the RFC 8058 one-click POST from mail providers: `POST /api/v1/alerts/unsubscribe?token=…` with a form body `List-Unsubscribe=One-Click` (`application/x-www-form-urlencoded`). The token comes from the query string in that form, so the API must not log that query string (see "Tokens stay out of logs" below).
 
 | Response | When |
 |---|---|
@@ -82,14 +82,24 @@ Unsubscribe tokens don't expire. Unsubscribing a pending row is allowed too.
 
 ### Email links never change state
 
-Email links open **frontend** pages, which read the token from the URL and call the POST endpoint. A GET never changes state, because mail scanners prefetch links.
+Email links open **frontend** pages, which read the token from the URL **fragment** and POST it in the JSON body. A GET never changes state, because mail scanners prefetch links.
 
 | Email link | Page | Calls |
 |---|---|---|
-| `{FRONTEND_BASE_URL}/alerts/confirm?token=…` | confirm page | `POST /api/v1/alerts/confirm` |
-| `{FRONTEND_BASE_URL}/alerts/unsubscribe?token=…` | unsubscribe page | `POST /api/v1/alerts/unsubscribe` |
+| `{ALERTS_FRONTEND_BASE_URL}/alerts/confirm#token=…` | confirm page | `POST /api/v1/alerts/confirm` |
+| `{ALERTS_FRONTEND_BASE_URL}/alerts/unsubscribe#token=…` | unsubscribe page | `POST /api/v1/alerts/unsubscribe` |
 
-The `List-Unsubscribe` header points at the API itself (`{API_BASE_URL}/api/v1/alerts/unsubscribe?token=…`), since mail providers POST to it directly.
+The token goes after `#`, not `?`: a browser never sends the fragment to a server, so it can't reach the nginx access log, and it is never part of a `Referer`.
+
+The `List-Unsubscribe` header points at the API itself (`POST {ALERTS_API_BASE_URL}/api/v1/alerts/unsubscribe?token=…`), since mail providers POST to it directly. RFC 8058 needs a URL they can POST to without a page, so this one stays a query string.
+
+### Tokens stay out of logs
+
+Section 7 says tokens are never logged. Servers log full request URLs by default, so:
+
+- **API access logs (API-05):** for `/api/v1/alerts/*`, the API drops or masks the query string in every access log: uvicorn's (on by default; the backend Dockerfile and the staging compose run it without `--no-access-log`) and the proxy's (Caddy in `infra/staging/Caddyfile` has no `log` directive today; if one is added, it must drop or mask the query for these paths). A filter on the `uvicorn.access` logger, or turning that log off, is enough.
+- **`Referrer-Policy: no-referrer` (WEB-05):** the frontend's `/alerts/*` pages are served with this header (nginx in `infra/docker/frontend.prod.Dockerfile`), so links on those pages, such as "Back to the map", send no `Referer`.
+- The frontend pages never put the token in analytics, logs or error reports (section 8).
 
 ### In-app warning: `cell.active_alert` on `GET /forecast/point`
 
@@ -120,7 +130,7 @@ Full column tables are in `docs/schema.md` → `alert_subscriptions` and `alert_
 - `alert_subscriptions`: one row per subscription.
   - The email is stored trimmed and lower-cased. The location is `forecast_point_id` (a grid cell) plus either `zip` or `query_lat`/`query_lon` rounded to 2 decimals (~1 km). The exact point is never stored.
   - `status` is `pending | active | unsubscribed`. Unsubscribe deletes the row, so `unsubscribed` is never stored by v1; the value stays in the CHECK for audit or a later soft delete.
-  - Raw tokens are never stored; the table holds their SHA-256 hashes (hex).
+  - Raw tokens are never stored; the table holds their SHA-256 hashes (hex). Raw tokens travel only in email links (in the fragment of frontend links, in the query of the one-click URL) and in POST bodies, and are never logged (section 2 → "Tokens stay out of logs").
     - **Confirm token:** 32 random bytes (`secrets.token_bytes(32)`), base64url. It is only needed in the confirmation email, which is sent in the same request.
     - **Unsubscribe token:** 32 bytes, `HMAC-SHA256(ALERTS_TOKEN_SECRET, "unsubscribe:" + id)`, base64url. The alert job builds unsubscribe links hours or days after subscribe, so the token has to be re-derivable without storing it. Changing `ALERTS_TOKEN_SECRET` invalidates every unsubscribe link already sent, so don't change it before teardown.
   - At most **one pending and one active row per email**: two partial unique indexes, `(email) WHERE status = 'pending'` and `(email) WHERE status = 'active'`. Confirming deletes the old active row in the same transaction (section 2), so after confirm there is again one row. A single index on `status IN ('pending','active')` would block "replace the location after re-confirmation", because the new pending row would collide with the active one.
@@ -167,19 +177,20 @@ The **alert job** (OPS-06) runs once after each successful pipeline run, in this
 - **Safety cap.** At most 1 alert email per subscription per 24 h, even if a new episode opens: skip the subscription if it has a `kind = 'alert'`, `status = 'sent'` row with `sent_at` in the last 24 h. Nothing is written for a skipped send, so it goes out on the first run after the cap clears if the episode is still open, and never if it has resolved.
 - **Retries.** A failed send leaves the row `status = 'failed'`, `attempts = n`, `error` = a short reason (no address, no token). The next runs retry rows with `status = 'failed'` and `attempts < 3` while the episode is open. After the 3rd failed attempt the row stays `failed` for good. A success sets `status = 'sent'`, `sent_at`.
 - **Clean-up.** Delete `pending` rows whose `confirm_expires_at` has passed (48 h after the last confirmation email).
-- **Mail backends** (config in `app/core/config.py`; the alert job reads the same settings):
+- **Mail backends** (config in `app/core/config.py`, as implemented in API-07 #124; the alert job reads the same settings):
 
 | Setting | Values | Default |
 |---|---|---|
-| `ALERTS_MAIL_BACKEND` | `console`, `smtp` | `console` |
-| `ALERTS_MAIL_FROM` | e.g. `SmokeSense alerts <alerts@…>` | none; required when `smtp` |
-| `ALERTS_SMTP_HOST`, `ALERTS_SMTP_PORT` | Mailpit: `mailpit`, `1025` | — |
+| `EMAIL_BACKEND` | `smtp`, `memory` | `smtp` |
+| `EMAIL_SMTP_HOST` | Mailpit: `mailpit` | `mailpit` |
+| `EMAIL_SMTP_PORT` | Mailpit: `1025` | `1025` |
+| `EMAIL_FROM` | e.g. `SmokeSense <alerts@…>` | `SmokeSense <alerts@smokesense.local>` |
 | `ALERTS_FRONTEND_BASE_URL` | the map's origin, used in email links | — |
 | `ALERTS_API_BASE_URL` | the API's origin, used in `List-Unsubscribe` | — |
 | `ALERTS_TOKEN_SECRET` | random, ≥ 32 bytes | none; required |
 
-  - `console` logs the message with the recipient masked (`t***@domain`) and tokens in links replaced by `…`, so it is for checking templates, not for clicking through.
   - `smtp` → Mailpit locally (compose), on staging and in the demo: mail is captured in the Mailpit UI and never delivered. A real provider is used only if time allows (scope §4).
+  - `memory` keeps sent messages in a process-wide outbox for tests. It is for tests only: the sender refuses it when `ENVIRONMENT` is `staging` or `production`.
   - The from address and base URLs are always config, never hard-coded.
 - **Headers and format** of every alert email:
   - `List-Unsubscribe: <{ALERTS_API_BASE_URL}/api/v1/alerts/unsubscribe?token=…>`
@@ -277,7 +288,7 @@ Unsubscribe: {unsubscribe_url}
 - **Not stored:** names, IP addresses, user agents, the exact location, raw tokens.
 - **Never logged:**
   - Full email addresses: always masked as `t***@domain`.
-  - Tokens, and URLs or request parameters that contain them (CLAUDE.md rule 6).
+  - Tokens, and URLs or request parameters that contain them (CLAUDE.md rule 6). This includes access logs: frontend links carry the token in the fragment, the API masks the query string of `/api/v1/alerts/*` in uvicorn and proxy access logs, and the `/alerts/*` pages send `Referrer-Policy: no-referrer` (section 2).
   - `alert_notifications.error` holds no address or token.
 - **Deleted:**
   - Unconfirmed sign-ups after 48 h, when their link expires (alert job).
@@ -294,7 +305,7 @@ Unsubscribe: {unsubscribe_url}
 ## 8. UI half (WEB-05, #115), for Malije to review
 
 - **Sign-up form** (on the location card, under the forecast):
-  - Fields: email, plus either a ZIP field or "Use this location", which sends the card's current `lat`/`lon` or `zip`.
+  - One field: email. The location is the location card's current location: `zip` if the user searched by ZIP, otherwise the card's point (`lat`/`lon`). There is no separate location field.
   - The privacy note (section 7) and the experimental-estimate line are shown under the form.
 - **States:**
   - Submitting: button disabled.
@@ -302,13 +313,16 @@ Unsubscribe: {unsubscribe_url}
   - 400 `invalid_query`: inline field error.
   - 404 `out_of_scope` / `zip_not_found`: "SmokeSense only covers California" / "We couldn't find that ZIP".
   - 5xx or network error: "Something went wrong, try again".
-- **Token pages** `/alerts/confirm?token=…` and `/alerts/unsubscribe?token=…`:
-  - On load they POST once and show the result texts in section 6c.
-  - They never act on a GET by themselves beyond that single POST, and never put the token in analytics or logs.
+- **Token pages** `/alerts/confirm#token=…` and `/alerts/unsubscribe#token=…`:
+  - On load they read the token from the fragment, POST it once in the JSON body and show the result texts in section 6c.
+  - They never act on a GET by themselves beyond that single POST, and never put the token in analytics, logs or error reports.
+  - Served with `Referrer-Policy: no-referrer` (section 2).
 - **In-app warning** on the location card, driven by `cell.active_alert` from `/forecast/point`. When it is not null, show a banner:
 
-  > "Model expects smoke unhealthy for sensitive groups. Peak about {peak_pm25_predicted} µg/m³ around {peak_target_time, local}. Experimental model estimate, not an official warning."
+  > "Smoke may reach unhealthy-for-sensitive-groups levels here within {horizon_hours} h (forecast). Peak about {peak_pm25_predicted} µg/m³ around {peak_target_time, local}. Experimental model estimate, not an official warning."
 
+  - `{horizon_hours}` is `cell.active_alert.horizon_hours`.
+  - The banner states a **risk**, not the category. One long-horizon trigger opens an episode (e.g. 24 h at the 20.0 cut-off, section 4), so the banner can sit above a card that shows Moderate at every horizon. That is expected, and the wording must not contradict the card.
   - Use the category color from `/meta`; don't hard-code thresholds or colors.
   - This is also the fallback if email slips (scope §10).
 - Nothing about alerts changes the public statewide map.
@@ -327,6 +341,8 @@ Unsubscribe: {unsubscribe_url}
 - [ ] Unsubscribe: JSON body and RFC 8058 form POST both work; a repeat returns 200; malformed → 404; the row is gone.
 - [ ] `cell.active_alert` is filled from the open episode; CORS allows POST for `/api/v1/alerts/*`.
 - [ ] No route logs an email or token; tests use `caplog` to check.
+- [ ] Access logs (uvicorn, and the proxy if it logs) drop or mask the query string for `/api/v1/alerts/*`; a test checks that a one-click POST does not put the token in the `uvicorn.access` log.
+- [ ] Email links built for the frontend use the fragment (`/alerts/confirm#token=…`, `/alerts/unsubscribe#token=…`); only the `List-Unsubscribe` one-click URL uses `?token=`.
 
 **API-06 #112 (episodes)**
 - [ ] Cut-offs read from `model_versions.thresholds` of the cycle's model; NULL thresholds → no episodes, one warning.
@@ -335,9 +351,8 @@ Unsubscribe: {unsubscribe_url}
 - [ ] Miaoqing reviews the cut-off handling and the IDW limitation note.
 
 **API-07 #113 (sender)**
-- [ ] `console` and `smtp` backends chosen by `ALERTS_MAIL_BACKEND`; Mailpit in docker compose and on staging.
+- [ ] `smtp` and `memory` backends chosen by `EMAIL_BACKEND`; `memory` refused on staging and production; Mailpit in docker compose and on staging.
 - [ ] Templates render the section 6 copy (text + HTML) with `List-Unsubscribe` and `List-Unsubscribe-Post`; no images or tracking.
-- [ ] Console output masks the recipient and tokens.
 
 **OPS-06 #114 (alert job)**
 - [ ] Runs once after each successful pipeline run (never after a failed one), in the order episodes → send → clean-up.
@@ -348,6 +363,9 @@ Unsubscribe: {unsubscribe_url}
 **WEB-05 #115 (UI)**
 - [ ] Form, states, token pages and in-app banner as in section 8; texts from section 6c; privacy note under the form.
 - [ ] Types come from `npm run gen:api`; MSW mocks for the three endpoints.
+- [ ] Token pages read the token from the fragment (`#token=`), never send it in a URL, and are served with `Referrer-Policy: no-referrer` (nginx config for `/alerts/*`).
+- [ ] The form has only an email field; the location is the card's current ZIP or point.
+- [ ] The banner uses the risk wording with `active_alert.horizon_hours` (section 8).
 
 **PM-07 #116 (gate, privacy, teardown)**
 - [ ] Privacy note shown in the UI.
