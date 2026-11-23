@@ -117,6 +117,13 @@ class AlertNotification(Base):
             "(kind = 'confirmation') = (alert_id IS NULL)",
             name="ck_alert_notifications_alert_id",
         ),
+        CheckConstraint(
+            "(status = 'sent') = (sent_at IS NOT NULL)",
+            name="ck_alert_notifications_sent_at",
+        ),
+        CheckConstraint(
+            "char_length(error) <= 200", name="ck_alert_notifications_error_length"
+        ),
         # At most one email per subscription per episode; NULL alert_id rows don't collide.
         UniqueConstraint(
             "subscription_id",

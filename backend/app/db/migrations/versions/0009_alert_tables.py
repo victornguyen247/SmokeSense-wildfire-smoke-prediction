@@ -141,6 +141,13 @@ def upgrade() -> None:
             "(kind = 'confirmation') = (alert_id IS NULL)",
             name="ck_alert_notifications_alert_id",
         ),
+        sa.CheckConstraint(
+            "(status = 'sent') = (sent_at IS NOT NULL)",
+            name="ck_alert_notifications_sent_at",
+        ),
+        sa.CheckConstraint(
+            "char_length(error) <= 200", name="ck_alert_notifications_error_length"
+        ),
         sa.UniqueConstraint(
             "subscription_id",
             "alert_id",
