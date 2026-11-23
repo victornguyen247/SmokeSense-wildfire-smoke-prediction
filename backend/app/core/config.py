@@ -7,6 +7,7 @@ calling os.getenv directly, so config is typed and validated at startup.
 import logging
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -62,6 +63,13 @@ class Settings(BaseSettings):
 
     # --- Redis / Celery ---
     redis_url: str = "redis://redis:6379/0"
+
+    # --- Email (API-07) ---
+    # smtp: Mailpit (local and staging, nothing leaves the system); memory: tests.
+    email_backend: Literal["smtp", "memory"] = "smtp"  # a typo stops startup
+    email_smtp_host: str = "mailpit"
+    email_smtp_port: int = 1025
+    email_from: str = "SmokeSense <alerts@smokesense.local>"
 
     # --- External data-source API keys ---
     # Obtain these from each provider; leave blank locally until needed.
