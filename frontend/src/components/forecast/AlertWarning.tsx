@@ -27,7 +27,11 @@ export function AlertWarning({ alert, categories }: AlertWarningProps) {
 
   return (
     <div className="alert-warning" role="status" style={{ borderLeftColor: severity?.color }}>
-      <p className="alert-warning__title">Model expects smoke {label}.</p>
+      {/* A risk, not the category: one long-horizon trigger can open an episode while the
+          card still shows Moderate (docs/alerts.md section 8). */}
+      <p className="alert-warning__title">
+        Smoke may reach {label} levels here within {alert.horizon_hours} h (forecast).
+      </p>
       <p>
         {peakPassed ? "The forecast peak was about" : "Peak about"} {formatPm25(alert.peak_pm25_predicted)} around{" "}
         <time dateTime={alert.peak_target_time}>{formatLocalDateTime(alert.peak_target_time)}</time>.

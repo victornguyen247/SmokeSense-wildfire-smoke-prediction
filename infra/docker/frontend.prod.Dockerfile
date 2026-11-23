@@ -42,6 +42,16 @@ server {
     add_header Cache-Control "no-cache";
     try_files $uri $uri/ /index.html;
   }
+
+  # Alert confirm/unsubscribe pages (docs/alerts.md section 2): their links, like "Back to
+  # the map", send no Referer, so a token in the URL can't leak through one.
+  location /alerts/ {
+    add_header Cache-Control "no-cache";
+    add_header Referrer-Policy "no-referrer" always;
+    # Not "... /index.html" as the last argument: that is an internal redirect into
+    # "location /", which would drop the header. A file found earlier is served here.
+    try_files /index.html =404;
+  }
 }
 CONF
 EOF

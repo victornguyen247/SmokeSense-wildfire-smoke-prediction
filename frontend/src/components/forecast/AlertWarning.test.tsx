@@ -21,7 +21,9 @@ describe("AlertWarning", () => {
   it("shows the open episode with its peak and the experimental line", () => {
     render(<AlertWarning alert={forecastPoint.cell.active_alert} categories={meta.aqi_categories} />);
     const warning = screen.getByRole("status");
-    expect(warning.textContent).toContain("Model expects smoke unhealthy for sensitive groups.");
+    expect(warning.textContent).toContain(
+      `Smoke may reach unhealthy for sensitive groups levels here within ${forecastPoint.cell.active_alert!.horizon_hours} h (forecast).`,
+    );
     expect(warning.textContent).toContain("105.1 µg/m³");
     expect(warning.textContent).toContain("Experimental model estimate, not an official warning.");
     // The category color comes from /meta.
@@ -37,7 +39,7 @@ describe("AlertWarning", () => {
   it("gives the coming peak", () => {
     const alert = { ...forecastPoint.cell.active_alert!, peak_target_time: new Date(Date.now() + 3_600_000).toISOString() };
     render(<AlertWarning alert={alert} categories={meta.aqi_categories} />);
-    expect(screen.getByRole("status").textContent).toMatch(/^Model expects smoke .+\.Peak about /);
+    expect(screen.getByRole("status").textContent).toMatch(/^Smoke may reach .+\(forecast\)\.Peak about /);
   });
 
   it("shows nothing when there is no open episode", () => {
@@ -65,13 +67,13 @@ describe("PointForecastCard alerts", () => {
 
   it("shows the warning and the sign-up form for a location with an open episode", () => {
     render(card(forecastPoint));
-    expect(screen.getByText("Model expects smoke unhealthy for sensitive groups.")).toBeTruthy();
+    expect(screen.getByText(/^Smoke may reach unhealthy for sensitive groups levels/)).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Email address" })).toBeTruthy();
   });
 
   it("drops the warning when no horizon reaches its cut-off", () => {
     render(card(forecastPointNoForecast));
-    expect(screen.queryByText(/Model expects smoke/)).toBeNull();
+    expect(screen.queryByText(/Smoke may reach/)).toBeNull();
     // The sign-up form is still offered.
     expect(screen.getByRole("textbox", { name: "Email address" })).toBeTruthy();
   });
@@ -84,7 +86,7 @@ describe("PointForecastCard alerts", () => {
     it("keeps the warning but hides the sign-up form", () => {
       env.useMocks = false;
       render(card(forecastPoint));
-      expect(screen.getByText("Model expects smoke unhealthy for sensitive groups.")).toBeTruthy();
+      expect(screen.getByText(/^Smoke may reach unhealthy for sensitive groups levels/)).toBeTruthy();
       expect(screen.queryByRole("textbox", { name: "Email address" })).toBeNull();
     });
   });
