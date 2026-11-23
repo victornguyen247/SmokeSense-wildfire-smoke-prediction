@@ -109,6 +109,19 @@ MONITOR_VALUES = text(f"""
     ORDER BY fp.id, f.horizon_hours
 """)
 
+# The newest reading with a wind speed per NWS station, at most WIND_MAX_AGE old.
+LATEST_WIND = text(f"""
+    SELECT DISTINCT ON (w.station_id)
+           w.station_id, w.valid_at, w.wind_speed_ms, w.wind_dir_deg,
+           ST_Y(w.geom::geometry) AS lat, ST_X(w.geom::geometry) AS lon
+    FROM weather_observations AS w
+    WHERE w.valid_at >= :since AND w.valid_at <= :now
+      AND w.wind_speed_ms IS NOT NULL
+      AND w.station_id ~ '^[A-Z0-9]{{3,5}}$'
+      AND ST_Intersects(w.geom::geometry, {ENVELOPE})
+    ORDER BY w.station_id, w.valid_at DESC
+""")
+
 CELL_AT_LOCATION = text("SELECT forecast_point_id FROM lookup_grid_forecast_point(:lon, :lat)")
 
 ZIP_LOCATION = text("""
@@ -204,6 +217,10 @@ class Location(NamedTuple):
     cell_id: str
 
 
+# docs/api.md, "/observations/wind/latest": NWS reports hourly and often arrives late.
+WIND_MAX_AGE = timedelta(hours=3)
+
+
 def iso(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -247,6 +264,22 @@ def monitor_feature(rows: Iterable[Any]) -> Body:
             "aqs_code": first.aqs_code,
             "name": first.name,
             "forecasts": [forecast_value(row) for row in rows],
+        },
+    }
+
+
+def wind_feature(row: Any) -> Body:
+    speed = round(row.wind_speed_ms, 1)
+    # Calm has no direction; NWS sends 0 or null for it.
+    direction = None if speed == 0 or row.wind_dir_deg is None else round(row.wind_dir_deg)
+    return {
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [round(row.lon, 5), round(row.lat, 5)]},
+        "properties": {
+            "station_id": row.station_id,
+            "valid_at": iso(row.valid_at),
+            "wind_speed_ms": speed,
+            "wind_dir_deg": direction,
         },
     }
 
@@ -412,6 +445,19 @@ class DatabaseRepository:
     def _find_cycle(self, session: Session) -> Cycle | None:
         row = session.execute(LATEST_CYCLE).first()
         return None if row is None else Cycle(row.issued_at, row.model_key)
+
+    def latest_wind(self, bbox: Bbox) -> Body:
+        now = utc_now()
+        params = {**bbox._asdict(), "since": now - WIND_MAX_AGE, "now": now}
+        with self.sessions() as session:
+            self._check_bbox(session, bbox)
+            rows = session.execute(LATEST_WIND, params).all()
+        return {
+            "type": "FeatureCollection",
+            "generated_at": iso(now),
+            "max_age_hours": int(WIND_MAX_AGE.total_seconds() // 3600),
+            "features": [wind_feature(row) for row in rows],
+        }
 
     def _latest_cycle(self, session: Session) -> Cycle:
         cycle = self._find_cycle(session)

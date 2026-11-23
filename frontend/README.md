@@ -79,15 +79,34 @@ Every failure is an `ApiError` with the API's stable `code` (`out_of_scope`, `in
 - `MonitorLayer` (WEB-02): `/forecast/monitors` as circles for the selected horizon; a `fallback` forecast is hollow (lower confidence). Click for a popup.
 - `SensorLayer` (WEB-03): `/observations/pm25/latest` as squares colored by AQI category (measured values are squares, forecasts circles). AirNow has a dark ring, PurpleAir a white one.
 - `FireLayer` (WEB-03): `/fires/active` as near-black dots (red is an AQI color); `low` confidence is hollow.
+- `WindLayer` (WEB-03): `/observations/wind/latest` as arrows at NWS stations, pointing where the wind blows (the API sends where it blows from) and sized by speed; calm is a bullseye. Icons are signed distance fields (`src/utils/sdfIcon.ts`), so one image takes any color.
+
+- `LocationPicker` (WEB-04): a click on the map (not on a feature with a popup, and not a double-click zoom) asks `/forecast/point` for that spot and pins it.
+
+The location card (`LocationSearch` + `PointForecastCard`) takes a ZIP (format checked in the browser; whether it is in California is the API's call), the browser's location, or a map click. Outside California, an unknown ZIP and a blocked location each get a plain-language message.
 
 The point layers are always mounted once `/meta` has loaded and fill in as their data arrives, so they stack in a fixed order whatever loads first. Each layer is shown or hidden with the panel's layer control, which keeps its data. Data credits are in `src/constants/sources.ts` and in the map's attribution.
 
 Colors and labels come from `/meta` `aqi_categories` (`src/utils/aqi.ts`); no threshold is hard-coded.
 
+## Email alerts (WEB-05)
+
+The UI half of `docs/alerts.md` (section 8):
+
+- **In-app warning** (`AlertWarning`): on the location card while `/forecast/point` `cell.active_alert` is set. The API applies the cut-offs, so the frontend knows no threshold; the color and label come from `/meta`.
+- **Sign-up form** (`AlertSignup`): under the location card, for the card's own location. Every accepted request shows the same "Check your email", so the form never reveals who has signed up. The address stays in component state, never in storage or logs.
+- **Token pages** (`AlertTokenPage`): `/alerts/confirm?token=` and `/alerts/unsubscribe?token=`, opened from the emails. They take the token out of the address bar and POST it once.
+- `src/api/alerts.ts` calls the three POST endpoints with the spec's schemas. Their paths join `openapi.yaml` with API-05 (#111); then switch these to `apiClient.POST`.
+
+In mock mode, try the token pages with a 43-character token: one starting with `already` is already confirmed, one starting with `expired` has expired, and anything malformed is an invalid link (`MOCK_ALERT_TOKENS` in `src/mocks/handlers.ts`).
+
 ## Checks
 
 ```bash
 npm run lint        # oxlint
+npm test            # component tests (Vitest + Testing Library, jsdom, mock-mode API)
 npm run build       # type-check + production build
 npm run api:check   # generated API files match docs/api/
 ```
+
+Tests sit next to their component (`*.test.tsx`). API calls in tests are answered by the same MSW handlers as mock mode (`src/test/setup.ts`); override one with `server.use(...)`.

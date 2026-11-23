@@ -1,4 +1,7 @@
+import { useMemo } from "react";
+
 import type {
+  AqiCategoryInfo,
   FireDetectionCollection,
   GridCellCollection,
   GridForecast,
@@ -6,13 +9,16 @@ import type {
   Meta,
   MonitorForecastCollection,
   ObservationCollection,
+  WindObservationCollection,
 } from "../../api/models";
 import { FireLayer } from "./FireLayer";
 import { ForecastGridLayer } from "./ForecastGridLayer";
 import type { LayerVisibility } from "./LayerControl";
+import { LocationPicker } from "./LocationPicker";
 import MapView from "./MapView";
 import { MonitorLayer } from "./MonitorLayer";
 import { SensorLayer } from "./SensorLayer";
+import { WindLayer } from "./WindLayer";
 
 type ForecastMapProps = {
   meta: Meta | undefined;
@@ -22,7 +28,11 @@ type ForecastMapProps = {
   horizon: HorizonHours;
   fires: FireDetectionCollection | undefined;
   sensors: ObservationCollection | undefined;
+  wind: WindObservationCollection | undefined;
   visible: LayerVisibility;
+  /** WEB-04: the location the forecast card shows, and a map click that picks one. */
+  selectedLocation: { lat: number; lon: number } | null;
+  onPickLocation: (lat: number, lon: number) => void;
 };
 
 /**
@@ -37,8 +47,17 @@ export default function ForecastMap({
   horizon,
   fires,
   sensors,
+  wind,
   visible,
+  selectedLocation,
+  onPickLocation,
 }: ForecastMapProps) {
+  // /meta is refetched every few minutes as a new object. Keep the categories stable while
+  // their content is the same, so the layers aren't removed and re-added (which would
+  // close popups and change the layer order).
+  const categoriesKey = JSON.stringify(meta?.aqi_categories ?? []);
+  const categories = useMemo(() => JSON.parse(categoriesKey) as AqiCategoryInfo[], [categoriesKey]);
+
   if (!meta) return <MapView />;
   return (
     <MapView>
@@ -46,7 +65,7 @@ export default function ForecastMap({
         <ForecastGridLayer
           cells={cells}
           horizon={gridHorizon}
-          categories={meta.aqi_categories}
+          categories={categories}
           lowConfidenceDistKm={meta.low_confidence_dist_km}
           visible={visible.forecast}
         />
@@ -56,18 +75,20 @@ export default function ForecastMap({
           the basemap labels. */}
       <SensorLayer
         sensors={sensors}
-        categories={meta.aqi_categories}
+        categories={categories}
         categoryLabel={meta.aqi_category_label}
         visible={visible.sensors}
       />
       <MonitorLayer
         monitors={monitors}
         horizon={horizon}
-        categories={meta.aqi_categories}
+        categories={categories}
         categoryLabel={meta.aqi_category_label}
         visible={visible.forecast}
       />
+      <WindLayer wind={wind} visible={visible.wind} />
       <FireLayer fires={fires} visible={visible.fires} />
+      <LocationPicker selected={selectedLocation} onPick={onPickLocation} />
     </MapView>
   );
 }

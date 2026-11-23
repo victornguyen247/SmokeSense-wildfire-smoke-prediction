@@ -29,6 +29,11 @@ export function getForecastMonitors(
 
 export type PointQuery = { lat: number; lon: number } | { zip: string };
 
+/** A string naming the location, for React keys and query keys. */
+export function pointQueryKey(query: PointQuery): string {
+  return "zip" in query ? `zip:${query.zip}` : `${query.lat},${query.lon}`;
+}
+
 /** Forecast for one location (lat/lon or ZIP), every horizon, plus its nearest monitor. */
 export function getForecastPoint(query: PointQuery, signal?: AbortSignal): Promise<PointForecast> {
   return unwrap(apiClient.GET("/api/v1/forecast/point", { params: { query }, signal }));

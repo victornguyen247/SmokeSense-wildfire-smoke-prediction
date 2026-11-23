@@ -1,6 +1,6 @@
 # Frontend (React 19 + TypeScript + Vite + MapLibre)
 
-Run from `frontend/`: `npm run dev` · `npm run lint` (**oxlint**, not ESLint/Prettier) · `npm run build` (`tsc -b && vite build`). CI runs lint + build. No test runner yet.
+Run from `frontend/`: `npm run dev` · `npm run lint` (**oxlint**, not ESLint/Prettier) · `npm test` (Vitest + Testing Library, `*.test.tsx` next to the component) · `npm run build` (`tsc -b && vite build`). CI runs lint, tests and build.
 
 ## Structure (`src/`)
 `api/` the only place that calls the backend (typed `openapi-fetch` client) · `components/{ui,map,forecast}` · `features/{map,playback,city-history}` (planned; may be empty) · `pages/` · `hooks/` · `context/` (only truly shared state) · `constants/` · `utils/` · `mocks/` (MSW).
