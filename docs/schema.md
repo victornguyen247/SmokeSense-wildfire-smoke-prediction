@@ -479,7 +479,7 @@ Episode rules for email alerts (open, continue, resolve after 3 clear runs): [`a
 
 ### `alert_subscriptions`
 
-Email alert subscriptions (PM-06, [`alerts.md`](alerts.md); built in API-04, #110; **not migrated yet**). One row per subscription to one grid cell. Personal data: deleted on unsubscribe, 48 h after an unconfirmed sign-up, and entirely at teardown before Senior Design Day.
+Email alert subscriptions (PM-06, [`alerts.md`](alerts.md); built in API-04, #110). One row per subscription to one grid cell. Personal data: deleted on unsubscribe, 48 h after an unconfirmed sign-up, and entirely at teardown before Senior Design Day.
 
 | Column | Type | Constraints | Notes |
 | --- | --- | --- | --- |
@@ -518,11 +518,11 @@ One row per email attempt for a subscription: its confirmation emails and at mos
 | `kind` | TEXT | NOT NULL, CHECK IN ('confirmation','alert') |  |
 | `status` | TEXT | NOT NULL, CHECK IN ('sent','failed') | `failed` with `attempts < 3` is retried by the next runs (alerts only) |
 | `attempts` | SMALLINT | NOT NULL, DEFAULT 1, CHECK (1–3) |  |
-| `sent_at` | TIMESTAMPTZ |  | UTC, set when `status = 'sent'`. The 24 h cap reads it |
-| `error` | TEXT |  | Short reason of the last failure, ≤ 200 chars. Never an address, token or URL |
+| `sent_at` | TIMESTAMPTZ |  | UTC, set exactly when `status = 'sent'`. The 24 h cap reads it |
+| `error` | TEXT | CHECK (`char_length(error) <= 200`) | Short reason of the last failure, ≤ 200 chars. Never an address, token or URL |
 | `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | UTC |
 
-**Checks:** `(kind = 'confirmation') = (alert_id IS NULL)`.
+**Checks:** `(kind = 'confirmation') = (alert_id IS NULL)`, `(status = 'sent') = (sent_at IS NOT NULL)`.
 
 **Indexes:** `PRIMARY KEY (id)`, `UNIQUE (subscription_id, alert_id)` (exactly one email per subscription per episode; NULL `alert_id` rows don't collide), `INDEX (subscription_id, sent_at DESC)` (24 h cap)
 

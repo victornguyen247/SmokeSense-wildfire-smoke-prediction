@@ -32,6 +32,8 @@ def point() -> Geography:
     return Geography(geometry_type="POINT", srid=4326, spatial_index=False)
 
 
-def one_of(column: str, values: Iterable) -> CheckConstraint:
+def one_of(column: str, values: Iterable, name: str | None = None) -> CheckConstraint:
     """TEXT + CHECK value list, e.g. CHECK (kind IN ('city','zip'))."""
-    return CheckConstraint(f"{column} IN ({', '.join(repr(v) for v in values)})")
+    return CheckConstraint(
+        f"{column} IN ({', '.join(repr(v) for v in values)})", name=name
+    )
