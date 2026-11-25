@@ -1,5 +1,5 @@
 {
-  "description": "Which GET response each docs/api/fixtures/*.json file is an example of. Read by docs/api/validate.py and the backend contract tests (backend/tests/test_api_contract.py). Lives outside fixtures/ so CI's regenerate-and-diff check only sees generated files.",
+  "description": "Which response each docs/api/fixtures/*.json file is an example of. Each target has a path and status; \"method\" is optional (default \"get\"), and a non-GET target gives the JSON body to send as \"request\". Read by docs/api/validate.py, the backend contract tests (backend/tests/test_api_contract.py) and frontend/scripts/sync-api.mjs. Lives outside fixtures/ so CI's regenerate-and-diff check only sees generated files.",
   "fixtures": {
     "grid_cells.json": [{ "path": "/api/v1/grid/cells", "status": 200 }],
     "forecast_grid.json": [{ "path": "/api/v1/forecast/grid", "status": 200 }],
@@ -14,6 +14,34 @@
       { "path": "/api/v1/health", "status": 200 }
     ],
     "error_out_of_scope.json": [{ "path": "/api/v1/forecast/point", "status": 404 }],
-    "error_invalid_query.json": [{ "path": "/api/v1/forecast/point", "status": 400 }]
+    "error_invalid_query.json": [{ "path": "/api/v1/forecast/point", "status": 400 }],
+    "alerts_subscribe_accepted.json": [
+      {
+        "path": "/api/v1/alerts/subscriptions",
+        "method": "post",
+        "status": 202,
+        "request": { "email": "someone@example.com", "zip": "95928" }
+      }
+    ],
+    "alerts_confirm_confirmed.json": [
+      {
+        "path": "/api/v1/alerts/confirm",
+        "method": "post",
+        "status": 200,
+        "request": { "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" }
+      }
+    ],
+    "alerts_unsubscribe_unsubscribed.json": [
+      {
+        "path": "/api/v1/alerts/unsubscribe",
+        "method": "post",
+        "status": 200,
+        "request": { "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" }
+      }
+    ],
+    "error_invalid_token.json": [
+      { "path": "/api/v1/alerts/confirm", "method": "post", "status": 404, "request": { "token": "not-a-token" } },
+      { "path": "/api/v1/alerts/unsubscribe", "method": "post", "status": 404, "request": { "token": "not-a-token" } }
+    ]
   }
 }

@@ -313,6 +313,7 @@ def test_point_returns_its_cell_and_the_nearest_monitor_of_any_source(cycle):
     assert cell["nearest_monitor_dist_km"] == 16.7
     assert [v["horizon_hours"] for v in cell["forecasts"]] == list(HORIZON_HOURS)
     assert {(v["method"], v["source"]) for v in cell["forecasts"]} == {("interpolated", "idw")}
+    assert cell["active_alert"] is None  # no open episode (test_alert_endpoints_db.py has one)
     assert body["nearest_monitor"]["forecast_point_id"] == "monitor-fallback"
     assert body["nearest_monitor"]["distance_km"] == pytest.approx(1.4, abs=0.1)
 

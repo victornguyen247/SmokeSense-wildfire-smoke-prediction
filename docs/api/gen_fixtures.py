@@ -398,6 +398,15 @@ def main(out):
         "code": "invalid_query",
         "message": "Pass either lat and lon, or zip, not both.",
     })
+
+    # Email alerts (API-05, docs/alerts.md section 2).
+    write("alerts_subscribe_accepted.json", {"status": "pending_confirmation"})
+    write("alerts_confirm_confirmed.json", {"status": "confirmed"})
+    write("alerts_unsubscribe_unsubscribed.json", {"status": "unsubscribed"})
+    write("error_invalid_token.json", {
+        "code": "invalid_token",
+        "message": "This link is not valid.",
+    })
     print("grid cells:", len(cells), "fires:", len(fires), "obs:", len(obs))
 
 

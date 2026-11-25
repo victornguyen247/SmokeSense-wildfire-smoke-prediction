@@ -41,8 +41,8 @@ async function buildTypes() {
 }
 
 async function buildFixtures() {
-  // fixture file -> [{path, status}, ...], shared with docs/api/validate.py and the
-  // backend contract tests.
+  // fixture file -> [{path, status, method?}, ...], shared with docs/api/validate.py and
+  // the backend contract tests. method defaults to "get".
   const { fixtures } = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
   const onDisk = (await readdir(FIXTURE_DIR)).filter((f) => f.endsWith(".json")).sort();
   const unmapped = onDisk.filter((f) => !(f in fixtures));
@@ -58,17 +58,27 @@ async function buildFixtures() {
   const parts = [
     HEADER(posixRelative(FIXTURE_DIR) + "/*.json"),
     'import type { paths } from "../api/types";\n\n',
-    "/** Body of a GET response, as declared in the spec. */\n",
-    "type Body<P extends keyof paths, S extends number> =\n",
-    '  paths[P]["get"]["responses"] extends Record<S, { content: { "application/json": infer B } }>\n',
-    "    ? B\n",
+    "/** Body of a response, as declared in the spec. The method defaults to GET. */\n",
+    'type Body<P extends keyof paths, S extends number, M extends keyof paths[P] = "get"> =\n',
+    "  paths[P][M] extends { responses: infer R }\n",
+    '    ? R extends Record<S, { content: { "application/json": infer B } }>\n',
+    "      ? B\n",
+    "      : never\n",
     "    : never;\n",
   ];
   for (const file of onDisk) {
     const uses = fixtures[file];
     const body = JSON.parse(await readFile(join(FIXTURE_DIR, file), "utf8"));
-    const doc = uses.map(({ path, status }) => `GET ${path} ${status}`).join(", ");
-    const checks = uses.map(({ path, status }) => ` satisfies Body<"${path}", ${status}>`).join("");
+    const doc = uses
+      .map(({ path, status, method = "get" }) => `${method.toUpperCase()} ${path} ${status}`)
+      .join(", ");
+    const checks = uses
+      .map(({ path, status, method = "get" }) =>
+        method === "get"
+          ? ` satisfies Body<"${path}", ${status}>`
+          : ` satisfies Body<"${path}", ${status}, "${method}">`,
+      )
+      .join("");
     parts.push(
       `\n/** docs/api/fixtures/${file}: ${doc} */\n`,
       `export const ${toIdentifier(file)} = ${JSON.stringify(body, null, 2)}${checks};\n`,

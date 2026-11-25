@@ -3,17 +3,40 @@
 
 import type { paths } from "../api/types";
 
-/** Body of a GET response, as declared in the spec. */
-type Body<P extends keyof paths, S extends number> =
-  paths[P]["get"]["responses"] extends Record<S, { content: { "application/json": infer B } }>
-    ? B
+/** Body of a response, as declared in the spec. The method defaults to GET. */
+type Body<P extends keyof paths, S extends number, M extends keyof paths[P] = "get"> =
+  paths[P][M] extends { responses: infer R }
+    ? R extends Record<S, { content: { "application/json": infer B } }>
+      ? B
+      : never
     : never;
+
+/** docs/api/fixtures/alerts_confirm_confirmed.json: POST /api/v1/alerts/confirm 200 */
+export const alertsConfirmConfirmed = {
+  "status": "confirmed"
+} satisfies Body<"/api/v1/alerts/confirm", 200, "post">;
+
+/** docs/api/fixtures/alerts_subscribe_accepted.json: POST /api/v1/alerts/subscriptions 202 */
+export const alertsSubscribeAccepted = {
+  "status": "pending_confirmation"
+} satisfies Body<"/api/v1/alerts/subscriptions", 202, "post">;
+
+/** docs/api/fixtures/alerts_unsubscribe_unsubscribed.json: POST /api/v1/alerts/unsubscribe 200 */
+export const alertsUnsubscribeUnsubscribed = {
+  "status": "unsubscribed"
+} satisfies Body<"/api/v1/alerts/unsubscribe", 200, "post">;
 
 /** docs/api/fixtures/error_invalid_query.json: GET /api/v1/forecast/point 400 */
 export const errorInvalidQuery = {
   "code": "invalid_query",
   "message": "Pass either lat and lon, or zip, not both."
 } satisfies Body<"/api/v1/forecast/point", 400>;
+
+/** docs/api/fixtures/error_invalid_token.json: POST /api/v1/alerts/confirm 404, POST /api/v1/alerts/unsubscribe 404 */
+export const errorInvalidToken = {
+  "code": "invalid_token",
+  "message": "This link is not valid."
+} satisfies Body<"/api/v1/alerts/confirm", 404, "post"> satisfies Body<"/api/v1/alerts/unsubscribe", 404, "post">;
 
 /** docs/api/fixtures/error_out_of_scope.json: GET /api/v1/forecast/point 404 */
 export const errorOutOfScope = {

@@ -124,6 +124,16 @@ CELL_CENTROID = text("""
     WHERE id = :id
 """)
 
+# The cell's open episode for the in-app warning (docs/alerts.md section 2). The episode
+# engine (API-06) keeps at most one open row per cell and severity and fills the peak.
+OPEN_ALERT = text("""
+    SELECT severity, first_triggered_at, peak_pm25_predicted, peak_target_time, horizon_hours
+    FROM alerts
+    WHERE forecast_point_id = :id AND status = 'open' AND severity = 'unhealthy_sensitive'
+      AND peak_pm25_predicted IS NOT NULL AND peak_target_time IS NOT NULL
+      AND horizon_hours IS NOT NULL
+""")
+
 POINT_VALUES = text(f"""
     SELECT f.horizon_hours, f.target_time, f.pm25_predicted, f.source, f.nearest_monitor_dist_km
     FROM forecasts AS f
@@ -236,6 +246,18 @@ def forecast_value(row: Any) -> Body:
     }
 
 
+def active_alert(row: Any) -> Body | None:
+    if row is None:
+        return None
+    return {
+        "severity": row.severity,
+        "first_triggered_at": iso(row.first_triggered_at),
+        "peak_pm25_predicted": truncate_pm25(row.peak_pm25_predicted),
+        "peak_target_time": iso(row.peak_target_time),
+        "horizon_hours": row.horizon_hours,
+    }
+
+
 def monitor_feature(rows: Iterable[Any]) -> Body:
     rows = list(rows)
     first = rows[0]
@@ -285,6 +307,23 @@ def observation_feature(row: Any) -> Body:
     }
 
 
+def resolve_location(session: Session, point: PointQuery) -> Location:
+    """A ZIP or lat/lon resolved to its grid cell, as /forecast/point and alert sign-ups do."""
+    if point.zip is not None:
+        row = session.execute(ZIP_LOCATION, {"zip": point.zip}).first()
+        if row is None:
+            raise ApiError(404, "zip_not_found", f"No ZIP code area found for {point.zip}.")
+        return Location(row.lat, row.lon, point.zip, row.area_km2, row.forecast_point_id)
+    cell_id = session.scalar(CELL_AT_LOCATION, {"lat": point.lat, "lon": point.lon})
+    if cell_id is None:
+        raise ApiError(
+            404,
+            "out_of_scope",
+            f"Point ({point.lat}, {point.lon}) is outside California; {OUT_OF_SCOPE}",
+        )
+    return Location(point.lat, point.lon, None, None, cell_id)
+
+
 class DatabaseRepository:
     def __init__(self, sessions: sessionmaker[Session], cache: CycleCache) -> None:
         self.sessions = sessions
@@ -330,7 +369,7 @@ class DatabaseRepository:
 
     def forecast_point(self, point: PointQuery) -> Body:
         with self.sessions() as session:
-            location = self._resolve(session, point)
+            location = resolve_location(session, point)
             cycle = self._latest_cycle(session)
             return {
                 **envelope(cycle),
@@ -461,21 +500,6 @@ class DatabaseRepository:
             ],
         }
 
-    def _resolve(self, session: Session, point: PointQuery) -> Location:
-        if point.zip is not None:
-            row = session.execute(ZIP_LOCATION, {"zip": point.zip}).first()
-            if row is None:
-                raise ApiError(404, "zip_not_found", f"No ZIP code area found for {point.zip}.")
-            return Location(row.lat, row.lon, point.zip, row.area_km2, row.forecast_point_id)
-        cell_id = session.scalar(CELL_AT_LOCATION, {"lat": point.lat, "lon": point.lon})
-        if cell_id is None:
-            raise ApiError(
-                404,
-                "out_of_scope",
-                f"Point ({point.lat}, {point.lon}) is outside California; {OUT_OF_SCOPE}",
-            )
-        return Location(point.lat, point.lon, None, None, cell_id)
-
     def _cell_forecast(self, session: Session, cycle: Cycle, cell_id: str) -> Body:
         centroid = session.execute(CELL_CENTROID, {"id": cell_id}).one()
         rows = session.execute(POINT_VALUES, {"id": cell_id, **cycle._asdict()}).all()
@@ -492,6 +516,7 @@ class DatabaseRepository:
             "no_forecast_reason": None if rows else "no_monitor_within_50km",
             "nearest_monitor_dist_km": None if distance is None else round(distance, 1),
             "forecasts": [forecast_value(row) for row in rows],
+            "active_alert": active_alert(session.execute(OPEN_ALERT, {"id": cell_id}).first()),
         }
 
     def _nearest_monitor(self, session: Session, cycle: Cycle, location: Location) -> Body | None:

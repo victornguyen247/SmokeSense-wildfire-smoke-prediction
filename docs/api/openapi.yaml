@@ -15,10 +15,9 @@ info:
 
     Email alerts (PM-06): the request and response bodies are defined here under
     `components/schemas` (`Alert*`), and the endpoints and rules are in
-    [docs/alerts.md](../alerts.md). The three `POST /api/v1/alerts/*` paths are added to
-    `paths` by API-05 (#111) together with their routes, because the contract tests require
-    the app to serve exactly the spec's paths. `cell.active_alert` on `/forecast/point` is
-    already part of the contract.
+    [docs/alerts.md](../alerts.md). The three `POST /api/v1/alerts/*` paths (API-05, #111)
+    are the only non-GET operations. `cell.active_alert` on `/forecast/point` is the in-app
+    warning.
   license:
     name: MIT
     identifier: MIT
@@ -27,7 +26,7 @@ servers:
   - url: http://localhost:8000
     description: Local development
 
-# Public, read-only API: no authentication in v1.
+# Public API: no authentication in v1 (alert endpoints are authorized by their email tokens).
 security: []
 
 tags:
@@ -40,7 +39,7 @@ tags:
   - name: meta
     description: Model, freshness, AQI legend and health
   - name: alerts
-    description: Email alert subscriptions (docs/alerts.md; paths land with API-05, #111)
+    description: Email alert subscriptions (docs/alerts.md)
 
 paths:
   /api/v1/grid/cells:
@@ -237,6 +236,111 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v1/alerts/subscriptions:
+    post:
+      tags: [alerts]
+      operationId: postAlertSubscription
+      summary: Ask for smoke alert emails for one location (double opt-in)
+      description: |
+        Resolves the location to its grid cell like `GET /forecast/point`, saves a pending
+        subscription and emails a confirmation link (docs/alerts.md section 2). Every valid
+        request gets the same 202, whether the email is new, pending, already active or
+        rate-limited (3 confirmation emails per email per 24 h), so the response never
+        reveals who has subscribed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertSubscribeRequest"
+      responses:
+        "202":
+          description: Accepted. A confirmation email is sent unless the request changes nothing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertSubscribeAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/OutOfScope"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/alerts/confirm:
+    post:
+      tags: [alerts]
+      operationId: postAlertConfirm
+      summary: Confirm a subscription with the token from the confirmation email
+      description: |
+        Activates the pending subscription the token belongs to. If the email already had an
+        active subscription, it is replaced. Repeating the request returns `already_confirmed`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertTokenRequest"
+      responses:
+        "200":
+          description: Confirmed, or already confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertConfirmResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/InvalidToken"
+        "410":
+          $ref: "#/components/responses/TokenExpired"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/alerts/unsubscribe:
+    post:
+      tags: [alerts]
+      operationId: postAlertUnsubscribe
+      summary: Unsubscribe and delete the subscription (JSON body, or RFC 8058 one-click)
+      description: |
+        Deletes the subscription the token belongs to. Idempotent: a well-formed token whose
+        subscription is already gone gets the same 200.
+
+        The unsubscribe page sends `{"token"}` as JSON. Mail providers send the RFC 8058
+        one-click POST instead: the token in the `token` query parameter and the form body
+        `List-Unsubscribe=One-Click`. The query string of this path is never logged.
+      parameters:
+        - name: token
+          in: query
+          required: false
+          description: The unsubscribe token, for the one-click POST only. When given, the body is ignored.
+          schema: { type: string, minLength: 1, maxLength: 128 }
+      requestBody:
+        required: false
+        description: Required unless the `token` query parameter is given.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertTokenRequest"
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                List-Unsubscribe: { const: One-Click }
+      responses:
+        "200":
+          description: Unsubscribed; the subscription is deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertUnsubscribeResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/InvalidToken"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/meta:
     get:
       tags: [meta]
@@ -302,6 +406,20 @@ components:
             $ref: "#/components/schemas/Error"
     ForecastUnavailable:
       description: "No current forecast cycle exists. `code` is `forecast_unavailable`."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InvalidToken:
+      description: |
+        `code` is `invalid_token`: the token is malformed, or (confirm only) no subscription
+        has it, because it was never issued, was replaced by a newer sign-up, or was deleted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TokenExpired:
+      description: "`code` is `token_expired`: the confirmation link is older than 48 h."
       content:
         application/json:
           schema:

@@ -56,18 +56,19 @@ def escape(token: str) -> str:
     return token.replace("~", "~0").replace("/", "~1")
 
 
-def assert_matches_spec(path: str, status: int, body: object) -> None:
-    """Validate body against the spec's application/json schema for GET path at status."""
-    responses = SPEC["paths"][path]["get"]["responses"]
-    assert str(status) in responses, f"GET {path} returned {status}, which the spec doesn't list"
-    pointer = f"/paths/{escape(path)}/get/responses/{status}"
+def assert_matches_spec(path: str, status: int, body: object, method: str = "get") -> None:
+    """Validate body against the spec's application/json schema for method + path at status."""
+    op = f"{method.upper()} {path}"
+    responses = SPEC["paths"][path][method]["responses"]
+    assert str(status) in responses, f"{op} returned {status}, which the spec doesn't list"
+    pointer = f"/paths/{escape(path)}/{method}/responses/{status}"
     response = responses[str(status)]
     if "$ref" in response:
         pointer = response["$ref"].removeprefix("#")
     schema = {"$ref": f"{SPEC_URI}#{pointer}/content/application~1json/schema"}
     validator = Draft202012Validator(schema, registry=REGISTRY, format_checker=Draft202012Validator.FORMAT_CHECKER)
     problems = [f"{'/'.join(map(str, e.absolute_path)) or '(root)'}: {e.message[:200]}" for e in validator.iter_errors(body)]
-    assert not problems, f"GET {path} {status} doesn't match the spec:\n" + "\n".join(problems[:10])
+    assert not problems, f"{op} {status} doesn't match the spec:\n" + "\n".join(problems[:10])
 
 
 def assert_error_shape(response, status: int, code: str) -> None:
@@ -91,25 +92,34 @@ def test_app_serves_exactly_the_spec_paths():
     assert served == in_spec
 
 
-# --- every 200 matches its fixture and the spec ---
+# --- every 2xx matches its fixture and the spec ---
 
+# (fixture, path, method, status, request body): a target's method defaults to GET, and a
+# non-GET target gives the JSON body to send (docs/api/fixture_manifest.json).
 FIXTURE_TARGETS = [
-    (name, target["path"])
+    (name, target["path"], target.get("method", "get"), target["status"], target.get("request"))
     for name, targets in MANIFEST.items()
     for target in targets
-    if target["status"] == 200
+    if 200 <= target["status"] < 300
 ]
 
 
-@pytest.mark.parametrize(("name", "path"), FIXTURE_TARGETS, ids=[f"{n}:{p}" for n, p in FIXTURE_TARGETS])
-def test_mock_mode_serves_each_fixture(name, path):
+@pytest.mark.parametrize(
+    ("name", "path", "method", "status", "request_body"),
+    FIXTURE_TARGETS,
+    ids=[f"{n}:{m.upper()} {p}" for n, p, m, _, _ in FIXTURE_TARGETS],
+)
+def test_mock_mode_serves_each_fixture(name, path, method, status, request_body):
     expected = fixture(name)
-    params = {}
-    if path == "/api/v1/forecast/point":
-        params = {k: v for k, v in expected["query"].items() if k in ("lat", "lon", "zip") and v is not None}
-    response = client.get(path, params=params)
-    assert response.status_code == 200
-    assert_matches_spec(path, 200, response.json())
+    if method == "get":
+        params = {}
+        if path == "/api/v1/forecast/point":
+            params = {k: v for k, v in expected["query"].items() if k in ("lat", "lon", "zip") and v is not None}
+        response = client.get(path, params=params)
+    else:
+        response = client.request(method.upper(), path, json=request_body)
+    assert response.status_code == status
+    assert_matches_spec(path, status, response.json(), method)
     if name != "health.json":  # /health reports the running environment
         assert response.json() == expected
 

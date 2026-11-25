@@ -41,7 +41,7 @@ async def handle_http_error(request: Request, exc: StarletteHTTPException) -> JS
     if exc.status_code == 404:
         return error_response(404, "not_found", f"No endpoint at {request.url.path}.")
     if exc.status_code == 405:
-        return error_response(405, "not_found", f"{request.method} is not supported; the API is read-only (GET).")
+        return error_response(405, "not_found", f"{request.method} is not supported on {request.url.path}.")
     if exc.status_code < 500:
         return error_response(exc.status_code, "invalid_query", str(exc.detail))
     return error_response(exc.status_code, "internal_error", INTERNAL_ERROR_MESSAGE)

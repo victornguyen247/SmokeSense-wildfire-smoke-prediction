@@ -37,7 +37,7 @@ subscribe (email + card's ZIP or point) ──► pending ──► confirmation
 
 ## 2. Endpoints (API-05, #111)
 
-All under `/api/v1`, JSON in and out, errors in the shared `Error` shape (`docs/api.md` → Errors). Request and response bodies are in `docs/api/openapi.yaml` (`components/schemas/Alert*`, strict). API-05 adds the three `paths` entries with the routes, plus POST support in the spec tooling (`validate.py`, `fixture_manifest.json`, `tests/test_api_contract.py`, `frontend/scripts/sync-api.mjs` all assume GET today), and the fixtures for them.
+All under `/api/v1`, JSON in and out, errors in the shared `Error` shape (`docs/api.md` → Errors). Request and response bodies are in `docs/api/openapi.yaml` (`components/schemas/Alert*`, strict). The three `paths` entries and their fixtures came with API-05, which also taught the spec tooling (`validate.py`, `fixture_manifest.json`, `tests/test_api_contract.py`, `frontend/scripts/sync-api.mjs`) about non-GET operations.
 
 **Validation errors are 400 `invalid_query`**, as for every other endpoint (`docs/api.md`): FastAPI's default 422 is mapped to 400 by the existing handlers.
 
@@ -115,13 +115,13 @@ Additive, optional field (v1 rule), already in the spec and the point fixtures:
 }
 ```
 
-- From the cell's open `alerts` row (`status = 'open'`, `severity = 'unhealthy_sensitive'`). `null` when there is none. Clients treat a missing field as `null` (the DB repository may not send it until API-05).
+- From the cell's open `alerts` row (`status = 'open'`, `severity = 'unhealthy_sensitive'`). `null` when there is none. Clients treat a missing field as `null` (the field is optional in the spec; the API sends it from API-05 on).
 - `peak_pm25_predicted` is truncated to 0.1 like every `pm25`. `horizon_hours` is the horizon of the peak forecast (the `alerts.horizon_hours` column).
 - Every active grid cell is evaluated each run (section 4), so `active_alert` works for any California location, subscribed or not. It is the in-app fallback if email slips (scope §10).
 
 ### CORS
 
-The API allows `GET` only today. API-05 adds `POST` and the `Content-Type` request header for `/api/v1/alerts/*`, for the same `CORS_ALLOWED_ORIGINS`, still with no credentials. The one-click POST comes from mail servers, not browsers, so CORS does not apply to it.
+The API allows `GET` and `POST` (API-05) with the `Content-Type` request header, for the same `CORS_ALLOWED_ORIGINS`, still with no credentials. Only `/api/v1/alerts/*` accepts `POST`; other paths answer it with 405. The one-click POST comes from mail servers, not browsers, so CORS does not apply to it.
 
 ## 3. Tables (API-04, #110)
 

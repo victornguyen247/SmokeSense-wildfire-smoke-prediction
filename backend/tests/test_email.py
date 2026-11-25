@@ -127,7 +127,8 @@ def test_memory_backend_records_messages():
 
 
 def test_memory_backend_refused_on_staging(monkeypatch):
-    use_settings(monkeypatch, email_backend="memory", environment="staging")
+    # Staging settings need a token secret to load (API-05); this test is about the backend.
+    use_settings(monkeypatch, email_backend="memory", environment="staging", alerts_token_secret="k" * 32)
     with pytest.raises(EmailSendError):
         send(_messages()[0])
 
@@ -165,6 +166,16 @@ def test_smtp_backend_sets_one_click_headers_over_one_connection(monkeypatch):
     assert sent[1]["List-Unsubscribe"] == f"<{UNSUB}>"
     assert sent[1]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
     assert not memory_backend.outbox
+
+
+def test_a_real_length_unsubscribe_url_is_sent_unencoded():
+    # A real one-click URL (43-char token) is longer than 78 characters. It must go out as
+    # a plain <url>, not an RFC 2047 encoded-word that providers don't decode here.
+    url = "https://smokesense-staging.example.sslip.io/api/v1/alerts/unsubscribe?token=" + "A" * 43
+    message = EmailMessage(to="a@example.com", subject="s", text="t", html="<p>h</p>", unsubscribe_url=url)
+    raw = backends.build_mime(message, "SmokeSense <alerts@example.test>").as_bytes().decode()
+    assert f"List-Unsubscribe: <{url}>" in raw.splitlines()
+    assert "=?utf-8?" not in raw
 
 
 @pytest.mark.parametrize("exc", [

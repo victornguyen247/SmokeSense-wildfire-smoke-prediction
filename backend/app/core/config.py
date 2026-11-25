@@ -9,12 +9,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # docs/api/ (the OpenAPI spec and its fixtures), found from this file: <repo>/backend/app/core/
 # locally, and /code/app/core/ in Docker, where docker-compose mounts docs/api at /docs/api.
 DEFAULT_API_CONTRACT_DIR = Path(__file__).resolve().parents[3] / "docs" / "api"
+
+# ALERTS_TOKEN_SECRET minimum length (docs/alerts.md section 5: "random, >= 32 bytes").
+MIN_TOKEN_SECRET_BYTES = 32
 
 
 class Settings(BaseSettings):
@@ -22,6 +25,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        # A startup error must not print the settings it was given: they hold API keys,
+        # passwords and ALERTS_TOKEN_SECRET.
+        hide_input_in_errors=True,
     )
 
     # --- App ---
@@ -71,6 +77,15 @@ class Settings(BaseSettings):
     email_smtp_port: int = 1025
     email_from: str = "SmokeSense <alerts@smokesense.local>"
 
+    # --- Alert subscriptions (API-05, docs/alerts.md) ---
+    # Origins used in email links: the map (confirm/unsubscribe pages) and the API
+    # (List-Unsubscribe one-click URL). No trailing slash.
+    alerts_frontend_base_url: str = "http://localhost:5173"
+    alerts_api_base_url: str = "http://localhost:8000"
+    # Signs unsubscribe tokens (HMAC). Required outside development; changing it breaks
+    # every unsubscribe link already sent, so keep it until teardown.
+    alerts_token_secret: str = ""
+
     # --- External data-source API keys ---
     # Obtain these from each provider; leave blank locally until needed.
     firms_map_key: str = ""       # NASA FIRMS
@@ -117,6 +132,17 @@ class Settings(BaseSettings):
             "%s=%r is not a positive whole number; using %s", info.field_name, text, default
         )
         return default
+
+    @model_validator(mode="after")
+    def alerts_token_secret_outside_development(self) -> "Settings":
+        """Stop startup in staging/production without a real token secret (API-05)."""
+        if self.environment != "development" and len(self.alerts_token_secret.encode()) < MIN_TOKEN_SECRET_BYTES:
+            # Never include the value itself in the message.
+            raise ValueError(
+                f"ALERTS_TOKEN_SECRET must be set to at least {MIN_TOKEN_SECRET_BYTES} bytes "
+                f"when ENVIRONMENT={self.environment}"
+            )
+        return self
 
     @property
     def cors_origins(self) -> list[str]:

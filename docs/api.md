@@ -67,7 +67,7 @@ Units are fixed by field name and never sent per value.
 
 ### CORS
 
-The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. Only `GET` is allowed, and no credentials. API-05 (#111) adds `POST` with the `Content-Type` header for `/api/v1/alerts/*` (still no credentials). The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
+The API allows the frontend origins listed in the `CORS_ALLOWED_ORIGINS` env var (comma-separated): local dev (`http://localhost:5173`), staging and production. `GET` and `POST` are allowed, with the `Content-Type` request header and no credentials. Only the `/api/v1/alerts/*` paths accept `POST` (API-05, #111); every other path answers it with 405. The default is the two local dev origins (`localhost` and `127.0.0.1`); add staging and production in that environment's `.env`.
 
 ### Errors
 
@@ -88,7 +88,7 @@ Every error, from every endpoint, has the same body:
 | 404 | `not_found` | Unknown route |
 | 404 | `invalid_token` | Alerts: unknown or malformed confirm/unsubscribe token ([`alerts.md`](alerts.md) §2) |
 | 410 | `token_expired` | Alerts: confirm link older than 48 h |
-| 405 | `not_found` | Method other than GET. There is no `method_not_allowed` code yet; it may be added later (additive) |
+| 405 | `not_found` | Method the path doesn't support (anything but GET, or POST on `/api/v1/alerts/*`). There is no `method_not_allowed` code yet; it may be added later (additive) |
 | 503 | `forecast_unavailable` | No forecast cycle exists yet |
 | 500 | `internal_error` | Unexpected failure. The message never contains a stack trace |
 
@@ -284,4 +284,3 @@ uvicorn app.main:app --reload   # or: docker compose up backend
 | Staging and production origins for `CORS_ALLOWED_ORIGINS` | OPS-03 | Waiting on the staging URL |
 | `docs/api` in the production backend image | OPS-03 | The image is built from `backend/` only; compose mounts `docs/api` for dev |
 | Attribution text | Team | In the frontend, per map layer (`src/constants/sources.ts`), not in this contract; check it against each provider's terms before launch |
-| Alert POST paths in `openapi.yaml`, and non-GET support in `validate.py`, `fixture_manifest.json`, the contract tests and `sync-api.mjs` | API-05 (#111) | Bodies are in the spec (`Alert*`); paths land with the routes. `frontend/scripts/sync-api.mjs` types GET fixtures only, so the POST paths and their types go on top of #103, which rewrites that script |
